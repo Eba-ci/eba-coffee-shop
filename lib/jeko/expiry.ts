@@ -30,9 +30,9 @@ import { settleFromRemote } from './reconcile';
 // Marge après `paymentExpiresAt` : laisse le temps au webhook d'une tentative
 // juste à l'échéance.
 const GRACE_MS = 2 * 60_000;
-// Un passage par minute et par processus. En blue/green, les deux couleurs se
-// chevauchent le temps d'une bascule : le balayage est idempotent (`updateMany` gardé
-// sur le statut), au pire deux passages rapprochés.
+// Un passage par minute et par processus. Le balayage est idempotent (`updateMany`
+// gardé sur le statut) : deux processus qui se chevauchent feraient au pire deux
+// passages rapprochés.
 const THROTTLE_MS = 60_000;
 const BATCH_SIZE = 20;
 
