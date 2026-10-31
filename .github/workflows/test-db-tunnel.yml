@@ -1,0 +1,52 @@
+name: Test DB tunnel
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tunnel:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Open SSH tunnel
+        env:
+          KEY: ${{ secrets.DB_TUNNEL_KEY }}
+          HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
+          HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/tunnel
+          chmod 600 ~/.ssh/tunnel
+          printf '%s %s\n' "$HOST" "$HOST_KEY" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/tunnel -o BatchMode=yes -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes \
+            -N -f -L 127.0.0.1:5432:127.0.0.1:5432 "eba-tunnel@$HOST"
+
+      - name: Check access is read-only and scoped
+        env:
+          DB_URL: ${{ secrets.BUILD_DATABASE_URL }}
+        run: |
+          q() { psql "$DB_URL" -v ON_ERROR_STOP=1 -tAc "$1"; }
+          q 'select current_user, current_database()'
+          q 'select count(*) from contact_settings'
+          q 'select count(*) from "order" where "isPaid"'
+          for denied in 'select 1 from customer limit 1' \
+                        'select "customerName" from "order" limit 1' \
+                        'delete from contact_settings'; do
+            if q "$denied" >/dev/null 2>&1; then
+              echo "FAIL: query allowed: $denied"; exit 1
+            fi
+            echo "denied as expected: $denied"
+          done
+
+      - name: Prod database is unreachable
+        env:
+          DB_URL: ${{ secrets.BUILD_DATABASE_URL }}
+        run: |
+          if psql "${DB_URL%/*}/eba_coffee" -tAc 'select 1' >/dev/null 2>&1; then
+            echo "FAIL: eba_build can connect to eba_coffee"; exit 1
+          fi
+          echo "eba_coffee refused as expected"
