@@ -137,6 +137,17 @@ export function OrderTracking({
 
       <OrderItemsSection order={order} />
 
+      {!isCancelled && order.isPaid && (
+        <a
+          href={`/api/orders/${order.id}/receipt`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block rounded-xl border border-divider py-3 text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Télécharger mon reçu (PDF)
+        </a>
+      )}
+
       {(pickupAddress || pickupMapsUrl) && (
         <PickupPlace
           pickupAddress={pickupAddress}

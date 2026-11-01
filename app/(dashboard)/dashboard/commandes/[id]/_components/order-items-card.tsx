@@ -1,11 +1,13 @@
 import type { OrderStatus } from '@/generated/prisma/client';
+import { PrintDeliveryNoteButton } from '@/components/(dashboard)/orders/print-delivery-note-button';
+import { ReceiptActions } from '@/components/(dashboard)/orders/receipt-actions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import type { MenuCategory } from '@/config/menu';
 import type { ContactSettings } from '@/lib/contact-settings';
 import type { CartItem } from '@/lib/cart-store';
 import { getItemGross, getItemNet } from '@/lib/orders/totals';
-import { formatSupplementLabel } from '@/lib/orders/format';
+import { formatSupplementLabel, getPickupCode } from '@/lib/orders/format';
 import { splitSupplementsByKind } from '@/lib/supplements/kind';
 import { CopyRecapButton } from '../../../_components/copy-recap-button';
 import { EditOrderItems } from '../edit-order-items';
@@ -46,6 +48,12 @@ export function OrderItemsCard({
               trackingUrl={trackingUrl}
               size="sm"
               className="w-auto"
+            />
+            <PrintDeliveryNoteButton orderId={order.id} />
+            <ReceiptActions
+              orderId={order.id}
+              code={getPickupCode(order.reference)}
+              customerPhone={order.customerPhone}
             />
             {canCash && (
               <EditOrderItems

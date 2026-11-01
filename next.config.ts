@@ -119,7 +119,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     '/**': ['./generated/prisma/**/*'],
   },
-  serverExternalPackages: ['@prisma/client'],
+  serverExternalPackages: ['@prisma/client', '@react-pdf/renderer'],
   // SHA du commit (CD) : le client recharge au lieu de « Failed to find Server Action ».
   deploymentId: process.env.NEXT_DEPLOYMENT_ID || undefined,
   // NB : pas d'`experimental.optimizePackageImports` ici. Le réflexe serait de

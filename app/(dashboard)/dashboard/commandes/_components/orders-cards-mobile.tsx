@@ -1,4 +1,6 @@
 import type { listOrders } from '@/lib/orders';
+import { PrintDeliveryNoteButton } from '@/components/(dashboard)/orders/print-delivery-note-button';
+import { ReceiptActions } from '@/components/(dashboard)/orders/receipt-actions';
 import Link from 'next/link';
 import { getPickupCode } from '@/lib/orders/format';
 import { formatAbidjanDateTime } from '@/lib/timezone';
@@ -114,6 +116,13 @@ export function OrdersCardsMobile({
                       size="sm"
                     />
                   )}
+                <PrintDeliveryNoteButton orderId={order.id} iconOnly />
+                <ReceiptActions
+                  orderId={order.id}
+                  code={getPickupCode(order.reference)}
+                  customerPhone={order.customerPhone}
+                  iconOnly
+                />
                 <Button variant="ghost" size="sm" asChild className="ml-auto">
                   <Link href={`/dashboard/commandes/${order.id}`}>Voir</Link>
                 </Button>
