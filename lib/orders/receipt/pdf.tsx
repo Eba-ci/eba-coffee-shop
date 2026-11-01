@@ -2,7 +2,14 @@
 //
 // Rendu PDF du reçu client (serveur uniquement).
 
-import { Document, Page, StyleSheet, Text, View } from '@react-pdf/renderer';
+import {
+  Document,
+  Image,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from '@react-pdf/renderer';
 import type { ContactSettings } from '@/lib/contact-settings';
 import type { Receipt } from './build';
 
@@ -19,6 +26,7 @@ const s = StyleSheet.create({
   brand: { fontSize: 20, fontFamily: 'Helvetica-Bold', color: '#6c3077' },
   muted: { color: '#6b5b52' },
   head: { marginBottom: 18 },
+  logo: { width: 80, marginBottom: 8 },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   line: { paddingVertical: 6, borderBottomWidth: 0.5, borderColor: '#ddd' },
   name: { fontFamily: 'Helvetica-Bold' },
@@ -30,14 +38,20 @@ const s = StyleSheet.create({
 export function ReceiptDocument({
   receipt,
   contact,
+  logo,
 }: {
   receipt: Receipt;
   contact: ContactSettings;
+  logo?: Buffer | null;
 }) {
   return (
     <Document title={`Reçu ${receipt.code}`} author="EBA Coffee Shop">
       <Page size="A5" style={s.page}>
         <View style={s.head}>
+          {logo && (
+            // eslint-disable-next-line jsx-a11y/alt-text -- Image de @react-pdf : pas d'attribut alt
+            <Image src={{ data: logo, format: 'png' }} style={s.logo} />
+          )}
           <Text style={s.brand}>EBA Coffee Shop</Text>
           <Text style={s.muted}>
             {contact.address}, {contact.district}

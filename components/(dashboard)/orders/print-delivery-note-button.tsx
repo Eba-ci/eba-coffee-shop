@@ -10,6 +10,8 @@ type Props = {
   orderId: string;
   /** Icône seule (listes) ou icône + libellé (détail). */
   iconOnly?: boolean;
+  /** Bouton pleine largeur, grande taille (colonne d'actions de la caisse). */
+  fullWidth?: boolean;
   className?: string;
 };
 
@@ -21,6 +23,7 @@ type Props = {
 export function PrintDeliveryNoteButton({
   orderId,
   iconOnly,
+  fullWidth,
   className,
 }: Props) {
   const [busy, setBusy] = useState(false);
@@ -50,12 +53,18 @@ export function PrintDeliveryNoteButton({
       <Button
         type="button"
         variant="outline"
-        size={iconOnly ? 'icon' : 'sm'}
+        size={iconOnly ? 'icon' : fullWidth ? 'lg' : 'sm'}
         onClick={onClick}
         disabled={busy}
         aria-label="Imprimer le bon de livraison"
         title="Imprimer le bon de livraison"
-        className={iconOnly ? `h-11 w-11 ${className ?? ''}` : className}
+        className={
+          iconOnly
+            ? `h-11 w-11 ${className ?? ''}`
+            : fullWidth
+              ? `w-full ${className ?? ''}`
+              : className
+        }
       >
         {busy ? (
           <Loader2 className="h-4 w-4 animate-spin" />

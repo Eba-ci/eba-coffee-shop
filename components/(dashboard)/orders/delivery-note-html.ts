@@ -20,7 +20,7 @@ export function deliveryNoteHtml(note: DeliveryNote): string {
 @page{size:58mm auto;margin:2mm}body{width:54mm;font:12px monospace;margin:0}
 h1{font-size:13px;text-align:center;margin:0}.c{font-size:30px;font-weight:bold;text-align:center}
 .s{text-align:center}hr{border:0;border-top:1px dashed #000}.l{margin:4px 0}.l div{padding-left:10px}
-</style></head><body><h1>EBA COFFEE SHOP<br>BON DE LIVRAISON</h1>
+</style></head><body><div class="s"><img src="/assets/logos/eba_n.png" width="120" alt=""></div><h1>EBA COFFEE SHOP<br>BON DE LIVRAISON</h1>
 <div class="c">${esc(note.code)}</div><div class="s">${esc(note.dailyNumber)}</div><hr>
 <div>Client : ${esc(note.customer)}</div>${note.pickup ? `<div>Pour : ${esc(note.pickup)}</div>` : ''}<hr>
 ${lines}${note.note ? `<hr><div>Note : ${esc(note.note)}</div>` : ''}<hr></body></html>`;

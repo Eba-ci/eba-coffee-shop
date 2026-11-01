@@ -118,6 +118,8 @@ const nextConfig: NextConfig = {
   output: process.env.BUILD_STANDALONE === '1' ? 'standalone' : undefined,
   outputFileTracingIncludes: {
     '/**': ['./generated/prisma/**/*'],
+    // Logo lu par fs (reçu PDF, ticket) : invisible pour le traçage statique.
+    '/api/orders/**': ['./public/assets/logos/eba_n.png'],
   },
   serverExternalPackages: ['@prisma/client', '@react-pdf/renderer'],
   // SHA du commit (CD) : le client recharge au lieu de « Failed to find Server Action ».
