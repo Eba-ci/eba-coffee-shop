@@ -24,3 +24,6 @@ export const allowOrderTrackingRead = createRateLimiter(MINUTE, 60);
 export function clientIp(req: Request): string {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
 }
+
+/** `GET /api/orders/:id/receipt` public : génération d'un PDF, coûteuse. */
+export const allowReceiptRead = createRateLimiter(MINUTE, 20);

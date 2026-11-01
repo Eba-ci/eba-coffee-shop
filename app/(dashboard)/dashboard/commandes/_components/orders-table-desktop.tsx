@@ -1,4 +1,6 @@
 import type { listOrders } from '@/lib/orders';
+import { PrintDeliveryNoteButton } from '@/components/(dashboard)/orders/print-delivery-note-button';
+import { ReceiptActions } from '@/components/(dashboard)/orders/receipt-actions';
 import Link from 'next/link';
 import { getPickupCode } from '@/lib/orders/format';
 import { formatAbidjanDateTime } from '@/lib/timezone';
@@ -157,6 +159,13 @@ export function OrdersTableDesktop({
                           size="sm"
                         />
                       )}
+                    <PrintDeliveryNoteButton orderId={order.id} iconOnly />
+                    <ReceiptActions
+                      orderId={order.id}
+                      code={getPickupCode(order.reference)}
+                      customerPhone={order.customerPhone}
+                      iconOnly
+                    />
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/dashboard/commandes/${order.id}`}>
                         Voir
