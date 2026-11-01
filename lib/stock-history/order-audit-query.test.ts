@@ -29,6 +29,8 @@ function order(id: string, n: number, over: Record<string, unknown> = {}) {
   return {
     id,
     dailyNumber: n,
+    reference: `EBA-20261101-${String(n).padStart(4, '0')}`,
+    customerName: n === 1 ? 'Awa K.' : null,
     createdAt: AFTER,
     status: 'COMPLETED',
     isPaid: true,
@@ -98,6 +100,18 @@ describe('loadOrderLedger', () => {
     expect(byId.o2.explanation.code).toBe('missing');
     expect(byId.o2.defect).toBe(true);
     expect(res).toMatchObject({ examined: 2, defects: 1, total: 2 });
+  });
+
+  it('chaque commande porte son code et le nom du client pour la reconnaître', async () => {
+    orderFindMany.mockResolvedValue([order('o1', 1), order('o2', 2)] as never);
+    moveFindMany.mockResolvedValue([move('o1', -2)] as never);
+    const res = await loadOrderLedger({}, 'audit');
+    const byId = Object.fromEntries(res.orders.map((o) => [o.id, o]));
+    expect(byId.o1).toMatchObject({
+      reference: 'EBA-20261101-0001',
+      customerName: 'Awa K.',
+    });
+    expect(byId.o2.customerName).toBeNull();
   });
 
   it('onlyIssues ne garde que les défauts et avertissements, mais compte tout', async () => {

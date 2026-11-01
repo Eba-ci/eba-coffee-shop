@@ -81,6 +81,9 @@ export type StockMovementRow = {
   actorName: string | null;
   /** N° du jour de la commande liée (lecture seule, pas dans le journal). */
   orderNumber: number | null;
+  /** Code de la commande (ex. EBA-20260511-AB12) : ce par quoi on la reconnaît. */
+  orderReference: string | null;
+  orderCustomerName: string | null;
   note: string | null;
 };
 
@@ -120,10 +123,15 @@ export async function listStockMovements(filters: StockMovementFilters) {
   const orders = orderIds.length
     ? await prisma.order.findMany({
         where: { id: { in: orderIds } },
-        select: { id: true, dailyNumber: true },
+        select: {
+          id: true,
+          dailyNumber: true,
+          reference: true,
+          customerName: true,
+        },
       })
     : [];
-  const numbers = new Map(orders.map((o) => [o.id, o.dailyNumber]));
+  const byOrder = new Map(orders.map((o) => [o.id, o]));
   const optionLabels = await currentOptionLabels(
     rows.filter((r) => r.kind === 'OPTION').map((r) => r.resourceId)
   );
@@ -131,7 +139,15 @@ export async function listStockMovements(filters: StockMovementFilters) {
     ...r,
     label: optionLabels.get(r.resourceId) ?? r.label,
     actorName: r.actorId ? (names.get(r.actorId) ?? null) : null,
-    orderNumber: r.orderId ? (numbers.get(r.orderId) ?? null) : null,
+    orderNumber: r.orderId
+      ? (byOrder.get(r.orderId)?.dailyNumber ?? null)
+      : null,
+    orderReference: r.orderId
+      ? (byOrder.get(r.orderId)?.reference ?? null)
+      : null,
+    orderCustomerName: r.orderId
+      ? (byOrder.get(r.orderId)?.customerName ?? null)
+      : null,
   }));
   return {
     movements,

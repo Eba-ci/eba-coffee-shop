@@ -16,6 +16,7 @@ vi.mock('@/lib/stock-history/queries', () => ({
         after: 7,
         orderId: 'o1',
         orderNumber: 14,
+        orderReference: 'EBA-20261101-0014',
         refundId: null,
         actorId: 'u1',
         actorName: 'Awa',
@@ -40,6 +41,7 @@ vi.mock('@/lib/stock-history/order-audit-query', () => ({
       {
         id: 'o6',
         dailyNumber: 6,
+        reference: 'EBA-20261101-0006',
         createdAt: new Date('2026-11-01T11:00:00.000Z'),
         status: 'COMPLETED',
         isPaid: true,
@@ -124,6 +126,7 @@ describe('outils MCP — historique du stock', () => {
       at: '2026-10-27T10:00:00.000Z',
       actor: 'Awa',
       orderNumber: 14,
+      orderReference: 'EBA-20261101-0014',
       delta: -2,
     });
     expect(res.movements[0]).not.toHaveProperty('actorId');
@@ -141,6 +144,7 @@ describe('outils MCP — historique du stock', () => {
     expect(res.defects).toBe(1);
     expect(res.orders[0]).toMatchObject({
       orderNumber: 6,
+      orderReference: 'EBA-20261101-0006',
       verdict: 'missing',
       defect: true,
       explanation: 'Lancée mais non (ou partiellement) décomptée',

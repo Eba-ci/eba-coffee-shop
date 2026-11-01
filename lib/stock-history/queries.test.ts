@@ -48,7 +48,12 @@ describe('listStockMovements', () => {
       { id: 'u1', name: 'Awa', email: 'a@x.ci' },
     ] as never);
     vi.mocked(prisma.order.findMany).mockResolvedValue([
-      { id: 'o1', dailyNumber: 14 },
+      {
+        id: 'o1',
+        dailyNumber: 14,
+        reference: 'EBA-20261101-AB12',
+        customerName: 'Awa K.',
+      },
     ] as never);
   });
 
@@ -65,6 +70,8 @@ describe('listStockMovements', () => {
     expect(res.movements[0]).toMatchObject({
       actorName: 'Awa',
       orderNumber: 14,
+      orderReference: 'EBA-20261101-AB12',
+      orderCustomerName: 'Awa K.',
     });
   });
 

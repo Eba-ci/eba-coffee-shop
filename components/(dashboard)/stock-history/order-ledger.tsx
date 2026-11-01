@@ -120,8 +120,9 @@ function OrderCell({ order }: { order: LedgerOrder }) {
         href={`/dashboard/commandes/${order.id}`}
         className="inline-block py-1 font-medium text-primary underline-offset-2 hover:underline"
       >
-        Commande n°{order.dailyNumber}
+        {order.reference}
       </Link>
+      <div className="text-sm">{order.customerName ?? 'Sans nom'}</div>
       <div className="text-xs text-muted-foreground">
         {dateFmt.format(order.createdAt)} ·{' '}
         {STATUS_LABELS[order.status] ?? order.status}

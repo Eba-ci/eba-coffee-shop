@@ -32,6 +32,9 @@ export const AUDIT_ORDER_LIMIT = 300;
 export type LedgerOrder = {
   id: string;
   dailyNumber: number;
+  /** Code de la commande et nom du client : de quoi la reconnaître d'un coup d'œil. */
+  reference: string;
+  customerName: string | null;
   createdAt: Date;
   status: string;
   isPaid: boolean;
@@ -146,6 +149,8 @@ export async function loadOrderLedger(
       select: {
         id: true,
         dailyNumber: true,
+        reference: true,
+        customerName: true,
         createdAt: true,
         status: true,
         isPaid: true,
@@ -235,6 +240,8 @@ export async function loadOrderLedger(
     out.push({
       id,
       dailyNumber: o.dailyNumber,
+      reference: o.reference,
+      customerName: o.customerName,
       createdAt: o.createdAt,
       status: o.status,
       isPaid: o.isPaid,

@@ -63,12 +63,17 @@ function resourceHref(m: StockMovementRow): string {
 function OrderLink({ m }: { m: StockMovementRow }) {
   if (!m.orderId) return null;
   return (
-    <Link
-      href={`/dashboard/commandes/${m.orderId}`}
-      className="text-primary underline-offset-2 hover:underline"
-    >
-      Commande {m.orderNumber ? `n°${m.orderNumber}` : ''}
-    </Link>
+    <>
+      <Link
+        href={`/dashboard/commandes/${m.orderId}`}
+        className="inline-block py-1 font-medium text-primary underline-offset-2 hover:underline"
+      >
+        {m.orderReference ?? 'Commande'}
+      </Link>
+      <span className="block text-muted-foreground">
+        {m.orderCustomerName ?? 'Sans nom'}
+      </span>
+    </>
   );
 }
 
