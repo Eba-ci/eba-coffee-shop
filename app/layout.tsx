@@ -9,6 +9,8 @@ import { getPickupSettings } from '@/lib/pickup-settings-db';
 import { xHandleFromUrl } from '@/lib/social-links';
 import { OG_IMAGE } from '@/config/constants';
 
+export const revalidate = 3600;
+
 const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin', 'latin-ext'],

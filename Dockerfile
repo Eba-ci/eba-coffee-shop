@@ -1,43 +1,64 @@
 # syntax=docker/dockerfile:1.7
-#
-# Deux cibles, construites par la CI (.github/workflows/cd-staging.yml) :
-#
-#   runner (défaut) : image d'exécution. Le `next build` (BUILD_STANDALONE=1) tourne
-#     DANS LE JOB CI, contre une base Postgres de service (le prérendu lit la base),
-#     puis ce Dockerfile n'empaquette que `.next/standalone`, `.next/static`, `public`.
-#   tools : sources + prisma + tsx, pour les étapes de schéma (db push, trigger,
-#     index, backfills) lancées en `docker run --rm` avant la bascule.
-#
-# Les secrets ne sont JAMAIS dans l'image : le build utilise des valeurs factices,
-# les vraies variables sont résolues au démarrage (deploy/docker-entrypoint.sh).
-
 ARG NODE_VERSION=22
 
-FROM node:${NODE_VERSION}-bookworm-slim AS runner
-ARG VARLOCK_VERSION
-# Plancher de sécurité Node : le build échoue si le tag flottant `node:22-…` a été
-# résolu vers une version plus ancienne (cache de couche périmé, miroir en retard).
-# 22.23.4 = correctif annoncé pour « Node2Shell » (décodeur Brotli) : à confirmer
-# auprès des annonces de sécurité officielles de Node.js, puis relever ce plancher
-# à chaque nouvelle publication de sécurité.
+FROM node:${NODE_VERSION}-bookworm-slim AS base
 ARG NODE_MIN_VERSION=22.23.4
-RUN node -e "const c=process.versions.node.split('.').map(Number),m=process.argv[1].split('.').map(Number);for(let i=0;i<3;i++){if(c[i]>m[i])process.exit(0);if(c[i]<m[i]){console.error('Node '+process.versions.node+' < '+process.argv[1]+' : image refusée');process.exit(1)}}" "$NODE_MIN_VERSION"
-RUN test -n "$VARLOCK_VERSION" \
- && apt-get update \
+RUN node -e "const c=process.versions.node.split('.').map(Number),m=process.argv[1].split('.').map(Number);for(let i=0;i<3;i++){if(c[i]>m[i])process.exit(0);if(c[i]<m[i]){console.error('Node '+process.versions.node+' < '+process.argv[1]);process.exit(1)}}" "$NODE_MIN_VERSION"
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+RUN corepack enable
+
+FROM base AS deps
+ENV DATABASE_URL=postgresql://build:build@localhost:5432/build HUSKY=0
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY patches ./patches
+COPY prisma.config.ts .env.schema ./
+COPY prisma/schema.prisma ./prisma/schema.prisma
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+# Le prérendu lit la base : l'URL arrive par secret de build, jamais dans une couche.
+FROM base AS builder
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+ARG NEXT_PUBLIC_CLOUDINARY_API_KEY
+ARG NEXT_PUBLIC_WAVE_MERCHANT_ID
+ARG NEXT_DEPLOYMENT_ID
+ENV BUILD_STANDALONE=1 NEXT_TELEMETRY_DISABLED=1 TZ=UTC \
+    NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
+    NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=$NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME \
+    NEXT_PUBLIC_CLOUDINARY_API_KEY=$NEXT_PUBLIC_CLOUDINARY_API_KEY \
+    NEXT_PUBLIC_WAVE_MERCHANT_ID=$NEXT_PUBLIC_WAVE_MERCHANT_ID \
+    NEXT_DEPLOYMENT_ID=$NEXT_DEPLOYMENT_ID
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/generated ./generated
+COPY --from=deps /app/env.d.ts ./env.d.ts
+COPY . .
+RUN --mount=type=secret,id=db_url \
+    set -a && . ./deploy/build.env && set +a \
+    && DATABASE_URL="$(cat /run/secrets/db_url)" pnpm build
+RUN node -p "require('varlock/package.json').version" > /varlock.version
+
+FROM deps AS tools
+ENV TZ=UTC
+COPY . .
+RUN touch .env
+CMD ["pnpm", "--version"]
+
+FROM base AS runner
+COPY --from=builder /varlock.version /tmp/varlock.version
+RUN apt-get update \
  && apt-get install -y --no-install-recommends tini curl ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
- && npm install -g "varlock@${VARLOCK_VERSION}" \
- && npm cache clean --force
-ENV NODE_ENV=production \
-    TZ=UTC \
-    PORT=3000 \
-    HOSTNAME=0.0.0.0 \
-    NEXT_TELEMETRY_DISABLED=1
+ && npm install -g "varlock@$(cat /tmp/varlock.version)" \
+ && npm cache clean --force && rm /tmp/varlock.version
+ENV NODE_ENV=production TZ=UTC PORT=3000 HOSTNAME=0.0.0.0 NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
-COPY --chown=node:node .next/standalone ./
-COPY --chown=node:node .next/static ./.next/static
-COPY --chown=node:node public ./public
-COPY --chown=node:node .env.schema ./.env.schema
+COPY --from=builder --chown=node:node /app/public ./public
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/.env.schema ./.env.schema
 COPY --chown=node:node deploy/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 USER node
@@ -45,18 +66,3 @@ EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:${PORT}/api/health" || exit 1
 ENTRYPOINT ["tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
-
-FROM node:${NODE_VERSION}-bookworm-slim AS tools
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates \
- && rm -rf /var/lib/apt/lists/* \
- && corepack enable
-ENV TZ=UTC \
-    DATABASE_URL=postgresql://build:build@localhost:5432/build
-WORKDIR /app
-COPY . .
-# `tsx --env-file=.env` (db:merge-duplicate-emails, backfills) exige que le fichier existe.
-RUN touch .env
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
-CMD ["pnpm", "--version"]
