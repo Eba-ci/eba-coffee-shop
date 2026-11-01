@@ -7,6 +7,7 @@ import { Prisma } from '@/generated/prisma/client';
 import prisma from '@/lib/prisma';
 import { trgmSearch } from '@/lib/search/trgm';
 import { SEARCH_HITS_LIMIT } from '@/lib/search/hits';
+import { currentOptionLabels } from './labels';
 import type { StockKind, StockReason, StockSource } from './types';
 
 export type StockMovementFilters = {
@@ -123,8 +124,12 @@ export async function listStockMovements(filters: StockMovementFilters) {
       })
     : [];
   const numbers = new Map(orders.map((o) => [o.id, o.dailyNumber]));
+  const optionLabels = await currentOptionLabels(
+    rows.filter((r) => r.kind === 'OPTION').map((r) => r.resourceId)
+  );
   const movements: StockMovementRow[] = rows.map((r) => ({
     ...r,
+    label: optionLabels.get(r.resourceId) ?? r.label,
     actorName: r.actorId ? (names.get(r.actorId) ?? null) : null,
     orderNumber: r.orderId ? (numbers.get(r.orderId) ?? null) : null,
   }));

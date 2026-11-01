@@ -96,10 +96,16 @@ export async function restoreStockForRefundLines(
       line.optionName
     );
     if (!optionId) {
+      const owner = await tx.product.findUnique({
+        where: { id: line.productId },
+        select: { name: true },
+      });
       await logStockAnomaly(tx, {
         kind: 'OPTION',
         resourceId: `${line.productId}:${line.groupName}:${line.optionName}`,
-        label: `${line.groupName} · ${line.optionName}`,
+        label: [owner?.name, line.groupName, line.optionName]
+          .filter(Boolean)
+          .join(' · '),
         note: `Stock non rendu au remboursement : option introuvable ou désactivée (${line.quantity} unité(s))`,
         ctx,
       });

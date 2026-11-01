@@ -8,6 +8,7 @@ vi.mock('@/lib/prisma', () => ({
       groupBy: vi.fn(),
     },
     user: { findMany: vi.fn() },
+    supplementOption: { findMany: vi.fn() },
     order: { findMany: vi.fn() },
     $queryRaw: vi.fn(),
   },
@@ -65,6 +66,32 @@ describe('listStockMovements', () => {
       actorName: 'Awa',
       orderNumber: 14,
     });
+  });
+
+  it('les lignes d’un goût affichent « Produit · Groupe · Option » même si le libellé figé est ancien', async () => {
+    findMany.mockResolvedValue([
+      { ...row, kind: 'OPTION', resourceId: 'o1', label: 'Goût · Caramel' },
+      {
+        ...row,
+        id: 'm2',
+        kind: 'OPTION',
+        resourceId: 'gone',
+        label: 'Goût · Menthe',
+      },
+    ] as never);
+    vi.mocked(prisma.supplementOption.findMany).mockResolvedValue([
+      {
+        id: 'o1',
+        name: 'Caramel',
+        group: { name: 'Goût', product: { name: 'Crêpe' } },
+      },
+    ] as never);
+    const res = await listStockMovements({});
+    expect(res.movements.map((m) => m.label)).toEqual([
+      'Crêpe · Goût · Caramel',
+      // Option supprimée : on garde l'instantané du journal.
+      'Goût · Menthe',
+    ]);
   });
 
   it('borne la taille de page', async () => {

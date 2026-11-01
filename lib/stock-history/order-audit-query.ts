@@ -20,6 +20,7 @@ import {
   type ResourceLine,
   type StockExplanation,
 } from './order-audit';
+import { currentOptionLabels } from './labels';
 import { actorNames } from './queries';
 import { needsOf, sumsOf, type LedgerMovement } from './ledger-helpers';
 
@@ -162,6 +163,9 @@ export async function loadOrderLedger(
   const names = await actorNames([
     ...new Set(moves.flatMap((m) => (m.actorId ? [m.actorId] : []))),
   ]);
+  const optionLabels = await currentOptionLabels(
+    moves.filter((m) => m.kind === 'OPTION').map((m) => m.resourceId)
+  );
   const movesByOrder = new Map<string, LedgerMovement[]>();
   for (const m of moves) {
     if (!m.orderId) continue;
@@ -171,7 +175,7 @@ export async function loadOrderLedger(
       createdAt: m.createdAt,
       kind: m.kind,
       resourceId: m.resourceId,
-      label: m.label,
+      label: optionLabels.get(m.resourceId) ?? m.label,
       reason: m.reason,
       source: m.source,
       delta: m.delta,

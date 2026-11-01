@@ -49,6 +49,14 @@ describe('compareOrderToJournal', () => {
     });
   });
 
+  it('le libellé figé du journal (avec le produit) prime sur celui du besoin', () => {
+    const res = compareOrderToJournal({
+      needs: [flavor],
+      sums: [{ ...sum(flavor, 3), label: 'Crêpe · Goûts · Chocolat' }],
+    });
+    expect(res.lines[0].label).toBe('Crêpe · Goûts · Chocolat');
+  });
+
   it('missing aussi pour une consommation partielle', () => {
     const res = compareOrderToJournal({
       needs: [product],
