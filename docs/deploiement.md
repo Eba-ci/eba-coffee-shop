@@ -36,7 +36,7 @@ Les pages statiques se régénèrent toutes les heures (`revalidate` du layout r
 
 - Docker rootless pour `deploy` (`loginctl enable-linger deploy`, `slirp4netns`). Override systemd : `DOCKERD_ROOTLESS_ROOTLESSKIT_NET=slirp4netns` et `DOCKERD_ROOTLESS_ROOTLESSKIT_DISABLE_HOST_LOOPBACK=false`. Le conteneur joint Postgres par `10.0.2.2` (`host.docker.internal`), Postgres reste sur `127.0.0.1`.
 - `/var/www/eba-coffee/.env.staging` d'après `deploy/staging.env.example` (chmod 600).
-- Base `eba_staging` : copie de la prod **anonymisée avant tout accès**, propriétaire `eba_staging`.
+- Base `eba_staging` : copie de la prod (`pg_dump`), **anonymisée avant tout accès** par `psql -v ON_ERROR_STOP=1 -1 -d eba_staging -f deploy/anonymize-staging.sql` (rejouable, refuse une base sans « staging »), propriétaire `eba_staging`. `ADMIN_EMAIL` de `.env.staging` = votre e-mail : le compte est créé et promu ADMIN à la première connexion (code `000000`).
 - `pg_hba.conf` : le rôle `eba_build` ne doit pas pouvoir se connecter à la base de production.
 - nginx : `staging.eba-coffee.com` vers `http://127.0.0.1:2001`, `X-Forwarded-*`, `proxy_buffering off` pour `/api/preparation/stream` et `/api/caisse/stream`, authentification basique, `X-Robots-Tag: noindex`.
 - Serveur Jèko factice : `pnpm jeko:mock` (port 4010).
