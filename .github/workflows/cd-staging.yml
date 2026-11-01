@@ -80,15 +80,17 @@ jobs:
     environment: staging
     steps:
       - uses: actions/checkout@v4
-      - name: Tunnel SSH vers la base
+      - name: Open SSH tunnel
         env:
           KEY: ${{ secrets.DB_TUNNEL_KEY }}
-          HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
+          HOST_FP: ${{ vars.VPS_HOST_FINGERPRINT }}
           HOST: ${{ secrets.VPS_HOST }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/tunnel && chmod 600 ~/.ssh/tunnel
-          printf '%s %s\n' "$HOST" "$HOST_KEY" > ~/.ssh/known_hosts
+          ssh-keyscan -T 10 -t ed25519 "$HOST" > ~/.ssh/known_hosts 2>/dev/null
+          [ "$(ssh-keygen -lf ~/.ssh/known_hosts | cut -d' ' -f2)" = "$HOST_FP" ] \
+            || { echo "Empreinte du serveur inattendue"; exit 1; }
           ssh -i ~/.ssh/tunnel -o BatchMode=yes -o ConnectTimeout=15 \
             -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes \
             -N -f -L 127.0.0.1:5432:127.0.0.1:5432 "eba-tunnel@$HOST"

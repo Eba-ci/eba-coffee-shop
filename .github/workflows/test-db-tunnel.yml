@@ -14,30 +14,20 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - name: Diagnose host key
-        env:
-          HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
-          HOST: ${{ secrets.VPS_HOST }}
-        run: |
-          echo "HOST length: ${#HOST}  HOST_KEY length: ${#HOST_KEY}"
-          printf '%s' "$HOST_KEY" | od -c | tail -3
-          printf '%s\n' "$HOST_KEY" | ssh-keygen -lf - || true
-          ssh-keyscan -T 10 -t ed25519 "$HOST" 2>/dev/null | ssh-keygen -lf - || true
-
       - name: Open SSH tunnel
         env:
           KEY: ${{ secrets.DB_TUNNEL_KEY }}
-          HOST_KEY: ${{ secrets.VPS_HOST_KEY }}
+          HOST_FP: ${{ vars.VPS_HOST_FINGERPRINT }}
           HOST: ${{ secrets.VPS_HOST }}
         run: |
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$KEY" > ~/.ssh/tunnel
-          chmod 600 ~/.ssh/tunnel
-          printf '%s %s\n' "$HOST" "$HOST_KEY" > ~/.ssh/known_hosts
+          printf '%s\n' "$KEY" > ~/.ssh/tunnel && chmod 600 ~/.ssh/tunnel
+          ssh-keyscan -T 10 -t ed25519 "$HOST" > ~/.ssh/known_hosts 2>/dev/null
+          [ "$(ssh-keygen -lf ~/.ssh/known_hosts | cut -d' ' -f2)" = "$HOST_FP" ] \
+            || { echo "Empreinte du serveur inattendue"; exit 1; }
           ssh -i ~/.ssh/tunnel -o BatchMode=yes -o ConnectTimeout=15 \
             -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes \
             -N -f -L 127.0.0.1:5432:127.0.0.1:5432 "eba-tunnel@$HOST"
-
       - name: Check access is read-only and scoped
         env:
           DB_URL: ${{ secrets.BUILD_DATABASE_URL }}

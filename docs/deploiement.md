@@ -23,7 +23,7 @@ Le Dockerfile suit `with-docker` (deps → builder → runner). L'URL de la base
 
 - Utilisateur système `eba-tunnel` (sans shell) ; sa clé n'autorise que `permitopen="127.0.0.1:5432"`.
 - Rôle `eba_build` : `SELECT` sur les tables lues par les pages publiques (réglages, menu, sondages, TikTok) et sur 5 colonnes de `order` ; connexion limitée à `eba_staging` (`pg_hba.conf`).
-- Secrets GitHub (environnement `staging`) : `DB_TUNNEL_KEY`, `VPS_HOST_KEY`, `BUILD_DATABASE_URL` ; communs au dépôt : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`. Variables : `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `NEXT_PUBLIC_CLOUDINARY_API_KEY`, `NEXT_PUBLIC_WAVE_MERCHANT_ID`.
+- Secrets GitHub (environnement `staging`) : `DB_TUNNEL_KEY`, `BUILD_DATABASE_URL` ; communs au dépôt : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`. Variables : `VPS_HOST_FINGERPRINT` (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `NEXT_PUBLIC_CLOUDINARY_API_KEY`, `NEXT_PUBLIC_WAVE_MERCHANT_ID`.
 - Test du tunnel : workflow `test-db-tunnel.yml` (manuel).
 
 Les pages statiques se régénèrent toutes les heures (`revalidate` du layout racine).
