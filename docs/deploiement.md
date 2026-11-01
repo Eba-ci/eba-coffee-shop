@@ -26,7 +26,7 @@ Le Dockerfile suit `with-docker` (deps → builder → runner). L'URL de la base
 - Secrets GitHub (environnement `staging`) : `DB_TUNNEL_KEY`, `BUILD_DATABASE_URL` ; communs au dépôt : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`. Variables : `VPS_HOST_FINGERPRINT` (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `NEXT_PUBLIC_CLOUDINARY_API_KEY`, `NEXT_PUBLIC_WAVE_MERCHANT_ID`.
 - Test du tunnel : workflow `test-db-tunnel.yml` (manuel).
 
-Les pages statiques se régénèrent toutes les heures (`revalidate` du layout racine).
+`next build` fige le `DATABASE_URL` dans `.next` : `deploy/redact-build-url.mjs` le retire juste après le build (et fait échouer le build s'il en reste une trace). Les pages statiques se régénèrent toutes les heures (`revalidate` du layout racine).
 
 ## Pourquoi `__VARLOCK_ENV`
 

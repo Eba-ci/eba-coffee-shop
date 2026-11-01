@@ -37,7 +37,9 @@ COPY --from=deps /app/env.d.ts ./env.d.ts
 COPY . .
 RUN --mount=type=secret,id=db_url \
     set -a && . ./deploy/build.env && set +a \
-    && DATABASE_URL="$(cat /run/secrets/db_url)" pnpm build
+    && export DATABASE_URL="$(cat /run/secrets/db_url)" \
+    && pnpm build \
+    && node deploy/redact-build-url.mjs
 RUN node -p "require('varlock/package.json').version" > /varlock.version
 
 FROM deps AS tools
