@@ -13,8 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { LedgerOrder } from '@/lib/stock-history/order-audit-query';
-import type { ResourceLine } from '@/lib/stock-history/order-audit';
-import { STOCK_REASON_LABELS } from '@/lib/stock-history/types';
+import { MovementsDetails, StockLines } from './ledger-lines';
 import { VerdictChip } from './verdict-chip';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,85 +32,8 @@ const dateFmt = new Intl.DateTimeFormat('fr-FR', {
   minute: '2-digit',
 });
 
-const LINE_TONE: Record<ResourceLine['status'], string> = {
-  ok: 'text-foreground',
-  missing: 'font-semibold text-danger',
-  excess: 'font-semibold text-warning',
-};
-
-/**
- * Les écarts ne se colorent que pour une commande JUGÉE : pour une commande non
- * lancée, différée ou antérieure au journal, « 0 / 1 » est normal, pas une alerte.
- */
-function Lines({
-  lines,
-  emphasize,
-}: {
-  lines: ResourceLine[];
-  emphasize: boolean;
-}) {
-  if (lines.length === 0) {
-    return <span className="text-xs text-muted-foreground">—</span>;
-  }
-  return (
-    <ul className="space-y-0.5 text-sm">
-      {lines.map((l) => (
-        <li
-          key={`${l.kind}:${l.resourceId}`}
-          className={emphasize ? LINE_TONE[l.status] : undefined}
-          title={
-            !emphasize || l.status === 'ok'
-              ? undefined
-              : `Attendu ${l.needed}, décompté ${l.consumed}`
-          }
-        >
-          {l.label}{' '}
-          <span className="tabular-nums">
-            {l.consumed}/{l.needed}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 const isJudged = (o: LedgerOrder) =>
   o.explanation.tone === 'danger' || o.explanation.tone === 'warn';
-
-function Movements({ order }: { order: LedgerOrder }) {
-  if (order.movements.length === 0) {
-    return <span className="text-xs text-muted-foreground">Aucun</span>;
-  }
-  return (
-    <details className="text-sm">
-      <summary className="cursor-pointer select-none py-1 text-xs text-primary">
-        {order.movements.length} mouvement
-        {order.movements.length > 1 ? 's' : ''}
-      </summary>
-      <ul className="mt-1 space-y-1">
-        {order.movements.map((m) => (
-          <li key={m.id} className="text-xs">
-            <span className="tabular-nums text-muted-foreground">
-              {dateFmt.format(m.createdAt)}
-            </span>{' '}
-            {m.label} ·{' '}
-            <span
-              className={
-                (m.delta ?? 0) < 0
-                  ? 'font-semibold text-danger'
-                  : 'font-semibold text-success'
-              }
-            >
-              {(m.delta ?? 0) > 0 ? `+${m.delta}` : (m.delta ?? 0)}
-            </span>{' '}
-            · {STOCK_REASON_LABELS[m.reason]}
-            {m.actorName ? ` · ${m.actorName}` : ''}
-          </li>
-        ))}
-      </ul>
-    </details>
-  );
-}
 
 function OrderCell({ order }: { order: LedgerOrder }) {
   return (
@@ -149,7 +71,7 @@ export function OrderLedger({
               {showProductQuantity && (
                 <TableHead className="text-right">Qté</TableHead>
               )}
-              <TableHead>Stock décompté / attendu</TableHead>
+              <TableHead>Stock retiré</TableHead>
               <TableHead>Contrôle</TableHead>
               <TableHead>Détail</TableHead>
             </TableRow>
@@ -166,13 +88,17 @@ export function OrderLedger({
                   </TableCell>
                 )}
                 <TableCell>
-                  <Lines lines={o.lines} emphasize={isJudged(o)} />
+                  <StockLines
+                    lines={o.lines}
+                    movements={o.movements}
+                    judged={isJudged(o)}
+                  />
                 </TableCell>
                 <TableCell className="max-w-[260px]">
                   <VerdictChip explanation={o.explanation} />
                 </TableCell>
                 <TableCell>
-                  <Movements order={o} />
+                  <MovementsDetails movements={o.movements} />
                 </TableCell>
               </TableRow>
             ))}
@@ -189,9 +115,13 @@ export function OrderLedger({
                 Quantité : {o.productQuantity}
               </div>
             )}
-            <Lines lines={o.lines} emphasize={isJudged(o)} />
+            <StockLines
+              lines={o.lines}
+              movements={o.movements}
+              judged={isJudged(o)}
+            />
             <VerdictChip explanation={o.explanation} />
-            <Movements order={o} />
+            <MovementsDetails movements={o.movements} />
           </li>
         ))}
       </ul>
