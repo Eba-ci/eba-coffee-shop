@@ -2,6 +2,7 @@
 import { renderToBuffer } from '@react-pdf/renderer';
 import type { CartItem } from '@/lib/cart-store';
 import { getContactSettings } from '@/lib/contact-settings-db';
+import { readLogoPng } from '@/lib/orders/logo';
 import prisma from '@/lib/prisma';
 import { buildReceipt } from './build';
 import { ReceiptDocument } from './pdf';
@@ -20,6 +21,7 @@ export async function renderReceiptPdf(
     items: order.items as unknown as CartItem[],
   });
   const contact = await getContactSettings();
-  const pdf = await renderToBuffer(ReceiptDocument({ receipt, contact }));
+  const logo = await readLogoPng();
+  const pdf = await renderToBuffer(ReceiptDocument({ receipt, contact, logo }));
   return { pdf, code: receipt.code };
 }

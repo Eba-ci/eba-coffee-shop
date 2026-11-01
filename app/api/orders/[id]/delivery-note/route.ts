@@ -10,6 +10,7 @@ import {
   encodeDeliveryNote,
   rawbtUrl,
 } from '@/lib/orders/delivery-note/escpos';
+import { readLogoRaster } from '@/lib/orders/logo';
 import { withStaffVisible } from '@/lib/orders/visibility';
 import prisma from '@/lib/prisma';
 
@@ -38,6 +39,6 @@ export async function GET(
   });
   return NextResponse.json({
     note,
-    rawbt: rawbtUrl(encodeDeliveryNote(note)),
+    rawbt: rawbtUrl(encodeDeliveryNote(note, await readLogoRaster())),
   });
 }

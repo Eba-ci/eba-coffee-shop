@@ -72,3 +72,21 @@ describe('encodeDeliveryNote', () => {
       expect(l.length).toBeLessThanOrEqual(32);
   });
 });
+
+describe('logo raster', () => {
+  it('insère GS v 0 avec les dimensions du bitmap, avant le titre', () => {
+    const logo = {
+      widthBytes: 2,
+      height: 3,
+      data: new Uint8Array(6).fill(0xff),
+    };
+    const bytes = encodeDeliveryNote(buildDeliveryNote(order), logo);
+    const at = bytes.findIndex(
+      (b, i) => b === 0x1d && bytes[i + 1] === 0x76 && bytes[i + 2] === 0x30
+    );
+    expect(at).toBeGreaterThan(-1);
+    expect([...bytes.slice(at + 4, at + 8)]).toEqual([2, 0, 3, 0]);
+    const without = encodeDeliveryNote(buildDeliveryNote(order));
+    expect(bytes.length).toBe(without.length + 8 + 6);
+  });
+});

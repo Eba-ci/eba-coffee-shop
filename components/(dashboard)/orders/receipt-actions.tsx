@@ -9,6 +9,8 @@ type Props = {
   code: string;
   customerPhone: string | null;
   iconOnly?: boolean;
+  /** Boutons pleine largeur, grande taille (colonne d'actions de la caisse). */
+  fullWidth?: boolean;
 };
 
 /** Reçu PDF : ouverture/téléchargement + envoi au client par WhatsApp. */
@@ -17,10 +19,11 @@ export function ReceiptActions({
   code,
   customerPhone,
   iconOnly,
+  fullWidth,
 }: Props) {
   const path = `/api/orders/${orderId}/receipt`;
-  const size = iconOnly ? 'icon' : 'sm';
-  const box = iconOnly ? 'h-11 w-11' : undefined;
+  const size = iconOnly ? 'icon' : fullWidth ? 'lg' : 'sm';
+  const box = iconOnly ? 'h-11 w-11' : fullWidth ? 'w-full' : undefined;
 
   function whatsappHref() {
     const url = `${window.location.origin}${path}`;

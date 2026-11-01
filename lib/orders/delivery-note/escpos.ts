@@ -55,7 +55,17 @@ export function wrapText(
   return lines.map((l, i) => (i === 0 ? l : pad + l));
 }
 
-export function encodeDeliveryNote(note: DeliveryNote): Uint8Array {
+/** Bitmap monochrome : 1 bit par pixel, 8 pixels par octet, ligne après ligne. */
+export type LogoRaster = {
+  widthBytes: number;
+  height: number;
+  data: Uint8Array;
+};
+
+export function encodeDeliveryNote(
+  note: DeliveryNote,
+  logo?: LogoRaster | null
+): Uint8Array {
   const out: number[] = [];
   const bytes = (...b: number[]) => out.push(...b);
   const text = (s: string) => {
@@ -72,6 +82,20 @@ export function encodeDeliveryNote(note: DeliveryNote): Uint8Array {
 
   bytes(ESC, 0x40); // init
   align(1);
+  if (logo && logo.widthBytes > 0 && logo.height > 0) {
+    // GS v 0 : impression d'un bitmap raster (mode normal).
+    bytes(
+      GS,
+      0x76,
+      0x30,
+      0x00,
+      logo.widthBytes & 0xff,
+      logo.widthBytes >> 8,
+      logo.height & 0xff,
+      logo.height >> 8
+    );
+    for (const b of logo.data) out.push(b);
+  }
   bold(true);
   line('EBA COFFEE SHOP');
   line('BON DE LIVRAISON');

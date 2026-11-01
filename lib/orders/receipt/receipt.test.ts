@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { renderToBuffer } from '@react-pdf/renderer';
 import type { CartItem } from '@/lib/cart-store';
 import { DEFAULT_CONTACT_SETTINGS } from '@/lib/contact-settings';
+import { readLogoPng } from '@/lib/orders/logo';
 import { buildReceipt } from './build';
 import { ReceiptDocument } from './pdf';
 
@@ -41,7 +42,11 @@ describe('reçu', () => {
 
   it('se rend en PDF valide', async () => {
     const pdf = await renderToBuffer(
-      ReceiptDocument({ receipt, contact: DEFAULT_CONTACT_SETTINGS })
+      ReceiptDocument({
+        receipt,
+        contact: DEFAULT_CONTACT_SETTINGS,
+        logo: await readLogoPng(),
+      })
     );
     expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
   });
