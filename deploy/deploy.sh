@@ -39,6 +39,7 @@ docker info >/dev/null 2>&1 || die "Docker injoignable (DOCKER_HOST=$DOCKER_HOST
 wait_healthy() {
   for _ in $(seq 1 60); do
     curl -fsS --max-time 4 "$HEALTH_URL" >/dev/null 2>&1 && return 0
+    [ "$(docker inspect -f '{{.RestartCount}}' "$NAME" 2>/dev/null || echo 0)" -lt 2 ] || return 1
     sleep 2
   done
   return 1
@@ -103,6 +104,7 @@ if ! wait_healthy; then
     wait_healthy || die "$TAG n'est pas sain et $current ne redémarre pas non plus"
     die "$TAG n'est pas sain, $current a été relancé"
   fi
+  docker rm -f "$NAME" >/dev/null 2>&1 || true
   die "$TAG n'est pas sain (aucun tag précédent à relancer)"
 fi
 
