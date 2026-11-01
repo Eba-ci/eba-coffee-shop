@@ -2,9 +2,6 @@ name: Test DB tunnel
 
 on:
   workflow_dispatch:
-  push:
-    branches: [claude/sharp-archimedes-lpfc2g]
-    paths: ['.github/workflows/test-db-tunnel.yml']
 
 permissions:
   contents: read
