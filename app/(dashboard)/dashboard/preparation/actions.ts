@@ -50,6 +50,7 @@ export async function startPreparation(
   try {
     await setOrderStatus(id, 'PREPARING', session.user.role as UserRole, {
       coverShortage: opts?.coverShortage,
+      actorId: session.user.id,
     });
   } catch (err) {
     // Jamais un `console.error` muet : le cuisinier doit voir POURQUOI son

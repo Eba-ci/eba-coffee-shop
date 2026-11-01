@@ -1,5 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('@/lib/stock-history/record', async () =>
+  (await import('@/lib/stock-history/test-mocks')).recordMock()
+);
+vi.mock('@/lib/stock-history/lifecycle', async () =>
+  (await import('@/lib/stock-history/test-mocks')).lifecycleMock()
+);
+vi.mock('@/lib/stock-history/lock', async () =>
+  (await import('@/lib/stock-history/test-mocks')).lockMock()
+);
+
 vi.mock('@/lib/prisma', async () =>
   (await import('./test-mocks')).prismaModuleMock()
 );
@@ -21,6 +31,11 @@ describe('updateProduct', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockSupGroupFindMany.mockResolvedValue([] as never);
+    mockSupGroupCreate.mockResolvedValue({ options: [] } as never);
+    mockSupOptionCreate.mockResolvedValue({
+      id: 'o-new',
+      stockQuantity: null,
+    } as never);
   });
 
   // Régression : deux options homonymes en base ; l'appariement doit consommer une file par nom.

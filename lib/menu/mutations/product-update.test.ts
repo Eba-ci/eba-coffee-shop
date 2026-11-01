@@ -1,5 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('@/lib/stock-history/record', async () =>
+  (await import('@/lib/stock-history/test-mocks')).recordMock()
+);
+vi.mock('@/lib/stock-history/lifecycle', async () =>
+  (await import('@/lib/stock-history/test-mocks')).lifecycleMock()
+);
+vi.mock('@/lib/stock-history/lock', async () =>
+  (await import('@/lib/stock-history/test-mocks')).lockMock()
+);
+
 vi.mock('@/lib/prisma', async () =>
   (await import('./test-mocks')).prismaModuleMock()
 );
@@ -12,12 +22,18 @@ import {
   mockProdFindUnique,
   mockSupGroupFindMany,
   mockSupGroupCreate,
+  mockSupOptionCreate,
 } from './test-utils';
 
 describe('updateProduct', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockSupGroupFindMany.mockResolvedValue([] as never);
+    mockSupGroupCreate.mockResolvedValue({ options: [] } as never);
+    mockSupOptionCreate.mockResolvedValue({
+      id: 'o-new',
+      stockQuantity: null,
+    } as never);
   });
 
   it('met à jour les champs scalaires', async () => {
@@ -57,6 +73,7 @@ describe('updateProduct', () => {
     });
 
     expect(mockSupGroupCreate).toHaveBeenCalledWith({
+      include: { options: true },
       data: expect.objectContaining({
         name: 'Goûts',
         type: 'quantity',

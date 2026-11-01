@@ -15,6 +15,7 @@ import type {
 } from '@/lib/menu-mutations';
 import { menuSettingsSchema } from '@/lib/menu-settings';
 import { updateMenuSettings } from '@/lib/menu-settings-db';
+import { runWithStockContext } from '@/lib/stock-history/source-context';
 import { updateGlobalExtraGroups } from '@/lib/global-extras-mutations';
 import type { SupplementGroupInput } from '@/lib/schemas/menu';
 
@@ -74,9 +75,12 @@ function revalidateMenu() {
 
 /** Exécute une mutation sous garde d'autorisation et normalise le résultat. */
 async function run(mutate: () => Promise<unknown>): Promise<ActionResult> {
-  await requireMenu();
+  const session = await requireMenu();
   try {
-    await mutate();
+    await runWithStockContext(
+      { source: 'STAFF', actorId: session?.user?.id },
+      mutate
+    );
   } catch (err) {
     return fail(err);
   }
@@ -94,10 +98,13 @@ async function runWith<TRaw, TOut>(
   mutate: () => Promise<TRaw>,
   select: (raw: TRaw) => TOut
 ): Promise<ActionResultWith<TOut>> {
-  await requireMenu();
+  const session = await requireMenu();
   let raw: TRaw;
   try {
-    raw = await mutate();
+    raw = await runWithStockContext(
+      { source: 'STAFF', actorId: session?.user?.id },
+      mutate
+    );
   } catch (err) {
     return fail(err);
   }

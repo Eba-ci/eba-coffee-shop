@@ -30,7 +30,9 @@ import { settleFromRemote } from './reconcile';
 // Marge après `paymentExpiresAt` : laisse le temps au webhook d'une tentative
 // juste à l'échéance.
 const GRACE_MS = 2 * 60_000;
-// Un passage par minute et par processus (pm2 tourne en une seule instance).
+// Un passage par minute et par processus. Le balayage est idempotent (`updateMany`
+// gardé sur le statut) : deux processus qui se chevauchent feraient au pire deux
+// passages rapprochés.
 const THROTTLE_MS = 60_000;
 const BATCH_SIZE = 20;
 
@@ -80,7 +82,11 @@ async function expireOrder(order: Overdue): Promise<boolean> {
     // peut redescendre `stockReservedAt` à `null` sans contredire son
     // irréversibilité habituelle).
     if (order.stockReservedAt) {
-      await releaseUnpaidStockHold(tx, order.items as unknown as CartItem[]);
+      await releaseUnpaidStockHold(
+        tx,
+        order.items as unknown as CartItem[],
+        order.id
+      );
       await tx.order.update({
         where: { id: order.id },
         data: { stockReservedAt: null },

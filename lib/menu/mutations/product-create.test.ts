@@ -1,5 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('@/lib/stock-history/record', async () =>
+  (await import('@/lib/stock-history/test-mocks')).recordMock()
+);
+vi.mock('@/lib/stock-history/lifecycle', async () =>
+  (await import('@/lib/stock-history/test-mocks')).lifecycleMock()
+);
+vi.mock('@/lib/stock-history/lock', async () =>
+  (await import('@/lib/stock-history/test-mocks')).lockMock()
+);
+
 vi.mock('@/lib/prisma', async () =>
   (await import('./test-mocks')).prismaModuleMock()
 );
@@ -15,7 +25,12 @@ describe('createProduct', () => {
   });
 
   it('crée un produit avec ses groupes de suppléments', async () => {
-    mockProdCreate.mockResolvedValue({ id: 'p1' } as never);
+    mockProdCreate.mockResolvedValue({
+      id: 'p1',
+      name: 'Latte',
+      stockQuantity: null,
+      supplementGroups: [],
+    } as never);
 
     await createProduct({
       categoryId: 'cat1',
@@ -37,6 +52,7 @@ describe('createProduct', () => {
     });
 
     expect(mockProdCreate).toHaveBeenCalledWith({
+      include: expect.anything(),
       data: expect.objectContaining({
         categoryId: 'cat1',
         name: 'Latte',

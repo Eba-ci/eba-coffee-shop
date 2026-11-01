@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +18,10 @@ import {
 import { StockBadge } from '@/components/(dashboard)/stock-badge';
 import { useUndoToast } from '@/lib/hooks/use-undo-toast';
 import { setOptionStockAction } from '../actions';
+import {
+  STOCK_REASON_LABELS,
+  type StockReason,
+} from '@/lib/stock-history/types';
 
 const SEARCH_DEBOUNCE_MS = 350;
 
@@ -31,7 +36,51 @@ export type OptionStockRowWithPending = {
   productName: string | null;
   categoryName: string | null;
   pending: number;
+  /** Dernier mouvement du journal de stock (hors relevé de départ). */
+  lastMovement: {
+    delta: number | null;
+    reason: StockReason;
+    createdAt: string;
+  } | null;
 };
+
+const movementDateFmt = new Intl.DateTimeFormat('fr-FR', {
+  timeZone: 'Africa/Abidjan',
+  day: '2-digit',
+  month: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+function LastMovementCell({
+  m,
+}: {
+  m: OptionStockRowWithPending['lastMovement'];
+}) {
+  if (!m) {
+    return <span className="text-xs text-muted-foreground">Aucun</span>;
+  }
+  const delta = m.delta ?? 0;
+  return (
+    <span className="text-xs">
+      <span
+        className={
+          delta < 0
+            ? 'font-semibold text-danger'
+            : delta > 0
+              ? 'font-semibold text-success'
+              : 'font-semibold'
+        }
+      >
+        {delta > 0 ? `+${delta}` : delta}
+      </span>{' '}
+      <span className="text-muted-foreground">
+        {STOCK_REASON_LABELS[m.reason]} ·{' '}
+        {movementDateFmt.format(new Date(m.createdAt))}
+      </span>
+    </span>
+  );
+}
 
 const priceFmt = new Intl.NumberFormat('fr-FR');
 
@@ -115,6 +164,9 @@ export function OptionsStockTable({
             <TableHead className="hidden sm:table-cell">Prix</TableHead>
             <TableHead>Stock</TableHead>
             <TableHead className="hidden sm:table-cell">En attente</TableHead>
+            <TableHead className="hidden md:table-cell">
+              Dernier mouvement
+            </TableHead>
             <TableHead className="text-right">Modifier</TableHead>
           </TableRow>
         </TableHeader>
@@ -149,7 +201,15 @@ export function OptionsStockTable({
                 {priceFmt.format(r.price)} FCFA
               </TableCell>
               <TableCell>
-                <StockBadge stockQuantity={r.stockQuantity} />
+                <div className="flex items-center gap-1.5">
+                  <StockBadge stockQuantity={r.stockQuantity} />
+                  <Link
+                    href={`/dashboard/menu/historique-stock?resource=${r.id}`}
+                    className="inline-flex min-h-6 items-center px-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                  >
+                    Historique
+                  </Link>
+                </div>
               </TableCell>
               <TableCell className="hidden sm:table-cell">
                 {r.pending > 0 ? (
@@ -163,6 +223,9 @@ export function OptionsStockTable({
                   <span className="text-xs text-muted-foreground">—</span>
                 )}
               </TableCell>
+              <TableCell className="hidden md:table-cell">
+                <LastMovementCell m={r.lastMovement} />
+              </TableCell>
               <TableCell className="text-right">
                 <StockQuickEdit
                   optionId={r.id}
@@ -175,7 +238,7 @@ export function OptionsStockTable({
           {filtered.length === 0 && (
             <TableRow>
               <TableCell
-                colSpan={7}
+                colSpan={8}
                 className="py-8 text-center text-sm text-muted-foreground"
               >
                 {rows.length === 0

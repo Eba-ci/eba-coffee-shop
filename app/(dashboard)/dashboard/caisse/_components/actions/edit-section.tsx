@@ -11,6 +11,9 @@ import {
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { CashierOrder } from '@/lib/cashier-queue';
+import { PrintDeliveryNoteButton } from '@/components/(dashboard)/orders/print-delivery-note-button';
+import { ReceiptActions } from '@/components/(dashboard)/orders/receipt-actions';
+import { getPickupCode } from '@/lib/orders/format';
 import { CopyRecapButton } from '../../../_components/copy-recap-button';
 import type { CaisseContactSettings } from './types';
 import type { OrderActions } from './use-order-actions';
@@ -49,6 +52,15 @@ export function EditSection({
         loyaltyDiscount={order.loyaltyDiscount}
         contactSettings={contactSettings}
         trackingUrl={trackingUrl}
+      />
+
+      {/* Bon de livraison (sans prix) pour le livreur + reçu PDF du client */}
+      <PrintDeliveryNoteButton orderId={order.id} fullWidth />
+      <ReceiptActions
+        orderId={order.id}
+        code={getPickupCode(order.reference)}
+        customerPhone={order.customerPhone}
+        fullWidth
       />
 
       {/* Ajouter / retirer des produits */}

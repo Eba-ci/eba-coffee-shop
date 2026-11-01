@@ -15,7 +15,7 @@ import { Readable } from 'node:stream';
 import { v2 as cloudinary } from 'cloudinary';
 import { IMAGE_MAX_DIMENSION } from '@/config/constants';
 import { normalizeToDataUri } from '@/lib/schemas/upload';
-import type { UploadSubdir } from '@/lib/uploads';
+import { fetchRemoteImage, type UploadSubdir } from '@/lib/uploads';
 
 cloudinary.config({
   cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
@@ -234,6 +234,14 @@ export const uploadPollImage = (source: string, mimeType?: string) =>
 
 export const uploadPollOptionImage = (source: string, mimeType?: string) =>
   uploadToCloudinary(source, 'poll-options', mimeType);
+
+/**
+ * Miniature TikTok : téléchargée côté serveur (taille et délai bornés) puis
+ * envoyée à Cloudinary, pour ne pas dépendre d'une URL CDN TikTok qui expire.
+ */
+export async function uploadTiktokThumbnail(url: string): Promise<string> {
+  return uploadBufferToCloudinary(await fetchRemoteImage(url), 'tiktok');
+}
 
 /**
  * Supprime un asset Cloudinary à partir de son URL de livraison. Non branchée

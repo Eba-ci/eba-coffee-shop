@@ -5,6 +5,8 @@ import { optionKey } from '@/lib/orders/availability';
 import type { ShortageLine } from '@/lib/orders/shortage';
 import type { CartItem } from '@/lib/cart-store';
 import { holdKey, type HoldMap } from '@/lib/orders/stock-holds/keys';
+import { logStockChange } from '@/lib/stock-history/record';
+import type { StockLogCtx } from '@/lib/stock-history/types';
 import { StockShortageError } from './errors';
 
 export async function resolveOptionId(
@@ -33,7 +35,8 @@ export async function resolveOptionId(
 // Appelé uniquement par `reserveStockOnce` : jamais en direct (double décrément).
 export async function decrementStockForOrderItems(
   tx: Prisma.TransactionClient,
-  items: CartItem[]
+  items: CartItem[],
+  ctx?: StockLogCtx
 ): Promise<void> {
   for (const item of items) {
     const productResult = await tx.product.updateMany({
@@ -51,6 +54,13 @@ export async function decrementStockForOrderItems(
         `Stock insuffisant pour « ${item.productName} »`
       );
     }
+    await logStockChange(tx, {
+      kind: 'PRODUCT',
+      resourceId: item.productId,
+      reason: 'ORDER_KITCHEN',
+      delta: -item.quantity,
+      ctx,
+    });
 
     for (const supplement of item.supplements) {
       const needed = (supplement.quantity ?? 1) * item.quantity;
@@ -77,6 +87,13 @@ export async function decrementStockForOrderItems(
           `Stock insuffisant pour « ${item.productName} — ${supplement.optionName} »`
         );
       }
+      await logStockChange(tx, {
+        kind: 'OPTION',
+        resourceId: optionId,
+        reason: 'ORDER_KITCHEN',
+        delta: -needed,
+        ctx,
+      });
     }
   }
 }

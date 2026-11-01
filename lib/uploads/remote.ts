@@ -1,9 +1,6 @@
-import {
-  MAX_UPLOAD_SIZE_BYTES,
-  isAllowedImageMimeType,
-} from '@/lib/schemas/upload';
-import { MAX_UPLOAD_SIZE_MB, saveImage, sniffAllowedImageMime } from './save';
-import type { UploadSubdir } from './paths';
+import { MAX_UPLOAD_SIZE_BYTES } from '@/lib/schemas/upload';
+
+const MAX_UPLOAD_SIZE_MB = Math.round(MAX_UPLOAD_SIZE_BYTES / (1024 * 1024));
 
 /** Délai max (ms) pour télécharger une image distante depuis une URL. */
 export const REMOTE_FETCH_TIMEOUT_MS = 15000;
@@ -39,11 +36,12 @@ export async function readBodyCapped(res: Response): Promise<Buffer> {
   return Buffer.concat(chunks);
 }
 
-/** Télécharge une image http(s), la valide (taille + format) puis l'enregistre. */
-export async function saveImageFromUrl(
-  url: string,
-  subdir: UploadSubdir
-): Promise<string> {
+/**
+ * Télécharge une image http(s) en mémoire (protocole, délai et taille
+ * contrôlés). Le format réel est validé ensuite par Cloudinary
+ * (`allowed_formats`), qui refuse tout ce qui n'est pas une image supportée.
+ */
+export async function fetchRemoteImage(url: string): Promise<Buffer> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -59,7 +57,9 @@ export async function saveImageFromUrl(
     res = await fetch(parsed, {
       redirect: 'follow',
       signal: AbortSignal.timeout(REMOTE_FETCH_TIMEOUT_MS),
-      headers: { accept: 'image/*' },
+      // `identity` : on ne laisse pas un hôte distant nous envoyer un corps compressé
+      // (Brotli en particulier) à décoder côté serveur.
+      headers: { accept: 'image/*', 'accept-encoding': 'identity' },
     });
   } catch {
     throw new Error('Téléchargement de l’image impossible (URL injoignable)');
@@ -79,22 +79,5 @@ export async function saveImageFromUrl(
     throw new Error(`Fichier trop volumineux (max ${MAX_UPLOAD_SIZE_MB} MB)`);
   }
 
-  const buffer = await readBodyCapped(res);
-
-  // Le `Content-Type` déclaré peut mentir : on privilégie le format réellement
-  // décodé, avec le Content-Type comme repli.
-  const declaredMime = (res.headers.get('content-type') ?? '')
-    .split(';')[0]
-    .trim()
-    .toLowerCase();
-  const mime = isAllowedImageMimeType(declaredMime)
-    ? declaredMime
-    : await sniffAllowedImageMime(buffer);
-  if (!mime) {
-    throw new Error(
-      'L’URL ne pointe pas vers une image supportée (JPEG, PNG, WebP, AVIF, HEIC)'
-    );
-  }
-
-  return saveImage(buffer, mime, subdir);
+  return readBodyCapped(res);
 }

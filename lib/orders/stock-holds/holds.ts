@@ -2,6 +2,8 @@
 
 import type { Prisma } from '@/generated/prisma/client';
 import { endOfLocalDay, startOfLocalDay } from '@/lib/timezone';
+import { logStockChange } from '@/lib/stock-history/record';
+import type { StockLogCtx } from '@/lib/stock-history/types';
 import { holdKey, parseHoldKey, type HoldMap } from './keys';
 
 export const ACTIVE_REFUND_STATUSES = [
@@ -81,7 +83,8 @@ export async function loadHoldsForOrders(
  */
 export async function releaseHolds(
   tx: Prisma.TransactionClient,
-  orderId: string
+  orderId: string,
+  ctx?: StockLogCtx
 ): Promise<number> {
   const held = await loadHolds(tx, orderId);
   if (held.size === 0) return 0;
@@ -99,6 +102,13 @@ export async function releaseHolds(
         data: { stockQuantity: { increment: quantity } },
       });
     }
+    await logStockChange(tx, {
+      kind,
+      resourceId: id,
+      reason: 'HOLD_RELEASE',
+      delta: quantity,
+      ctx: { ...ctx, orderId },
+    });
     units += quantity;
   }
   await tx.orderStockHold.deleteMany({ where: { orderId } });
@@ -143,7 +153,10 @@ export async function releaseStaleHolds(
     if (order?.stockReservedAt) {
       await tx.orderStockHold.deleteMany({ where: { orderId } });
     } else {
-      units += await releaseHolds(tx, orderId);
+      units += await releaseHolds(tx, orderId, {
+        source: 'SYSTEM',
+        note: 'Réservation orpheline rendue',
+      });
     }
   }
   return units;

@@ -113,7 +113,15 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['eba.otw.ci', '127.0.0.1'],
-  serverExternalPackages: ['@prisma/client'],
+  // Image Docker uniquement : la prod pm2 lance `next start`, incompatible avec standalone.
+  // `generated/prisma` (gitignoré, chargé par alias) est forcé dans la trace.
+  output: process.env.BUILD_STANDALONE === '1' ? 'standalone' : undefined,
+  outputFileTracingIncludes: {
+    '/**': ['./generated/prisma/**/*'],
+    // Logo lu par fs (reçu PDF, ticket) : invisible pour le traçage statique.
+    '/api/orders/**': ['./public/assets/logos/eba_n.png'],
+  },
+  serverExternalPackages: ['@prisma/client', '@react-pdf/renderer'],
   // SHA du commit (CD) : le client recharge au lieu de « Failed to find Server Action ».
   deploymentId: process.env.NEXT_DEPLOYMENT_ID || undefined,
   // NB : pas d'`experimental.optimizePackageImports` ici. Le réflexe serait de

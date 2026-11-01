@@ -12,12 +12,7 @@ export type UploadSubdir =
   | 'menu-pdf'
   | 'tiktok';
 
-/** Racine disque des fichiers uploadés : `<cwd>/public/uploads`. */
+/** Racine disque des fichiers historiques (lecture seule) : `<cwd>/public/uploads`. */
 export function uploadsBaseDir(): string {
   return join(process.cwd(), 'public', 'uploads');
-}
-
-/** URL publique (relative, same-origin) servie pour un fichier uploadé. */
-export function publicUrl(subdir: UploadSubdir, filename: string): string {
-  return `/uploads/${subdir}/${filename}`;
 }

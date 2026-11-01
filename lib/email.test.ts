@@ -17,7 +17,7 @@ vi.mock('@/emails/new-order', () => ({
   default: vi.fn().mockReturnValue(null),
 }));
 
-import { sendNewOrderEmail } from './email';
+import { sendNewOrderEmail, sendOtpEmail } from './email';
 
 const mockOrder = {
   id: 'clorder123',
@@ -86,5 +86,25 @@ describe('sendNewOrderEmail', () => {
     await expect(sendNewOrderEmail(mockOrder)).rejects.toThrow(
       'Resend API error'
     );
+  });
+});
+
+describe('staging', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    mockSend.mockResolvedValue({ data: { id: 'email-id' }, error: null });
+  });
+
+  it("n'appelle jamais Resend quand APP_ENV=staging", async () => {
+    vi.stubEnv('APP_ENV', 'staging');
+    process.env.OWNER_EMAIL = 'owner@test.com';
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    await sendNewOrderEmail(mockOrder);
+    await sendOtpEmail('staff@test.com', '123456');
+
+    expect(mockSend).not.toHaveBeenCalled();
+    log.mockRestore();
+    vi.unstubAllEnvs();
   });
 });

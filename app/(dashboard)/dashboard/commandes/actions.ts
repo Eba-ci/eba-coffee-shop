@@ -199,12 +199,13 @@ export async function updateOrderItemsAction(
   // La cuisine peut désormais modifier les articles d'une commande en cours
   // (bouton dans /dashboard/preparation) — `requireKitchen()` couvre caisse
   // + cuisine (+ rôles supérieurs), même garde que le reste de l'écran cuisine.
-  await requireKitchen();
+  const session = await requireKitchen();
 
   try {
     await updateOrderItems(id, items, {
       restoreRemovedStock: opts?.restoreRemovedStock,
       coverShortage: opts?.coverShortage,
+      actorId: session.user.id,
     });
   } catch (err) {
     return toFailure(id, err);

@@ -7,6 +7,7 @@
 import { z } from 'zod';
 import { tools, toolsByName } from '@/lib/mcp/tools';
 import { revalidateMenu } from '@/lib/mcp/http/revalidate';
+import { runWithStockContext } from '@/lib/stock-history/source-context';
 import type { McpTool } from '@/lib/mcp/tools/types';
 import type { UserRole } from '@/generated/prisma/client';
 import type { ToolDefinition } from '../openrouter';
@@ -124,7 +125,9 @@ export async function runAssistantTool(
   }
 
   try {
-    const data = await tool.handler(parsed.data);
+    const data = await runWithStockContext({ source: 'MCP' }, () =>
+      tool.handler(parsed.data)
+    );
     if (!tool.readOnly && !DRAFT_TOOLS.has(name)) revalidateMenu();
     // Données personnelles : numéros masqués avant tout envoi au modèle.
     const text =

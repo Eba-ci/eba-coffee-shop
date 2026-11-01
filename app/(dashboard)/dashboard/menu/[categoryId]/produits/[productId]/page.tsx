@@ -4,6 +4,9 @@ import prisma from '@/lib/prisma';
 import { listProductSchedules, listProductWeeklySpecials } from '@/lib/menu';
 import { ProductForm, type ProductFormInitial } from '../product-form';
 import { ProductStatsSection } from '../_components/product-stats-section';
+import { ProductStockSection } from '../_components/product-stock-section';
+import { requireRoleOrAnalyst, ROLE_GROUPS } from '@/lib/auth-helpers';
+import { Skeleton } from '@/components/ui/skeleton';
 import { BackButton } from '@/components/(dashboard)/back-button';
 import { MenuBreadcrumb } from '@/components/(dashboard)/menu-breadcrumb';
 import { DateRangeFilter } from '@/components/(dashboard)/date-range-filter';
@@ -27,6 +30,9 @@ export default async function EditProductPage({
   params: Promise<{ categoryId: string; productId: string }>;
   searchParams: Promise<{ from?: string; to?: string; onglet?: string }>;
 }) {
+  // Le journal et les commandes ne sont pas pour tout le dashboard (cuisine, compta) :
+  // `app/(dashboard)/layout.tsx` ne filtre que sur le rôle « tableau de bord ».
+  await requireRoleOrAnalyst(ROLE_GROUPS.MENU);
   const { categoryId, productId } = await params;
   const query = await searchParams;
 
@@ -129,6 +135,23 @@ export default async function EditProductPage({
     </div>
   );
 
+  const stockSlot = (
+    <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+      <ProductStockSection
+        productId={product.id}
+        stockQuantity={product.stockQuantity}
+        options={product.supplementGroups.flatMap((g) =>
+          g.options.map((o) => ({
+            id: o.id,
+            groupName: g.name,
+            name: o.name,
+            stockQuantity: o.stockQuantity,
+          }))
+        )}
+      />
+    </Suspense>
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -151,6 +174,7 @@ export default async function EditProductPage({
         schedules={schedules}
         defaultTab={query.onglet}
         statsSlot={statsSlot}
+        stockSlot={stockSlot}
       />
     </div>
   );

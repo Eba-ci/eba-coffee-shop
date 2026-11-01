@@ -1,0 +1,153 @@
+name: CD Staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'deploy = construire et déployer ; rollback = relancer le tag précédent'
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  EBA_ENV: staging
+
+jobs:
+  # Première sécurité : lint, types et tests avant de construire quoi que ce soit.
+  # Un échec arrête tout (les jobs suivants en dépendent) ; le rollback n'y passe pas.
+  ci:
+    name: CI
+    if: github.event_name == 'push' || inputs.action == 'deploy'
+    uses: ./.github/workflows/ci.yml
+
+  tools:
+    name: Image d'outils
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || inputs.action == 'deploy'
+    environment: staging
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: |
+          echo "tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: tools
+          push: true
+          pull: true
+          tags: ${{ steps.meta.outputs.image }}-tools:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=tools
+          cache-to: type=gha,mode=max,scope=tools
+
+  schema:
+    name: Schéma de la base
+    runs-on: ubuntu-latest
+    needs: tools
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: appleboy/ssh-action@v1.2.0
+        env:
+          EBA_ACTION: schema
+          EBA_TAG: ${{ needs.tools.outputs.tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: EBA_ACTION,EBA_ENV,EBA_TAG,GHCR_USER,GHCR_TOKEN
+          script_path: deploy/deploy.sh
+
+  image:
+    name: Image de l'application
+    runs-on: ubuntu-latest
+    needs: [tools, schema]
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open SSH tunnel
+        env:
+          KEY: ${{ secrets.DB_TUNNEL_KEY }}
+          HOST_FP: ${{ vars.VPS_HOST_FINGERPRINT }}
+          HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/tunnel && chmod 600 ~/.ssh/tunnel
+          ssh-keyscan -T 10 -t ed25519 "$HOST" > ~/.ssh/known_hosts 2>/dev/null
+          [ "$(ssh-keygen -lf ~/.ssh/known_hosts | cut -d' ' -f2)" = "$HOST_FP" ] \
+            || { echo "Empreinte du serveur inattendue"; exit 1; }
+          ssh -i ~/.ssh/tunnel -o BatchMode=yes -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes \
+            -N -f -L 127.0.0.1:5432:127.0.0.1:5432 "eba-tunnel@$HOST"
+      - uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+          buildkitd-flags: --allow-insecure-entitlement network.host
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          push: true
+          pull: true
+          network: host
+          allow: network.host
+          secrets: |
+            db_url=${{ secrets.BUILD_DATABASE_URL }}
+          build-args: |
+            NEXT_DEPLOYMENT_ID=${{ github.sha }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=${{ vars.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
+            NEXT_PUBLIC_CLOUDINARY_API_KEY=${{ vars.NEXT_PUBLIC_CLOUDINARY_API_KEY }}
+            NEXT_PUBLIC_WAVE_MERCHANT_ID=${{ vars.NEXT_PUBLIC_WAVE_MERCHANT_ID }}
+          tags: ${{ needs.tools.outputs.image }}:${{ needs.tools.outputs.tag }}
+          cache-from: type=gha,scope=runner
+          cache-to: type=gha,mode=max,scope=runner
+
+  deploy:
+    name: Déployer sur le serveur
+    runs-on: ubuntu-latest
+    needs: [tools, image]
+    if: always() && (needs.image.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.action == 'rollback'))
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: appleboy/ssh-action@v1.2.0
+        env:
+          EBA_ACTION: ${{ github.event_name == 'workflow_dispatch' && inputs.action || 'deploy' }}
+          EBA_TAG: ${{ needs.tools.outputs.tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: EBA_ACTION,EBA_ENV,EBA_TAG,GHCR_USER,GHCR_TOKEN
+          script_path: deploy/deploy.sh

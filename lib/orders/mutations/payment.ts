@@ -89,7 +89,9 @@ export async function setOrderPayment(
     }
 
     // Plus payée : elle quitte le dispositif de réservation, son stock est rendu.
-    await prisma.$transaction((tx) => releaseHolds(tx, id));
+    await prisma.$transaction((tx) =>
+      releaseHolds(tx, id, { actorId, note: 'Commande dépayée' })
+    );
 
     return { startedPreparation: false };
   }
@@ -147,6 +149,7 @@ export async function setOrderPayment(
       const reserved = startedPreparation
         ? await reserveStockOnce(tx, id, items, {
             coverShortage: opts?.coverShortage,
+            actorId,
           })
         : false;
 

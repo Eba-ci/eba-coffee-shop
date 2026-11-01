@@ -15,9 +15,14 @@ import { coverShortageForOrderItems } from './shortage';
 // Seul chemin autorisé à remettre `stockReservedAt` à null (commande jamais payée).
 export function releaseUnpaidStockHold(
   tx: Prisma.TransactionClient,
-  items: CartItem[]
+  items: CartItem[],
+  orderId?: string
 ): Promise<void> {
-  return resyncStockForItemChange(tx, items, [], true);
+  return resyncStockForItemChange(tx, items, [], true, false, {
+    orderId,
+    source: 'SYSTEM',
+    removeReason: 'EXPIRY_RELEASE',
+  });
 }
 
 // Verrou `Order.stockReservedAt` : décrément au plus une fois par commande.
@@ -25,8 +30,9 @@ export async function reserveStockOnce(
   tx: Prisma.TransactionClient,
   orderId: string,
   items: CartItem[],
-  opts?: { coverShortage?: boolean }
+  opts?: { coverShortage?: boolean; actorId?: string | null }
 ): Promise<boolean> {
+  const ctx = { orderId, actorId: opts?.actorId ?? null };
   const claim = await tx.order.updateMany({
     where: { id: orderId, stockReservedAt: null },
     data: { stockReservedAt: new Date() },
@@ -40,13 +46,13 @@ export async function reserveStockOnce(
   const held = await loadHolds(tx, orderId);
 
   if (opts?.coverShortage) {
-    await coverShortageForOrderItems(tx, items, held);
+    await coverShortageForOrderItems(tx, items, held, ctx);
   }
 
   if (held.size > 0) {
-    await decrementResidualNeeds(tx, orderId, items, held);
+    await decrementResidualNeeds(tx, orderId, items, held, ctx);
   } else {
-    await decrementStockForOrderItems(tx, items);
+    await decrementStockForOrderItems(tx, items, ctx);
   }
   return true;
 }

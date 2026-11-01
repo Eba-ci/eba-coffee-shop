@@ -20,6 +20,7 @@ import {
   readStockByKeys,
   releaseStaleHolds,
 } from './holds';
+import { logStockChange } from '@/lib/stock-history/record';
 import { computeHolds, needsToMap, parseHoldKey, type HoldMap } from './keys';
 
 const BATCH_SIZE = 50;
@@ -29,7 +30,8 @@ export type ReserveResult = { orders: number; units: number };
 async function takeFromStock(
   tx: Prisma.TransactionClient,
   key: string,
-  quantity: number
+  quantity: number,
+  orderId: string
 ): Promise<boolean> {
   const { kind, id } = parseHoldKey(key);
   // Gardé par le stock : une vente concurrente qui a déjà pris l'unité fait échouer la réservation.
@@ -43,7 +45,15 @@ async function takeFromStock(
           where: { id, stockQuantity: { gte: quantity } },
           data: { stockQuantity: { decrement: quantity } },
         });
-  return res.count === 1;
+  if (res.count !== 1) return false;
+  await logStockChange(tx, {
+    kind,
+    resourceId: id,
+    reason: 'HOLD_RESERVE',
+    delta: -quantity,
+    ctx: { orderId, source: 'SYSTEM' },
+  });
+  return true;
 }
 
 async function reserveOne(
@@ -74,7 +84,7 @@ async function reserveOne(
 
   let units = 0;
   for (const [key, quantity] of toHold) {
-    if (!(await takeFromStock(tx, key, quantity))) continue;
+    if (!(await takeFromStock(tx, key, quantity, orderId))) continue;
     const { kind, id } = parseHoldKey(key);
     await tx.orderStockHold.upsert({
       where: {

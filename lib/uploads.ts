@@ -1,22 +1,6 @@
-// Persistance des images uploadées (dashboard multipart, MCP base64, URL distante). Implémentation dans `lib/uploads/`.
+// Chemins des fichiers historiques de `public/uploads` (lecture seule : route `/uploads` + backfill Cloudinary).
+// Plus aucune écriture disque : les nouveaux uploads passent tous par `lib/cloudinary.ts`.
 
 export { uploadsBaseDir } from './uploads/paths';
 export type { UploadSubdir } from './uploads/paths';
-export { saveImage, saveImageFromBase64 } from './uploads/save';
-export { saveImageFromUrl } from './uploads/remote';
-export {
-  saveProductImage,
-  saveProductImageFromBase64,
-  saveProductImageFromUrl,
-  saveReceiptImage,
-  saveReceiptImageFromBase64,
-  saveReceiptImageFromUrl,
-  savePollOptionImage,
-  savePollOptionImageFromBase64,
-  savePollOptionImageFromUrl,
-  savePollSuggestionImage,
-  savePollImage,
-  savePollImageFromBase64,
-  savePollImageFromUrl,
-  saveTiktokThumbnailFromUrl,
-} from './uploads/presets';
+export { fetchRemoteImage } from './uploads/remote';

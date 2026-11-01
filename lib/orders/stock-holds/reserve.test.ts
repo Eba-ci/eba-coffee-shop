@@ -1,5 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('@/lib/stock-history/record', async () =>
+  (await import('@/lib/stock-history/test-mocks')).recordMock()
+);
+vi.mock('@/lib/stock-history/lifecycle', async () =>
+  (await import('@/lib/stock-history/test-mocks')).lifecycleMock()
+);
+vi.mock('@/lib/stock-history/lock', async () =>
+  (await import('@/lib/stock-history/test-mocks')).lockMock()
+);
+
 vi.mock('@/lib/prisma', async () =>
   (await import('@/lib/orders/mutations/test-mocks')).prismaModuleMock()
 );

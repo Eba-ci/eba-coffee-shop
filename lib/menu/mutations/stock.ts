@@ -1,13 +1,20 @@
 import prisma from '@/lib/prisma';
 import { triggerRestockAlerts } from '@/lib/restock-alerts';
 import { reserveForScheduledOrdersSafe } from '@/lib/orders/stock-holds';
+import { logStockChange, logStockSet } from '@/lib/stock-history/record';
+import { lockStock } from '@/lib/stock-history/lock';
+import type { StockKind, StockReason } from '@/lib/stock-history/types';
 
 /**
  * Options d'une mise à jour de stock. `reserveForScheduled: false` garde le stock
  * au comptoir (cas « cette fournée n'est pas pour les programmées ») ; par défaut,
  * les programmées payées du jour prennent leur part, par heure de retrait.
+ * `actorId` : la personne à l'origine du geste (journal du stock).
  */
-export type StockWriteOptions = { reserveForScheduled?: boolean };
+export type StockWriteOptions = {
+  reserveForScheduled?: boolean;
+  actorId?: string | null;
+};
 
 async function afterStockChange(opts?: StockWriteOptions) {
   triggerRestockAlerts();
@@ -16,78 +23,116 @@ async function afterStockChange(opts?: StockWriteOptions) {
   }
 }
 
-export async function setProductStock(
+const NOT_FOUND: Record<StockKind, string> = {
+  PRODUCT: 'Produit introuvable',
+  OPTION: 'Option introuvable',
+};
+
+/** Pose une valeur absolue et la journalise. */
+async function setStock(
+  kind: StockKind,
   id: string,
   quantity: number | null,
+  reason: StockReason,
   opts?: StockWriteOptions
 ) {
-  const p = await prisma.product.findUnique({ where: { id } });
-  if (!p) throw new Error('Produit introuvable');
-  const updated = await prisma.product.update({
-    where: { id },
-    data: { stockQuantity: quantity },
+  const updated = await prisma.$transaction(async (tx) => {
+    const before = await lockStock(tx, kind, id);
+    if (before === undefined) throw new Error(NOT_FOUND[kind]);
+    const row =
+      kind === 'PRODUCT'
+        ? await tx.product.update({
+            where: { id },
+            data: { stockQuantity: quantity },
+          })
+        : await tx.supplementOption.update({
+            where: { id },
+            data: { stockQuantity: quantity },
+          });
+    await logStockSet(tx, {
+      kind,
+      resourceId: id,
+      reason,
+      before,
+      after: quantity,
+      ctx: { actorId: opts?.actorId },
+    });
+    return row;
   });
   await afterStockChange(opts);
   return updated;
 }
 
-export async function setOptionStock(
-  id: string,
-  quantity: number | null,
-  opts?: StockWriteOptions
-) {
-  const o = await prisma.supplementOption.findUnique({ where: { id } });
-  if (!o) throw new Error('Option introuvable');
-  const updated = await prisma.supplementOption.update({
-    where: { id },
-    data: { stockQuantity: quantity },
-  });
-  await afterStockChange(opts);
-  return updated;
-}
-
-export async function restockProduct(
+/** Ajoute (ou retire) des unités et le journalise ; jamais sous zéro. */
+async function restock(
+  kind: StockKind,
   id: string,
   delta: number,
   opts?: StockWriteOptions
 ) {
-  const p = await prisma.product.findUnique({
-    where: { id },
-    select: { stockQuantity: true },
-  });
-  if (!p) throw new Error('Produit introuvable');
-  if (p.stockQuantity === null) {
-    throw new Error(
-      'Produit à stock illimité : impossible de réapprovisionner'
-    );
-  }
-  const updated = await prisma.product.update({
-    where: { id },
-    data: { stockQuantity: { increment: delta } },
+  const updated = await prisma.$transaction(async (tx) => {
+    const before = await lockStock(tx, kind, id);
+    if (before === undefined) throw new Error(NOT_FOUND[kind]);
+    if (before === null) {
+      throw new Error(
+        kind === 'PRODUCT'
+          ? 'Produit à stock illimité : impossible de réapprovisionner'
+          : 'Option à stock illimité : impossible de réapprovisionner'
+      );
+    }
+    if (before + delta < 0) {
+      throw new Error(
+        `Stock insuffisant : ${before} en stock, impossible de retirer ${-delta}`
+      );
+    }
+    const data = { stockQuantity: { increment: delta } };
+    const row =
+      kind === 'PRODUCT'
+        ? await tx.product.update({ where: { id }, data })
+        : await tx.supplementOption.update({ where: { id }, data });
+    await logStockChange(tx, {
+      kind,
+      resourceId: id,
+      reason: 'MANUAL_RESTOCK',
+      delta,
+      ctx: { actorId: opts?.actorId },
+    });
+    return row;
   });
   await afterStockChange(opts);
   return updated;
 }
 
-export async function restockOption(
+export function setProductStock(
+  id: string,
+  quantity: number | null,
+  opts?: StockWriteOptions
+) {
+  return setStock('PRODUCT', id, quantity, 'MANUAL_SET', opts);
+}
+
+export function setOptionStock(
+  id: string,
+  quantity: number | null,
+  opts?: StockWriteOptions
+) {
+  return setStock('OPTION', id, quantity, 'MANUAL_SET', opts);
+}
+
+export function restockProduct(
   id: string,
   delta: number,
   opts?: StockWriteOptions
 ) {
-  const o = await prisma.supplementOption.findUnique({
-    where: { id },
-    select: { stockQuantity: true },
-  });
-  if (!o) throw new Error('Option introuvable');
-  if (o.stockQuantity === null) {
-    throw new Error('Option à stock illimité : impossible de réapprovisionner');
-  }
-  const updated = await prisma.supplementOption.update({
-    where: { id },
-    data: { stockQuantity: { increment: delta } },
-  });
-  await afterStockChange(opts);
-  return updated;
+  return restock('PRODUCT', id, delta, opts);
+}
+
+export function restockOption(
+  id: string,
+  delta: number,
+  opts?: StockWriteOptions
+) {
+  return restock('OPTION', id, delta, opts);
 }
 
 export async function setOptionStockByRef(
@@ -114,12 +159,13 @@ export async function setOptionStockByRef(
   });
   if (!option) throw new Error('Option introuvable');
 
-  const updated = await prisma.supplementOption.update({
-    where: { id: option.id },
-    data: { stockQuantity: input.stock },
-    select: { stockQuantity: true },
-  });
-  await afterStockChange(opts);
+  const updated = await setStock(
+    'OPTION',
+    option.id,
+    input.stock,
+    'MANUAL_SET',
+    opts
+  );
   return { stockQuantity: updated.stockQuantity };
 }
 
@@ -130,17 +176,12 @@ export async function setProductStockById(
   },
   opts?: StockWriteOptions
 ): Promise<{ stockQuantity: number | null }> {
-  const product = await prisma.product.findUnique({
-    where: { id: input.productId },
-    select: { id: true },
-  });
-  if (!product) throw new Error('Produit introuvable');
-
-  const updated = await prisma.product.update({
-    where: { id: input.productId },
-    data: { stockQuantity: input.stock },
-    select: { stockQuantity: true },
-  });
-  await afterStockChange(opts);
+  const updated = await setStock(
+    'PRODUCT',
+    input.productId,
+    input.stock,
+    'MANUAL_SET',
+    opts
+  );
   return { stockQuantity: updated.stockQuantity };
 }

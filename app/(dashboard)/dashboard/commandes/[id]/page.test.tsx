@@ -25,6 +25,10 @@ vi.mock('next/link', () => ({
     React.createElement('a', { href }, children),
 }));
 
+vi.mock('./_components/order-stock-card', () => ({
+  OrderStockCard: () => null,
+}));
+
 vi.mock('./status-buttons', () => ({
   StatusButtons: ({ currentStatus }: { currentStatus: string }) =>
     React.createElement('div', { 'data-status': currentStatus }),

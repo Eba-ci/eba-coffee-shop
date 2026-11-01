@@ -7,6 +7,16 @@ const catFindUnique = vi.fn();
 const schedFindUnique = vi.fn();
 const triggerRestockAlerts = vi.fn();
 
+vi.mock('@/lib/stock-history/record', async () =>
+  (await import('@/lib/stock-history/test-mocks')).recordMock()
+);
+vi.mock('@/lib/stock-history/lifecycle', async () =>
+  (await import('@/lib/stock-history/test-mocks')).lifecycleMock()
+);
+vi.mock('@/lib/stock-history/lock', async () =>
+  (await import('@/lib/stock-history/test-mocks')).lockMock()
+);
+
 vi.mock('@/lib/prisma', () => {
   const client = {
     product: {
