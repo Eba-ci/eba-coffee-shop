@@ -35,11 +35,13 @@ export function useProductForm({
   initial,
   defaultTab,
   hasStats,
+  hasStock,
 }: {
   categoryId: string;
   initial?: ProductFormInitial;
   defaultTab?: string;
   hasStats: boolean;
+  hasStock: boolean;
 }) {
   const router = useRouter();
   const { pushToast } = useUndoToast();
@@ -50,7 +52,9 @@ export function useProductForm({
   const [confirmLeave, setConfirmLeave] = useState(false);
 
   const [tab, setTab] = useState<TabValue>(() =>
-    isTabValue(defaultTab) && (defaultTab !== 'stats' || hasStats)
+    isTabValue(defaultTab) &&
+    (defaultTab !== 'stats' || hasStats) &&
+    (defaultTab !== 'stock' || hasStock)
       ? defaultTab
       : 'essentiel'
   );

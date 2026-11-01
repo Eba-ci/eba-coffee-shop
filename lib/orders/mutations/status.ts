@@ -35,6 +35,7 @@ export async function setOrderStatus(
       total: true,
       loyaltyRewardId: true,
       paymentExpiresAt: true,
+      stockReservedAt: true,
     },
   });
   if (!order) {
@@ -89,6 +90,21 @@ export async function setOrderStatus(
       );
     }
     return;
+  }
+
+  // Une annulée avant lancement (ou une expirée) n'a rien décompté : la servir
+  // directement (READY / COMPLETED) la sortirait sans toucher au stock, donc à
+  // la merci d'une double vente. Il faut repasser par la caisse ou la cuisine,
+  // qui décomptent (`reserveStockOnce`).
+  if (
+    order.status === 'CANCELLED' &&
+    (newStatus === 'READY' || newStatus === 'COMPLETED') &&
+    order.stockReservedAt === null
+  ) {
+    throw new OrderMutationError(
+      'Stock non décompté pour cette commande annulée : remettez-la d’abord à encaisser ou en cuisine',
+      409
+    );
   }
 
   if (order.status === 'CANCELLED' && newStatus === 'NEW' && order.isPaid) {

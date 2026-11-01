@@ -1,5 +1,6 @@
 import { getAllOptionStock } from '@/lib/menu';
 import { getPendingOptionDemand } from '@/lib/orders/pending-demand';
+import { getLastMovements } from '@/lib/stock-history/last-movements';
 import { OptionsStockTable } from './options-stock-table';
 
 // Données live + `OptionsStockTable` lit la recherche dans l'URL
@@ -12,10 +13,22 @@ export default async function StockSupplementsPage() {
     getPendingOptionDemand(),
   ]);
 
-  const withPending = rows.map((r) => ({
-    ...r,
-    pending: pendingByOption.get(r.id) ?? 0,
-  }));
+  const lastMovements = await getLastMovements(rows.map((r) => r.id));
+  const withPending = rows.map((r) => {
+    const last = lastMovements.get(r.id);
+    return {
+      ...r,
+      pending: pendingByOption.get(r.id) ?? 0,
+      // Date en ISO : la ligne traverse la frontière serveur → client.
+      lastMovement: last
+        ? {
+            delta: last.delta,
+            reason: last.reason,
+            createdAt: last.createdAt.toISOString(),
+          }
+        : null,
+    };
+  });
 
   return (
     <div className="space-y-6">

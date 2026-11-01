@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { getOrder } from '@/lib/orders';
 import { getMenu } from '@/lib/menu';
@@ -19,6 +20,7 @@ import { OrderDetailsCard } from './_components/order-details-card';
 import { OrderHeader } from './_components/order-header';
 import { OrderItemsCard } from './_components/order-items-card';
 import { OrderRefundsCard } from './_components/order-refunds-card';
+import { OrderStockCard } from './_components/order-stock-card';
 
 export default async function CommandeDetailPage({
   params,
@@ -89,6 +91,10 @@ export default async function CommandeDetailPage({
           customerPhone: order.customerPhone,
         }}
       />
+
+      <Suspense fallback={null}>
+        <OrderStockCard orderId={order.id} />
+      </Suspense>
 
       <OrderItemsCard
         order={order}

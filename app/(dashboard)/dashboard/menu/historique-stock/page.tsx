@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { ROLE_GROUPS, requireRoleOrAnalyst } from '@/lib/auth-helpers';
 import { Pagination } from '@/components/(dashboard)/pagination';
 import { runStockAudit } from '@/lib/stock-history/audit';
@@ -9,7 +10,7 @@ import {
 import { AuditPanel } from './_components/audit-panel';
 import { HistoryToolbar } from './_components/history-toolbar';
 import { MovementsTable } from './_components/movements-table';
-import { ReasonSummary } from './_components/reason-summary';
+import { ReasonSummary } from '@/components/(dashboard)/stock-history/reason-summary';
 import {
   parseStockHistorySearchParams,
   type StockHistorySearchParams,
@@ -55,6 +56,12 @@ export default async function StockHistoryPage({
           {' · '}
           {list.total} mouvement{list.total > 1 ? 's' : ''}
         </p>
+        <Link
+          href="/dashboard/menu/historique-stock/audit"
+          className="mt-1 inline-block py-1.5 text-sm font-medium text-primary underline-offset-2 hover:underline"
+        >
+          Audit par commande : le stock a-t-il bien baissé à chaque vente ? →
+        </Link>
       </div>
 
       <AuditPanel audit={audit} canFix={canFix} />

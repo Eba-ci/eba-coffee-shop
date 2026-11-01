@@ -84,7 +84,7 @@ export type StockMovementRow = {
 };
 
 /** Noms des personnes citées (le journal ne garde que l'id, sans relation). */
-async function actorNames(ids: string[]): Promise<Map<string, string>> {
+export async function actorNames(ids: string[]): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map();
   const users = await prisma.user.findMany({
     where: { id: { in: ids } },

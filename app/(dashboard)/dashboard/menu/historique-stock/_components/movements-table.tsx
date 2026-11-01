@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { StockMovementRow } from '@/lib/stock-history/queries';
-import { ReasonChip } from './reason-chip';
+import { ReasonChip } from '@/components/(dashboard)/stock-history/reason-chip';
 
 const SOURCE_LABELS = {
   STAFF: 'Équipe',

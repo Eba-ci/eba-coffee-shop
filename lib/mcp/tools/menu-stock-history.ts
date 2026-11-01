@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import { runStockAudit } from '@/lib/stock-history/audit';
+import { loadOrderLedger } from '@/lib/stock-history/order-audit-query';
 import {
   getStockMovementSummary,
   listStockMovements,
@@ -58,6 +59,16 @@ const listSchema = z.object({
 });
 
 const summarySchema = z.object(filterShape);
+
+const orderAuditSchema = z.object({
+  productId: idSchema.optional().describe('Commandes contenant ce produit.'),
+  from: filterShape.from,
+  to: filterShape.to,
+  onlyIssues: z
+    .boolean()
+    .optional()
+    .describe('true (défaut) : défauts et avertissements seulement.'),
+});
 
 function toFilters(
   a: z.infer<typeof summarySchema>
@@ -138,6 +149,63 @@ export const menuStockHistoryTools: McpTool[] = [
     readOnly: true,
     handler: (args) =>
       getStockMovementSummary(toFilters(summarySchema.parse(args))),
+  },
+  {
+    name: 'get_stock_order_audit',
+    toolset: 'menu',
+    title: 'Audit du stock par commande',
+    description:
+      'Pour chaque commande LANCÉE en cuisine (ou servie), compare ce qu’elle ' +
+      'devait décompter au stock à ce que le journal a réellement décompté. ' +
+      'Répond à « le stock ne baisse pas » / risque de double vente. Chaque ' +
+      'commande renvoie un `verdict` (ok, missing = non ou partiellement ' +
+      'décomptée, excess, unknown = option introuvable), une `explanation` en ' +
+      'français (stock illimité, non lancée, différée, annulée après lancement…), ' +
+      '`defect: true` pour les cas à traiter (lancée sans décompte, servie sans ' +
+      'avoir été lancée) et les lignes `consumed`/`needed` par produit et goût. ' +
+      'Par défaut seuls les défauts et avertissements sont renvoyés ' +
+      '(`onlyIssues: false` pour tout). Filtre `productId` et dates. Ne juge ' +
+      'que les commandes lancées après le début du journal (`journalStart`).',
+    inputSchema: orderAuditSchema,
+    readOnly: true,
+    handler: async (args) => {
+      const a = orderAuditSchema.parse(args);
+      const filters = toFilters(a);
+      const res = await loadOrderLedger(
+        {
+          productId: a.productId,
+          from: filters.from,
+          toExclusive: filters.toExclusive,
+          onlyIssues: a.onlyIssues ?? true,
+        },
+        'audit'
+      );
+      return {
+        journalStart: res.journalStart?.toISOString() ?? null,
+        examined: res.examined,
+        defects: res.defects,
+        warnings: res.warnings,
+        orders: res.orders.map((o) => ({
+          orderId: o.id,
+          orderNumber: o.dailyNumber,
+          createdAt: o.createdAt.toISOString(),
+          status: o.status,
+          isPaid: o.isPaid,
+          stockReservedAt: o.stockReservedAt?.toISOString() ?? null,
+          verdict: o.verdict,
+          defect: o.defect,
+          explanation: o.explanation.label,
+          lines: o.lines.map((l) => ({
+            kind: l.kind,
+            resourceId: l.resourceId,
+            label: l.label,
+            needed: l.needed,
+            consumed: l.consumed,
+            status: l.status,
+          })),
+        })),
+      };
+    },
   },
   {
     name: 'get_stock_audit',
