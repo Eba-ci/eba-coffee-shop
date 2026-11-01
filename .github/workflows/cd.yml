@@ -1,82 +1,159 @@
 name: CD
 
+# La CI tourne déjà sur chaque push master (ci.yml) : on attend sa fin au lieu de
+# la relancer, et on construit exactement le commit qu'elle a validé.
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
     branches: [master]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'deploy = construire et déployer ; rollback = relancer le tag précédent'
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
 
 concurrency:
-  group: deploy
+  group: deploy-production
   cancel-in-progress: false
 
-jobs:
-  deploy:
-    name: Deploy to VPS
-    runs-on: ubuntu-latest
-    if: github.event.workflow_run.conclusion == 'success'
+permissions:
+  contents: read
+  packages: write
 
+env:
+  EBA_ENV: production
+  # Commit validé par la CI (workflow_run) ; sinon le commit du lancement manuel.
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  tools:
+    name: Image d'outils
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') || inputs.action == 'deploy'
+    environment: production
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      image: ${{ steps.meta.outputs.image }}
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+      - id: meta
+        run: |
+          echo "tag=sha-${SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: tools
+          push: true
+          pull: true
+          tags: ${{ steps.meta.outputs.image }}-tools:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=tools
+          cache-to: type=gha,mode=max,scope=tools
+
+  schema:
+    name: Schéma de la base
+    runs-on: ubuntu-latest
+    needs: tools
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+      - uses: appleboy/ssh-action@v1.2.0
+        env:
+          EBA_ACTION: schema
+          EBA_TAG: ${{ needs.tools.outputs.tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          script: |
-            set -e
-            source "$HOME/.nvm/nvm.sh"
-            cd /var/www/eba-coffee
-            # env.d.ts est généré (varlock typegen, au postinstall) et n'est
-            # plus versionné : on le supprime avant le pull pour que d'anciennes
-            # modifications locales ne bloquent jamais le merge.
-            rm -f env.d.ts
-            OLD_SHA=$(git rev-parse HEAD)
-            git pull origin master
-            NEW_SHA=$(git rev-parse HEAD)
+          envs: EBA_ACTION,EBA_ENV,EBA_TAG,GHCR_USER,GHCR_TOKEN
+          script_path: deploy/deploy.sh
 
-            if [ "$OLD_SHA" = "$NEW_SHA" ]; then
-              echo "Aucun nouveau commit, déploiement ignoré."
-              exit 0
-            fi
+  image:
+    name: Image de l'application
+    runs-on: ubuntu-latest
+    needs: [tools, schema]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+      - name: Open SSH tunnel
+        env:
+          KEY: ${{ secrets.DB_TUNNEL_KEY }}
+          HOST_FP: ${{ vars.VPS_HOST_FINGERPRINT }}
+          HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/tunnel && chmod 600 ~/.ssh/tunnel
+          ssh-keyscan -T 10 -t ed25519 "$HOST" > ~/.ssh/known_hosts 2>/dev/null
+          [ "$(ssh-keygen -lf ~/.ssh/known_hosts | cut -d' ' -f2)" = "$HOST_FP" ] \
+            || { echo "Empreinte du serveur inattendue"; exit 1; }
+          ssh -i ~/.ssh/tunnel -o BatchMode=yes -o ConnectTimeout=15 \
+            -o StrictHostKeyChecking=yes -o ExitOnForwardFailure=yes \
+            -N -f -L 127.0.0.1:5432:127.0.0.1:5432 "eba-tunnel@$HOST"
+      - uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: network=host
+          buildkitd-flags: --allow-insecure-entitlement network.host
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          push: true
+          pull: true
+          network: host
+          allow: network.host
+          secrets: |
+            db_url=${{ secrets.BUILD_DATABASE_URL }}
+          build-args: |
+            NEXT_DEPLOYMENT_ID=${{ env.SHA }}
+            NEXT_PUBLIC_SITE_URL=${{ vars.NEXT_PUBLIC_SITE_URL }}
+            NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=${{ vars.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
+            NEXT_PUBLIC_CLOUDINARY_API_KEY=${{ vars.NEXT_PUBLIC_CLOUDINARY_API_KEY }}
+            NEXT_PUBLIC_WAVE_MERCHANT_ID=${{ vars.NEXT_PUBLIC_WAVE_MERCHANT_ID }}
+          tags: ${{ needs.tools.outputs.image }}:${{ needs.tools.outputs.tag }}
+          cache-from: type=gha,scope=runner
+          cache-to: type=gha,mode=max,scope=runner
 
-            pnpm install --frozen-lockfile
-            # Idempotent (sans doublon de casse, ne fait rien). Doit précéder
-            # db:push : la colonne email en citext rejetterait le push tant
-            # qu'il reste des comptes qui ne diffèrent que par la casse.
-            pnpm db:merge-duplicate-emails
-            pnpm db:push
-            pnpm db:trigger
-            # Index partiel que Prisma ne sait pas décrire (idempotent).
-            pnpm db:indexes
-
-            # Rebuild Next.js uniquement si un fichier qui alimente réellement
-            # le build a changé. Allowlist plutôt que denylist : la liste des
-            # sources d'un build Next.js est bornée par l'architecture du
-            # projet, contrairement à la liste des dossiers de config d'outils
-            # annexes (docs, CI, assistants IA…) qui ne fait que croître.
-            BUILD_INPUTS="app components lib config emails hooks patches prisma prisma.config.ts .env.schema .npmrc pnpm-workspace.yaml next.config.ts package.json pnpm-lock.yaml postcss.config.mjs tsconfig.json"
-            if ! git diff --quiet "$OLD_SHA" "$NEW_SHA" -- $BUILD_INPUTS; then
-              # Même fuseau qu'au runtime (cf. ecosystem.config.cjs) : le build
-              # prérend des pages, et une date figée dans le fuseau du VPS
-              # ressortirait décalée par rapport au serveur qui les sert.
-              #
-              # Le build est tué par le noyau (exit 137, OOM) quand le VPS
-              # manque de RAM : on plafonne le tas Node pour que le GC
-              # travaille plus tôt, et on ajoute un swap temporaire s'il n'y
-              # en a pas (sans effet si sudo sans mot de passe est absent).
-              if [ "$(swapon --show --noheadings | wc -l)" = "0" ] && sudo -n true 2>/dev/null; then
-                sudo -n fallocate -l 2G /swapfile-build \
-                  && sudo -n chmod 600 /swapfile-build \
-                  && sudo -n mkswap /swapfile-build >/dev/null \
-                  && sudo -n swapon /swapfile-build \
-                  && echo "Swap temporaire de 2G activé pour le build." \
-                  || echo "Swap non activé, build sans swap."
-              fi
-              free -m || true
-              NODE_OPTIONS="--max-old-space-size=1536" NEXT_DEPLOYMENT_ID="$NEW_SHA" TZ=UTC pnpm build
-            else
-              echo "Aucun fichier source du build modifié, rebuild Next.js ignoré."
-            fi
-
-            pm2 startOrReload ecosystem.config.cjs --update-env
+  deploy:
+    name: Déployer sur le serveur
+    runs-on: ubuntu-latest
+    needs: [tools, image]
+    if: always() && (needs.image.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.action == 'rollback'))
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+      - uses: appleboy/ssh-action@v1.2.0
+        env:
+          EBA_ACTION: ${{ github.event_name == 'workflow_dispatch' && inputs.action || 'deploy' }}
+          EBA_TAG: ${{ needs.tools.outputs.tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: EBA_ACTION,EBA_ENV,EBA_TAG,GHCR_USER,GHCR_TOKEN
+          script_path: deploy/deploy.sh

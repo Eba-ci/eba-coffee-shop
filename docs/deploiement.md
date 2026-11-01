@@ -1,6 +1,6 @@
 # Déploiement Docker
 
-État : **staging uniquement**. La production reste sur `cd.yml` (pm2, `git pull` + build sur le VPS).
+État : **staging** (`cd-staging.yml`, branche `staging`) et **production** (`cd.yml`, branche `master`, après la CI). L'ancien déploiement pm2 est gardé en secours manuel (`cd-pm2-legacy.yml`).
 
 Un seul conteneur par environnement, sans Docker Compose ni blue/green : le remplacement coupe le site quelques secondes. Docker tourne en **rootless** sous l'utilisateur `deploy`.
 
@@ -14,7 +14,9 @@ Un push sur la branche `staging` lance `.github/workflows/cd-staging.yml` :
 3. **image** : tunnel SSH vers Postgres, puis `docker build --network host` (cible `runner`) : le prérendu de `next build` lit `eba_staging` avec le rôle `eba_build`, en lecture seule.
 4. **deploy** (SSH, `deploy.sh deploy`) : pull, remplacement du conteneur `eba-staging`, attente de `/api/health`, retour au tag précédent si le nouveau n'est pas sain.
 
-Port **2001** (`127.0.0.1`, derrière nginx). Tag en service : `~/.local/state/eba/staging/current`, précédent : `previous`.
+Production : même pipeline, après la CI de `master` (`workflow_run`, commit exact validé), environnement GitHub `production`, conteneur `eba-production` sur le port **3001** (celui de pm2 : nginx ne change pas), 1 Go / 1,5 CPU, état dans `~/.local/state/eba/production`. Le schéma suit `db:merge-duplicate-emails`, `db:push`, `db:trigger`, `db:indexes` ; le relevé de départ du stock reste manuel. `deploy.sh` refuse un `.env.production` qui définit `APP_ENV` ou pointe vers une base « staging ». Les uploads historiques (`/var/www/eba-coffee/public/uploads`) sont montés en lecture seule dans `/app/public/uploads` (fichiers lisibles par « others »).
+
+Staging : port **2001** (`127.0.0.1`, derrière nginx). Tag en service : `~/.local/state/eba/staging/current`, précédent : `previous`.
 
 **Rollback** : _Actions → CD Staging → Run workflow → rollback_, ou `bash deploy.sh rollback staging`. Le schéma de la base n'est pas défait.
 
@@ -54,3 +56,14 @@ Le Dockerfile suit `with-docker` (deps → builder → runner). L'URL de la base
 - Limiteurs de débit et throttles par processus : remis à zéro à chaque déploiement.
 - Après un rollback, la première visite d'une page peut voir les données de l'ancien build, puis la page se rafraîchit.
 - Un webhook Jèko reçu pendant la coupure échoue ; Jèko réessaie 3 fois et désactive le webhook après 15 échecs : éviter de déployer pendant un paiement.
+
+## Bascule de la production (pm2 → Docker, une fois)
+
+À préparer **avant** de fusionner dans `master` (sinon le premier push construit une image sans que le serveur soit prêt) :
+
+1. **Base de build** : créer un rôle de build **dédié à la prod** (même modèle que `eba_build`, `SELECT` seulement, `CONNECTION LIMIT 10`) et l'autoriser dans `pg_hba.conf` sur la base de prod uniquement ; vérifier que `eba_build` (staging) ne s'y connecte toujours pas.
+2. **Secrets/variables GitHub, environnement `production`** : secrets `DB_TUNNEL_KEY` (clé `eba-tunnel`, limitée à `permitopen="127.0.0.1:5432"`) et `BUILD_DATABASE_URL` ; variables `VPS_HOST_FINGERPRINT`, `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `NEXT_PUBLIC_CLOUDINARY_API_KEY`, `NEXT_PUBLIC_WAVE_MERCHANT_ID` (valeurs de prod ; une image par environnement).
+3. **Serveur** : `/var/www/eba-coffee/.env.production` d'après `deploy/production.env.example` (chmod 600, sans guillemets) ; `public/uploads` lisible (`chmod -R o+rX`) ; sauvegarde `pg_dump` de la prod.
+4. **Coupure** : le port 3001 est pris par pm2. Au moment de la bascule : `pm2 stop eba-coffee-shop`, puis lancer le déploiement (_Actions → CD → Run workflow → deploy_, ou le merge). Si le conteneur n'est pas sain, `deploy.sh` échoue sans rien casser : `pm2 start eba-coffee-shop` remet l'ancien site (après `docker rm -f eba-production`).
+5. Une fois stable : `pm2 delete eba-coffee-shop`, supprimer `cd-pm2-legacy.yml` et `ecosystem.config.cjs`.
+6. Webhook Jèko : éviter de déployer pendant un paiement (voir limites).
