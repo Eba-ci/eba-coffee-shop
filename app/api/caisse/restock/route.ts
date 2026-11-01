@@ -21,6 +21,7 @@ import { z } from 'zod';
 import { requireCashier } from '@/lib/auth-helpers';
 import { setOptionStockByRef, setProductStockById } from '@/lib/menu-mutations';
 import { revalidatePublicMenu } from '@/lib/revalidate-public-menu';
+import { runWithStockContext } from '@/lib/stock-history/source-context';
 
 // Plafond de garde-fou anti-faute de frappe.
 const MAX_STOCK = 100_000;
@@ -41,8 +42,9 @@ const bodySchema = z.discriminatedUnion('target', [
 ]);
 
 export async function POST(req: Request) {
+  let session;
   try {
-    await requireCashier();
+    session = await requireCashier();
   } catch {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
@@ -68,18 +70,21 @@ export async function POST(req: Request) {
   const body = parsed.data;
 
   try {
-    const result =
-      body.target === 'product'
-        ? await setProductStockById({
-            productId: body.productId,
-            stock: body.stock,
-          })
-        : await setOptionStockByRef({
-            productId: body.productId,
-            groupName: body.groupName,
-            optionName: body.optionName,
-            stock: body.stock,
-          });
+    const result = await runWithStockContext(
+      { source: 'STAFF', actorId: session.user.id },
+      () =>
+        body.target === 'product'
+          ? setProductStockById({
+              productId: body.productId,
+              stock: body.stock,
+            })
+          : setOptionStockByRef({
+              productId: body.productId,
+              groupName: body.groupName,
+              optionName: body.optionName,
+              stock: body.stock,
+            })
+    );
     revalidatePublicMenu();
     return NextResponse.json({ ok: true, stockQuantity: result.stockQuantity });
   } catch (err) {

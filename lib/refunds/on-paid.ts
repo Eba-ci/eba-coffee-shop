@@ -102,7 +102,11 @@ export async function settleRefundPaid(args: SettlePaidArgs): Promise<boolean> {
     // remboursée en totalité sort de leurs files.
     if (fullyRefunded) {
       // Pas encore lancée : ses parts réservées retournent au stock.
-      await releaseHolds(tx, refund.orderId);
+      await releaseHolds(tx, refund.orderId, {
+        actorId: args.actorId,
+        refundId: refund.id,
+        note: 'Remboursement total',
+      });
       await tx.$executeRaw`SELECT pg_notify('orders_changed', '')`;
     }
 
@@ -123,7 +127,11 @@ export async function settleRefundPaid(args: SettlePaidArgs): Promise<boolean> {
         !refund.stockRestoredAt &&
         refund.order.stockReservedAt
       ) {
-        await restoreStockForRefundLines(tx, refund.lines);
+        await restoreStockForRefundLines(tx, refund.lines, {
+          orderId: refund.orderId,
+          refundId: refund.id,
+          actorId: args.actorId,
+        });
         await tx.refund.update({
           where: { id: refund.id },
           data: { stockRestoredAt: new Date() },

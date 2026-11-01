@@ -121,6 +121,12 @@ export function ProductTableRow({
       <TableCell>
         <div className="flex items-center gap-1.5">
           <StockBadge stockQuantity={p.stockQuantity} />
+          <Link
+            href={`/dashboard/menu/historique-stock?resource=${p.id}`}
+            className="inline-flex min-h-6 items-center px-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+          >
+            Historique
+          </Link>
           {!!p.pending && (
             <span
               className="text-xs text-amber-700 dark:text-amber-400"

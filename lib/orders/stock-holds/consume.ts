@@ -4,6 +4,8 @@ import type { Prisma } from '@/generated/prisma/client';
 import type { CartItem } from '@/lib/cart-store';
 import { StockShortageError } from '@/lib/orders/mutations/errors';
 import { aggregateStockNeeds } from '@/lib/orders/mutations/stock-needs';
+import { logStockChange } from '@/lib/stock-history/record';
+import type { StockLogCtx } from '@/lib/stock-history/types';
 import { holdKey, type HoldMap } from './keys';
 
 /**
@@ -16,8 +18,10 @@ export async function decrementResidualNeeds(
   tx: Prisma.TransactionClient,
   orderId: string,
   items: CartItem[],
-  held: HoldMap
+  held: HoldMap,
+  ctx?: StockLogCtx
 ): Promise<void> {
+  const log = { ...ctx, orderId };
   const { products, options, unresolved } = await aggregateStockNeeds(
     tx,
     items
@@ -36,6 +40,13 @@ export async function decrementResidualNeeds(
     if (res.count !== 1) {
       throw new StockShortageError(`Stock insuffisant pour « ${need.name} »`);
     }
+    await logStockChange(tx, {
+      kind: 'PRODUCT',
+      resourceId: id,
+      reason: 'ORDER_KITCHEN',
+      delta: -residual,
+      ctx: log,
+    });
   }
 
   for (const [id, need] of options) {
@@ -53,6 +64,13 @@ export async function decrementResidualNeeds(
         `Stock insuffisant pour « ${need.productName} — ${need.optionName} »`
       );
     }
+    await logStockChange(tx, {
+      kind: 'OPTION',
+      resourceId: id,
+      reason: 'ORDER_KITCHEN',
+      delta: -residual,
+      ctx: log,
+    });
   }
 
   for (const need of unresolved.values()) {
@@ -81,6 +99,13 @@ export async function decrementResidualNeeds(
         data: { stockQuantity: { increment: surplus } },
       });
     }
+    await logStockChange(tx, {
+      kind: kind === 'PRODUCT' ? 'PRODUCT' : 'OPTION',
+      resourceId: id,
+      reason: 'HOLD_RELEASE',
+      delta: surplus,
+      ctx: { ...log, note: 'Surplus de réservation rendu au lancement' },
+    });
   }
 
   await tx.orderStockHold.deleteMany({ where: { orderId } });

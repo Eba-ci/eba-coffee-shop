@@ -82,7 +82,11 @@ async function expireOrder(order: Overdue): Promise<boolean> {
     // peut redescendre `stockReservedAt` à `null` sans contredire son
     // irréversibilité habituelle).
     if (order.stockReservedAt) {
-      await releaseUnpaidStockHold(tx, order.items as unknown as CartItem[]);
+      await releaseUnpaidStockHold(
+        tx,
+        order.items as unknown as CartItem[],
+        order.id
+      );
       await tx.order.update({
         where: { id: order.id },
         data: { stockReservedAt: null },

@@ -8,6 +8,8 @@ import { StockShortageError } from './errors';
 import { loadHolds } from '@/lib/orders/stock-holds/holds';
 import type { HoldMap } from '@/lib/orders/stock-holds/keys';
 import { computeShortage } from './stock-needs';
+import { logStockChange } from '@/lib/stock-history/record';
+import type { StockLogCtx } from '@/lib/stock-history/types';
 
 /** Pénurie d'une commande existante, en LECTURE SEULE. */
 export async function getOrderShortage(id: string): Promise<ShortageLine[]> {
@@ -41,7 +43,8 @@ export async function buildShortagePayload(
 export async function coverShortageForOrderItems(
   tx: Prisma.TransactionClient,
   items: CartItem[],
-  held?: HoldMap
+  held?: HoldMap,
+  ctx?: StockLogCtx
 ): Promise<ShortageLine[]> {
   const shortage = await computeShortage(tx, items, held);
   for (const line of shortage) {
@@ -50,10 +53,24 @@ export async function coverShortageForOrderItems(
         where: { id: line.targetId },
         data: { stockQuantity: { increment: line.missing } },
       });
+      await logStockChange(tx, {
+        kind: 'PRODUCT',
+        resourceId: line.targetId,
+        reason: 'SHORTAGE_COVER',
+        delta: line.missing,
+        ctx,
+      });
     } else {
       await tx.supplementOption.update({
         where: { id: line.targetId },
         data: { stockQuantity: { increment: line.missing } },
+      });
+      await logStockChange(tx, {
+        kind: 'OPTION',
+        resourceId: line.targetId,
+        reason: 'SHORTAGE_COVER',
+        delta: line.missing,
+        ctx,
       });
     }
   }

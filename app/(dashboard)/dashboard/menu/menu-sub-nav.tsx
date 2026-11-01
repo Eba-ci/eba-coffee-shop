@@ -8,6 +8,7 @@ const LINKS = [
   { href: '/dashboard/menu', label: 'Catégories' },
   { href: '/dashboard/menu/plannings', label: 'Plannings récurrents' },
   { href: '/dashboard/menu/stock-supplements', label: 'Stock par goût' },
+  { href: '/dashboard/menu/historique-stock', label: 'Historique du stock' },
   { href: '/dashboard/menu/extras-globaux', label: 'Extras globaux' },
   { href: '/dashboard/menu/reglages', label: 'Réglages' },
 ];

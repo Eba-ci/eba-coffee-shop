@@ -23,6 +23,7 @@ import { contactTools } from './contact';
 import { menuCategoriesTools } from './menu-categories';
 import { menuProductsTools } from './menu-products';
 import { menuStockTools } from './menu-stock';
+import { menuStockHistoryTools } from './menu-stock-history';
 import { menuSchedulesTools } from './menu-schedules';
 import { menuExtrasTools } from './menu-extras';
 import { inventoryTools } from './inventory';
@@ -51,6 +52,7 @@ export const tools: McpTool[] = [
   ...menuCategoriesTools,
   ...menuProductsTools,
   ...menuStockTools,
+  ...menuStockHistoryTools,
   ...menuSchedulesTools,
   ...menuExtrasTools,
   ...inventoryTools,

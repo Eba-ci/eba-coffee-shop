@@ -133,6 +133,7 @@ export async function createCashierOrder(input: CreateCashierOrderInput) {
           // Même transaction : une pénurie annule toute la création.
           await reserveStockOnce(tx, created.id, input.items as CartItem[], {
             coverShortage: input.coverShortage,
+            actorId: input.createdById ?? null,
           });
         }
 

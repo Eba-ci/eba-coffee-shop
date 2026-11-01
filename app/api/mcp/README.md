@@ -275,6 +275,9 @@ réduite, voire vide, ce n'est pas une erreur.
 | `toggle_product_featured`        | menu       | écriture | Mettre en avant / retirer un produit                                                         |
 | `set_product_stock`              | menu       | écriture | Définir (absolu) le stock d’un produit                                                       |
 | `bulk_set_product_stock`         | menu       | écriture | Définir (absolu) le stock de jusqu'à 100 produits en une requête atomique                    |
+| `list_stock_movements`           | menu       | lecture  | Historique du stock (produits et goûts) : delta, avant → après, motif, commande, personne    |
+| `get_stock_history_summary`      | menu       | lecture  | Sorties et entrées de stock cumulées par motif (« où est passé le stock ? »)                 |
+| `get_stock_audit`                | menu       | lecture  | Angles morts : écarts avec le journal, stocks sans relevé, négatifs, réservations orphelines |
 | `set_option_stock`               | menu       | écriture | Définir (absolu) le stock d’une option                                                       |
 | `restock_product`                | menu       | écriture | Ajouter une fournée (delta) au stock d’un produit                                            |
 | `restock_option`                 | menu       | écriture | Ajouter une fournée (delta) au stock d’une option                                            |

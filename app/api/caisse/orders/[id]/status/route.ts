@@ -72,10 +72,12 @@ export async function PATCH(req: Request, { params }: Params) {
       await sendOrderToKitchen(id, role, {
         onAccount: true,
         coverShortage: parsed.data.coverShortage,
+        actorId: session.user.id,
       });
     } else {
       await setOrderStatus(id, parsed.data.status, role, {
         coverShortage: parsed.data.coverShortage,
+        actorId: session.user.id,
       });
     }
     return NextResponse.json({ ok: true });

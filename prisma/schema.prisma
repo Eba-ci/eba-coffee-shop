@@ -1385,6 +1385,64 @@ enum StockHoldKind {
   OPTION
 }
 
+// Journal du stock : une ligne par mouvement de `Product.stockQuantity` ou de
+// `SupplementOption.stockQuantity` (vente, réservation, restitution, réappro,
+// réglage manuel…). Append-only, écrit dans la même transaction que le mouvement
+// par `lib/stock-history/record.ts` (seul écrivain). Pas de relation vers la
+// cible ni vers la commande : produit, option ou commande peuvent disparaître,
+// l'historique reste lisible grâce à `label`.
+model StockMovement {
+  id         String              @id @default(cuid())
+  createdAt  DateTime            @default(now())
+  kind       StockHoldKind
+  // `Product.id` ou `SupplementOption.id` selon `kind`.
+  resourceId String
+  // Nom figé au moment du mouvement : « Beignet », « Goûts · Chocolat (Crêpe) ».
+  label      String
+  reason     StockMovementReason
+  source     StockMovementSource @default(STAFF)
+  // Variation signée demandée (négatif = sortie). Renseignée même quand le stock
+  // est illimité (`before`/`after` à null) : on voit alors ce qui se vend.
+  delta      Int?
+  before     Int?
+  after      Int?
+  orderId    String?
+  refundId   String?
+  actorId    String?
+  note       String?
+
+  @@index([resourceId, createdAt(sort: Desc)])
+  @@index([orderId])
+  @@index([createdAt(sort: Desc)])
+  @@index([reason, createdAt(sort: Desc)])
+  @@map("stock_movement")
+}
+
+enum StockMovementSource {
+  STAFF
+  MCP
+  SYSTEM
+}
+
+enum StockMovementReason {
+  BASELINE
+  ORDER_KITCHEN
+  HOLD_RESERVE
+  HOLD_RELEASE
+  ORDER_EDIT_ADD
+  ORDER_EDIT_REMOVE
+  SHORTAGE_COVER
+  REFUND_RESTOCK
+  EXPIRY_RELEASE
+  MANUAL_RESTOCK
+  MANUAL_SET
+  BULK_SET
+  FORM_EDIT
+  CREATED
+  OPTION_REMOVED
+  ANOMALY
+}
+
 model Refund {
   id      String @id @default(cuid())
   orderId String

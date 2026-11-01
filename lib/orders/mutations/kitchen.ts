@@ -16,7 +16,11 @@ import {
 export async function sendOrderToKitchen(
   id: string,
   role: UserRole,
-  opts?: { onAccount?: boolean; coverShortage?: boolean }
+  opts?: {
+    onAccount?: boolean;
+    coverShortage?: boolean;
+    actorId?: string | null;
+  }
 ): Promise<void> {
   const order = await prisma.order.findUnique({
     where: { id },
@@ -60,6 +64,7 @@ export async function sendOrderToKitchen(
       // transaction entière, la commande reste donc là où elle était.
       const claimed = await reserveStockOnce(tx, id, items, {
         coverShortage: opts?.coverShortage,
+        actorId: opts?.actorId,
       });
 
       const result = await tx.order.updateMany({

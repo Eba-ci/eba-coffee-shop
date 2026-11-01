@@ -3,6 +3,9 @@ import prisma from '@/lib/prisma';
 import type { SupplementGroupInput } from '@/lib/schemas/menu';
 import { syncSupplementGroups } from '@/lib/supplement-groups-sync';
 import { triggerRestockAlerts } from '@/lib/restock-alerts';
+import { lockStock } from '@/lib/stock-history/lock';
+import { logCreated } from '@/lib/stock-history/lifecycle';
+import { logStockSet } from '@/lib/stock-history/record';
 import {
   productInputSchema,
   productUpdateSchema,
@@ -17,49 +20,77 @@ export async function createProduct(input: ProductInput) {
     where: { categoryId: data.categoryId, deletedAt: null },
     select: { id: true },
   });
-  return prisma.product.create({
-    data: {
-      categoryId: data.categoryId,
-      name: data.name,
-      description: data.description,
-      price: data.price,
-      coutMatiere: data.coutMatiere,
-      coutEmballage: data.coutEmballage,
-      imageUrl: data.imageUrl ?? null,
-      sortOrder: existing.length,
-      featured: data.featured,
-      featuredOrder: data.featuredOrder,
-      featuredBadge: data.featuredBadge ?? null,
-      stockQuantity: data.stockQuantity ?? null,
-      unavailableUntil: data.unavailableUntil
-        ? new Date(data.unavailableUntil)
-        : null,
-      scheduleId: data.scheduleId ?? null,
-      advanceOrderDays: data.advanceOrderDays ?? null,
-      requiresDeposit: data.requiresDeposit ?? false,
-      preorderable: data.preorderable ?? false,
-      supplementGroups: {
-        create: data.supplementGroups.map((g, gi) => ({
-          name: g.name,
-          kind: g.kind ?? 'extra',
-          type: g.type,
-          required: g.required,
-          available: g.available,
-          minSelect: g.minSelect ?? null,
-          maxSelect: g.maxSelect ?? null,
-          sortOrder: gi,
-          options: {
-            create: g.options.map((o, oi) => ({
-              name: o.name,
-              price: o.price,
-              available: o.available,
-              stockQuantity: o.stockQuantity ?? null,
-              sortOrder: oi,
-            })),
+  return prisma.$transaction(async (tx) => {
+    const created = await tx.product.create({
+      include: {
+        supplementGroups: {
+          include: {
+            options: { select: { id: true, name: true, stockQuantity: true } },
           },
-        })),
+        },
       },
-    },
+      data: {
+        categoryId: data.categoryId,
+        name: data.name,
+        description: data.description,
+        price: data.price,
+        coutMatiere: data.coutMatiere,
+        coutEmballage: data.coutEmballage,
+        imageUrl: data.imageUrl ?? null,
+        sortOrder: existing.length,
+        featured: data.featured,
+        featuredOrder: data.featuredOrder,
+        featuredBadge: data.featuredBadge ?? null,
+        stockQuantity: data.stockQuantity ?? null,
+        unavailableUntil: data.unavailableUntil
+          ? new Date(data.unavailableUntil)
+          : null,
+        scheduleId: data.scheduleId ?? null,
+        advanceOrderDays: data.advanceOrderDays ?? null,
+        requiresDeposit: data.requiresDeposit ?? false,
+        preorderable: data.preorderable ?? false,
+        supplementGroups: {
+          create: data.supplementGroups.map((g, gi) => ({
+            name: g.name,
+            kind: g.kind ?? 'extra',
+            type: g.type,
+            required: g.required,
+            available: g.available,
+            minSelect: g.minSelect ?? null,
+            maxSelect: g.maxSelect ?? null,
+            sortOrder: gi,
+            options: {
+              create: g.options.map((o, oi) => ({
+                name: o.name,
+                price: o.price,
+                available: o.available,
+                stockQuantity: o.stockQuantity ?? null,
+                sortOrder: oi,
+              })),
+            },
+          })),
+        },
+      },
+    });
+    await logCreated(tx, 'PRODUCT', [
+      {
+        id: created.id,
+        stockQuantity: created.stockQuantity,
+        label: created.name,
+      },
+    ]);
+    for (const g of created.supplementGroups) {
+      await logCreated(
+        tx,
+        'OPTION',
+        g.options.map((o) => ({
+          id: o.id,
+          stockQuantity: o.stockQuantity,
+          label: `${created.name} · ${g.name} · ${o.name}`,
+        }))
+      );
+    }
+    return created;
   });
 }
 
@@ -109,10 +140,37 @@ export async function updateProduct(id: string, input: ProductUpdate) {
 
   // Les groupes de suppléments ne sont remplacés QUE s'ils sont fournis. Absents
   // → on ne touche pas aux suppléments existants (pas de transaction inutile).
-  const updated =
-    data.supplementGroups === undefined
-      ? await prisma.product.update({ where: { id }, data: scalar })
-      : await updateSupplementGroups(id, scalar, data.supplementGroups);
+  const touchesStock =
+    data.stockQuantity !== undefined || data.supplementGroups !== undefined;
+  // Ni stock ni suppléments : un simple update, pas de transaction inutile.
+  const updated = !touchesStock
+    ? await prisma.product.update({ where: { id }, data: scalar })
+    : await prisma.$transaction(async (tx) => {
+        // Verrou AVANT l'écriture : `before` est la vraie valeur, pas celle lue plus haut.
+        const stockBefore =
+          data.stockQuantity !== undefined
+            ? await lockStock(tx, 'PRODUCT', id)
+            : undefined;
+        if (data.supplementGroups !== undefined) {
+          await syncSupplementGroups(
+            tx,
+            { productId: id },
+            data.supplementGroups
+          );
+        }
+        const row = await tx.product.update({ where: { id }, data: scalar });
+        if (stockBefore !== undefined) {
+          await logStockSet(tx, {
+            kind: 'PRODUCT',
+            resourceId: id,
+            reason: 'FORM_EDIT',
+            before: stockBefore,
+            after: data.stockQuantity ?? null,
+            label: row.name,
+          });
+        }
+        return row;
+      });
 
   // Stock, pause ou goûts modifiés : un article attendu est peut-être de
   // retour (lib/restock-alerts.ts).

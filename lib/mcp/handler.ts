@@ -21,6 +21,7 @@ import {
   serializeTool,
   stringifyResult,
 } from '@/lib/mcp/format';
+import { runWithStockContext } from '@/lib/stock-history/source-context';
 
 // Dernière version du protocole que l’on connaît. Si le client en demande une
 // autre, on lui renvoie la sienne quand elle nous est connue, sinon la nôtre.
@@ -123,7 +124,9 @@ async function callTool(
   // comme erreur protocolaire : c’est la convention MCP pour que le modèle
   // puisse voir et corriger l’erreur métier.
   try {
-    const data = await tool.handler(parsedArgs.data);
+    const data = await runWithStockContext({ source: 'MCP' }, () =>
+      tool.handler(parsedArgs.data)
+    );
     if (!tool.readOnly) options.onWriteSuccess?.(tool.name);
     // Pas de `structuredContent` : aucun `outputSchema` n'est déclaré et il
     // doublerait le nombre de tokens de chaque réponse.

@@ -8,6 +8,8 @@ import type { Prisma } from '@/generated/prisma/client';
 import type { CartItem } from '@/lib/cart-store';
 import { resolveOptionId } from '@/lib/orders/mutations/stock-needs';
 import type { RefundLineInput } from '@/lib/schemas/refund';
+import { logStockAnomaly, logStockChange } from '@/lib/stock-history/record';
+import type { StockLogCtx } from '@/lib/stock-history/types';
 import { RefundError } from './errors';
 
 /** Refuse toute ligne que la commande ne contient pas (ou en trop grande quantité). */
@@ -68,13 +70,21 @@ type StoredLine = {
  */
 export async function restoreStockForRefundLines(
   tx: Prisma.TransactionClient,
-  lines: StoredLine[]
+  lines: StoredLine[],
+  ctx?: StockLogCtx
 ): Promise<void> {
   for (const line of lines) {
     if (line.kind === 'PRODUCT') {
       await tx.product.update({
         where: { id: line.productId },
         data: { stockQuantity: { increment: line.quantity } },
+      });
+      await logStockChange(tx, {
+        kind: 'PRODUCT',
+        resourceId: line.productId,
+        reason: 'REFUND_RESTOCK',
+        delta: line.quantity,
+        ctx,
       });
       continue;
     }
@@ -85,10 +95,26 @@ export async function restoreStockForRefundLines(
       line.groupName,
       line.optionName
     );
-    if (!optionId) continue;
+    if (!optionId) {
+      await logStockAnomaly(tx, {
+        kind: 'OPTION',
+        resourceId: `${line.productId}:${line.groupName}:${line.optionName}`,
+        label: `${line.groupName} · ${line.optionName}`,
+        note: `Stock non rendu au remboursement : option introuvable ou désactivée (${line.quantity} unité(s))`,
+        ctx,
+      });
+      continue;
+    }
     await tx.supplementOption.update({
       where: { id: optionId },
       data: { stockQuantity: { increment: line.quantity } },
+    });
+    await logStockChange(tx, {
+      kind: 'OPTION',
+      resourceId: optionId,
+      reason: 'REFUND_RESTOCK',
+      delta: line.quantity,
+      ctx,
     });
   }
 }

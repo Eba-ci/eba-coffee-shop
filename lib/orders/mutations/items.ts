@@ -16,7 +16,11 @@ import { resyncStockForItemChange } from './stock-resync';
 export async function updateOrderItems(
   id: string,
   items: CartItem[],
-  opts?: { restoreRemovedStock?: boolean; coverShortage?: boolean }
+  opts?: {
+    restoreRemovedStock?: boolean;
+    coverShortage?: boolean;
+    actorId?: string | null;
+  }
 ): Promise<{ total: number }> {
   if (items.length === 0) {
     throw new OrderMutationError(
@@ -60,7 +64,10 @@ export async function updateOrderItems(
     // Pas encore lancée : ses parts réservées reposent sur l'ancien contenu. On les
     // rend ; le passage ci-dessous les reprend sur le nouveau.
     if (order.stockReservedAt === null) {
-      await releaseHolds(tx, id);
+      await releaseHolds(tx, id, {
+        actorId: opts?.actorId,
+        note: 'Commande modifiée : réservations recalculées',
+      });
     }
 
     if (order.stockReservedAt !== null) {
@@ -69,7 +76,8 @@ export async function updateOrderItems(
         order.items as unknown as CartItem[],
         items,
         opts?.restoreRemovedStock ?? true,
-        opts?.coverShortage ?? false
+        opts?.coverShortage ?? false,
+        { orderId: id, actorId: opts?.actorId }
       );
     }
 

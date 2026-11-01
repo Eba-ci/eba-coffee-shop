@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { BULK_PRODUCTS_MAX } from '@/config/constants';
 import prisma from '@/lib/prisma';
 import { triggerRestockAlerts } from '@/lib/restock-alerts';
+import { reserveForScheduledOrdersSafe } from '@/lib/orders/stock-holds';
+import { logStockSet } from '@/lib/stock-history/record';
 import { productUpdateSchema } from './schemas';
 
 const idField = z.string().min(1, 'Identifiant requis');
@@ -282,8 +284,18 @@ export async function bulkSetProductStock(input: BulkSetProductStockInput) {
         where: { id: r.id },
         data: { stockQuantity: r.to },
       });
+      await logStockSet(tx, {
+        kind: 'PRODUCT',
+        resourceId: r.id,
+        reason: 'BULK_SET',
+        before: r.from,
+        after: r.to,
+        label: r.name,
+      });
     }
   });
   triggerRestockAlerts();
+  // Comme `setProductStock` : les programmées payées du jour prennent leur part.
+  await reserveForScheduledOrdersSafe();
   return report;
 }

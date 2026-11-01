@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Search, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -149,7 +150,15 @@ export function OptionsStockTable({
                 {priceFmt.format(r.price)} FCFA
               </TableCell>
               <TableCell>
-                <StockBadge stockQuantity={r.stockQuantity} />
+                <div className="flex items-center gap-1.5">
+                  <StockBadge stockQuantity={r.stockQuantity} />
+                  <Link
+                    href={`/dashboard/menu/historique-stock?resource=${r.id}`}
+                    className="inline-flex min-h-6 items-center px-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                  >
+                    Historique
+                  </Link>
+                </div>
               </TableCell>
               <TableCell className="hidden sm:table-cell">
                 {r.pending > 0 ? (

@@ -23,7 +23,7 @@ export async function setOrderStatus(
   id: string,
   newStatus: OrderStatus,
   role: UserRole,
-  opts?: { coverShortage?: boolean }
+  opts?: { coverShortage?: boolean; actorId?: string | null }
 ): Promise<void> {
   const order = await prisma.order.findUnique({
     where: { id },
@@ -57,6 +57,7 @@ export async function setOrderStatus(
     try {
       await sendOrderToKitchen(id, role, {
         coverShortage: opts?.coverShortage,
+        actorId: opts?.actorId,
       });
     } catch (err) {
       // Refus (rupture, état modifié…) : la commande reste annulée, son avoir
@@ -128,7 +129,10 @@ export async function setOrderStatus(
     });
     // Annulée avant le lancement : les parts réservées retournent au stock.
     if (updated.count > 0 && newStatus === 'CANCELLED') {
-      await releaseHolds(tx, id);
+      await releaseHolds(tx, id, {
+        actorId: opts?.actorId,
+        note: 'Commande annulée avant le lancement',
+      });
     }
     if (updated.count > 0 && order.customerId) {
       if (newStatus === 'CANCELLED') {

@@ -87,6 +87,7 @@ export async function payAndComplete(
 
       const reserved = await reserveStockOnce(tx, id, items, {
         coverShortage: opts?.coverShortage,
+        actorId,
       });
 
       const result = await tx.order.updateMany({

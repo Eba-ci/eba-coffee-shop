@@ -22,6 +22,9 @@ import {
   type SupplementOptionInput,
 } from '@/lib/schemas/menu';
 import { syncSupplementGroups } from '@/lib/supplement-groups-sync';
+import { lockStock } from '@/lib/stock-history/lock';
+import { logCreated, logOptionsRemoved } from '@/lib/stock-history/lifecycle';
+import { logStockSet } from '@/lib/stock-history/record';
 import { triggerRestockAlerts } from '@/lib/restock-alerts';
 
 export async function createGlobalExtraGroup(input: GlobalExtraGroupInput) {
@@ -93,8 +96,21 @@ export async function updateGlobalExtraGroup(
 // (les commandes le résolvent par nom, cf. lib/order-mutations.ts) — cascade
 // sur ses options.
 export async function deleteGlobalExtraGroup(id: string) {
-  await requireGlobalGroup(id);
-  return prisma.supplementGroup.delete({ where: { id } });
+  const group = await requireGlobalGroup(id);
+  return prisma.$transaction(async (tx) => {
+    const options = await tx.supplementOption.findMany({
+      where: { groupId: id },
+      select: { id: true, name: true, stockQuantity: true },
+    });
+    await logOptionsRemoved(
+      tx,
+      options.map((o) => ({
+        ...o,
+        label: `${group.name} · ${o.name}`,
+      }))
+    );
+    return tx.supplementGroup.delete({ where: { id } });
+  });
 }
 
 export async function createGlobalExtraOption(input: {
@@ -102,7 +118,7 @@ export async function createGlobalExtraOption(input: {
   option: SupplementOptionInput;
 }) {
   const option = supplementOptionSchema.parse(input.option);
-  await requireGlobalGroup(input.groupId);
+  const group = await requireGlobalGroup(input.groupId);
   // Ajout en fin de groupe : sans ce calcul, l'option prendrait le `sortOrder`
   // 0 par défaut et se placerait devant les options existantes.
   const last = await prisma.supplementOption.findFirst({
@@ -110,15 +126,25 @@ export async function createGlobalExtraOption(input: {
     orderBy: { sortOrder: 'desc' },
     select: { sortOrder: true },
   });
-  return prisma.supplementOption.create({
-    data: {
-      name: option.name,
-      price: option.price,
-      available: option.available,
-      stockQuantity: option.stockQuantity ?? null,
-      sortOrder: last ? last.sortOrder + 1 : 0,
-      groupId: input.groupId,
-    },
+  return prisma.$transaction(async (tx) => {
+    const created = await tx.supplementOption.create({
+      data: {
+        name: option.name,
+        price: option.price,
+        available: option.available,
+        stockQuantity: option.stockQuantity ?? null,
+        sortOrder: last ? last.sortOrder + 1 : 0,
+        groupId: input.groupId,
+      },
+    });
+    await logCreated(tx, 'OPTION', [
+      {
+        id: created.id,
+        stockQuantity: created.stockQuantity,
+        label: `${group.name} · ${created.name}`,
+      },
+    ]);
+    return created;
   });
 }
 
@@ -138,17 +164,34 @@ export async function updateGlobalExtraOption(
   input: GlobalExtraOptionUpdate
 ) {
   const data = globalExtraOptionUpdateSchema.parse(input);
-  await requireGlobalOption(id);
-  const updated = await prisma.supplementOption.update({
-    where: { id },
-    data: {
-      ...(data.name !== undefined && { name: data.name }),
-      ...(data.price !== undefined && { price: data.price }),
-      ...(data.available !== undefined && { available: data.available }),
-      ...(data.stockQuantity !== undefined && {
-        stockQuantity: data.stockQuantity,
-      }),
-    },
+  const current = await requireGlobalOption(id);
+  const updated = await prisma.$transaction(async (tx) => {
+    const stockBefore =
+      data.stockQuantity !== undefined
+        ? await lockStock(tx, 'OPTION', id)
+        : undefined;
+    const row = await tx.supplementOption.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.price !== undefined && { price: data.price }),
+        ...(data.available !== undefined && { available: data.available }),
+        ...(data.stockQuantity !== undefined && {
+          stockQuantity: data.stockQuantity,
+        }),
+      },
+    });
+    if (stockBefore !== undefined) {
+      await logStockSet(tx, {
+        kind: 'OPTION',
+        resourceId: id,
+        reason: 'FORM_EDIT',
+        before: stockBefore,
+        after: data.stockQuantity ?? null,
+        label: `${current.group.name} · ${row.name}`,
+      });
+    }
+    return row;
   });
   if (data.stockQuantity !== undefined || data.available !== undefined) {
     triggerRestockAlerts();
@@ -157,6 +200,15 @@ export async function updateGlobalExtraOption(
 }
 
 export async function deleteGlobalExtraOption(id: string) {
-  await requireGlobalOption(id);
-  return prisma.supplementOption.delete({ where: { id } });
+  const option = await requireGlobalOption(id);
+  return prisma.$transaction(async (tx) => {
+    await logOptionsRemoved(tx, [
+      {
+        id,
+        stockQuantity: option.stockQuantity,
+        label: `${option.group.name} · ${option.name}`,
+      },
+    ]);
+    return tx.supplementOption.delete({ where: { id } });
+  });
 }

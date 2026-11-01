@@ -9,6 +9,9 @@
 
 import type { Prisma } from '@/generated/prisma/client';
 import type { SupplementGroupInput } from '@/lib/schemas/menu';
+import { lockStock } from '@/lib/stock-history/lock';
+import { logCreated, logOptionsRemoved } from '@/lib/stock-history/lifecycle';
+import { logStockSet } from '@/lib/stock-history/record';
 
 export type SupplementGroupScope = { productId: string } | { isGlobal: true };
 
@@ -28,6 +31,17 @@ export async function syncSupplementGroups(
     .filter((g) => !keepGroupNames.has(g.name))
     .map((g) => g.id);
   if (removedGroupIds.length > 0) {
+    for (const g of currentGroups) {
+      if (!removedGroupIds.includes(g.id)) continue;
+      await logOptionsRemoved(
+        tx,
+        g.options.map((o) => ({
+          id: o.id,
+          stockQuantity: o.stockQuantity,
+          label: `${g.name} · ${o.name}`,
+        }))
+      );
+    }
     await tx.supplementGroup.deleteMany({
       where: { id: { in: removedGroupIds } },
     });
@@ -46,7 +60,8 @@ export async function syncSupplementGroups(
     const match = currentGroupByName.get(g.name);
 
     if (!match) {
-      await tx.supplementGroup.create({
+      const created = await tx.supplementGroup.create({
+        include: { options: true },
         data: {
           ...groupData,
           kind: g.kind ?? 'extra',
@@ -62,6 +77,15 @@ export async function syncSupplementGroups(
           },
         },
       });
+      await logCreated(
+        tx,
+        'OPTION',
+        created.options.map((o) => ({
+          id: o.id,
+          stockQuantity: o.stockQuantity,
+          label: `${g.name} · ${o.name}`,
+        }))
+      );
       continue;
     }
 
@@ -104,6 +128,10 @@ export async function syncSupplementGroups(
         // décrément réel survenu depuis (vente passée en cuisine). Une
         // option NOUVELLE (branche `create` ci-dessous) n'a rien à perdre :
         // `?? null` s'y applique sans condition.
+        const stockBefore =
+          o.stockQuantity !== undefined
+            ? await lockStock(tx, 'OPTION', optionMatch.id)
+            : undefined;
         await tx.supplementOption.update({
           where: { id: optionMatch.id },
           data: {
@@ -113,21 +141,45 @@ export async function syncSupplementGroups(
             }),
           },
         });
+        if (stockBefore !== undefined) {
+          await logStockSet(tx, {
+            kind: 'OPTION',
+            resourceId: optionMatch.id,
+            reason: 'FORM_EDIT',
+            before: stockBefore,
+            after: o.stockQuantity ?? null,
+            label: `${g.name} · ${o.name}`,
+          });
+        }
       } else {
-        await tx.supplementOption.create({
+        const createdOption = await tx.supplementOption.create({
           data: {
             ...optionData,
             stockQuantity: o.stockQuantity ?? null,
             groupId: match.id,
           },
         });
+        await logCreated(tx, 'OPTION', [
+          {
+            id: createdOption.id,
+            stockQuantity: createdOption.stockQuantity,
+            label: `${g.name} · ${o.name}`,
+          },
+        ]);
       }
     }
 
-    const removedOptionIds = [...currentOptionsByName.values()]
-      .flat()
-      .map((o) => o.id);
+    const removedOptions = [...currentOptionsByName.values()].flat();
+    const removedOptionIds = removedOptions.map((o) => o.id);
     if (removedOptionIds.length > 0) {
+      await logOptionsRemoved(
+        tx,
+        removedOptions.map((o) => ({
+          id: o.id,
+          stockQuantity: o.stockQuantity,
+          label: `${g.name} · ${o.name}`,
+        }))
+      );
       await tx.supplementOption.deleteMany({
         where: { id: { in: removedOptionIds } },
       });
