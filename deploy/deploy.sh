@@ -82,7 +82,9 @@ if [ "$ACTION" = schema ]; then
   docker pull -q "$IMAGE-tools:$TAG" >/dev/null
   docker logout ghcr.io >/dev/null 2>&1 || true
   log "schéma BDD"
-  for task in db:merge-duplicate-emails db:push db:trigger db:indexes; do
+  # Le relevé de départ du journal de stock suit db:push (la table doit exister) ;
+  # idempotent : sans effet quand tout est déjà journalisé.
+  for task in db:merge-duplicate-emails db:push db:trigger db:indexes db:backfill-stock-baseline; do
     docker run --rm --add-host="host.docker.internal:$HOST_ADDR" --env-file "$ENV_FILE" \
       "$IMAGE-tools:$TAG" pnpm "$task"
   done

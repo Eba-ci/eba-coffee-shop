@@ -26,6 +26,7 @@ export function ProductForm({
   schedules,
   defaultTab,
   statsSlot,
+  stockSlot,
 }: {
   categoryId: string;
   initial?: ProductFormInitial;
@@ -34,12 +35,15 @@ export function ProductForm({
   defaultTab?: string;
   /** Contenu de l'onglet « Statistiques », rendu côté serveur ; absent en création. */
   statsSlot?: ReactNode;
+  /** Contenu de l'onglet « Stock » (commandes et mouvements), rendu côté serveur ; absent en création. */
+  stockSlot?: ReactNode;
 }) {
   const form = useProductForm({
     categoryId,
     initial,
     defaultTab,
     hasStats: Boolean(statsSlot),
+    hasStock: Boolean(stockSlot),
   });
   const {
     tab,
@@ -95,6 +99,11 @@ export function ProductForm({
                 Statistiques
               </TabTrigger>
             )}
+            {stockSlot && (
+              <TabTrigger value="stock" hasError={false}>
+                Stock
+              </TabTrigger>
+            )}
           </TabsList>
 
           <EssentielTab form={form} />
@@ -125,6 +134,7 @@ export function ProductForm({
           </TabsContent>
 
           {statsSlot && <TabsContent value="stats">{statsSlot}</TabsContent>}
+          {stockSlot && <TabsContent value="stock">{stockSlot}</TabsContent>}
         </Tabs>
 
         <ActionBar form={form} />

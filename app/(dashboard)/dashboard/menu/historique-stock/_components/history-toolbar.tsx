@@ -74,6 +74,7 @@ export function HistoryToolbar({ from, to, isAll, resourceLabel }: Props) {
             className="w-full sm:w-[260px]"
           />
           <Select
+            id="stock-history-reason-select"
             aria-label="Filtrer par motif"
             placeholder="Tous les motifs"
             size="sm"
@@ -94,6 +95,7 @@ export function HistoryToolbar({ from, to, isAll, resourceLabel }: Props) {
             ))}
           </Select>
           <Select
+            id="stock-history-source-select"
             aria-label="Filtrer par origine"
             placeholder="Toute origine"
             size="sm"

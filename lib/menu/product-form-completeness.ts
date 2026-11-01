@@ -28,6 +28,7 @@ export const TAB_VALUES = [
   'supplements',
   'mise-en-avant',
   'stats',
+  'stock',
 ] as const;
 export type TabValue = (typeof TAB_VALUES)[number];
 
