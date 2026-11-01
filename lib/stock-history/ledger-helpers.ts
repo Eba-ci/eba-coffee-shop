@@ -42,7 +42,7 @@ export function needsOf(
     needs.push({
       kind: 'OPTION',
       resourceId: id,
-      label: `${o.groupName} · ${o.optionName}`,
+      label: `${o.productName} · ${o.groupName} · ${o.optionName}`,
       needed: o.needed,
     });
   }

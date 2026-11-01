@@ -20,6 +20,20 @@ export async function syncSupplementGroups(
   scope: SupplementGroupScope,
   groups: SupplementGroupInput[]
 ): Promise<void> {
+  // Un goût « Caramel » n'est rien sans son produit : le libellé figé dans le
+  // journal porte « Produit · Groupe · Option » (groupes globaux : « Groupe · Option »).
+  const ownerName =
+    'productId' in scope
+      ? (
+          await tx.product.findUnique({
+            where: { id: scope.productId },
+            select: { name: true },
+          })
+        )?.name
+      : undefined;
+  const optionLabel = (group: string, option: string) =>
+    [ownerName, group, option].join(' · ').replace(/^ · /, '');
+
   const currentGroups = await tx.supplementGroup.findMany({
     where: scope,
     include: { options: true },
@@ -38,7 +52,7 @@ export async function syncSupplementGroups(
         g.options.map((o) => ({
           id: o.id,
           stockQuantity: o.stockQuantity,
-          label: `${g.name} · ${o.name}`,
+          label: optionLabel(g.name, o.name),
         }))
       );
     }
@@ -83,7 +97,7 @@ export async function syncSupplementGroups(
         created.options.map((o) => ({
           id: o.id,
           stockQuantity: o.stockQuantity,
-          label: `${g.name} · ${o.name}`,
+          label: optionLabel(g.name, o.name),
         }))
       );
       continue;
@@ -148,7 +162,7 @@ export async function syncSupplementGroups(
             reason: 'FORM_EDIT',
             before: stockBefore,
             after: o.stockQuantity ?? null,
-            label: `${g.name} · ${o.name}`,
+            label: optionLabel(g.name, o.name),
           });
         }
       } else {
@@ -163,7 +177,7 @@ export async function syncSupplementGroups(
           {
             id: createdOption.id,
             stockQuantity: createdOption.stockQuantity,
-            label: `${g.name} · ${o.name}`,
+            label: optionLabel(g.name, o.name),
           },
         ]);
       }
@@ -177,7 +191,7 @@ export async function syncSupplementGroups(
         removedOptions.map((o) => ({
           id: o.id,
           stockQuantity: o.stockQuantity,
-          label: `${g.name} · ${o.name}`,
+          label: optionLabel(g.name, o.name),
         }))
       );
       await tx.supplementOption.deleteMany({

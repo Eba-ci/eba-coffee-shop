@@ -72,6 +72,9 @@ export function compareOrderToJournal(input: {
     const consumed = sumByKey.get(key)?.consumed ?? 0;
     lines.push({
       ...need,
+      // Le libellé figé du journal (« Produit · Groupe · Option ») prime : il
+      // reste juste si l'option est renommée ou si la ligne est partagée.
+      label: sumByKey.get(key)?.label ?? need.label,
       consumed,
       status:
         consumed < need.needed

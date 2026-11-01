@@ -8,6 +8,7 @@ vi.mock('@/lib/prisma', () => ({
       groupBy: vi.fn(),
     },
     user: { findMany: vi.fn() },
+    supplementOption: { findMany: vi.fn() },
     order: { findMany: vi.fn() },
     $queryRaw: vi.fn(),
   },
@@ -47,7 +48,12 @@ describe('listStockMovements', () => {
       { id: 'u1', name: 'Awa', email: 'a@x.ci' },
     ] as never);
     vi.mocked(prisma.order.findMany).mockResolvedValue([
-      { id: 'o1', dailyNumber: 14 },
+      {
+        id: 'o1',
+        dailyNumber: 14,
+        reference: 'EBA-20261101-AB12',
+        customerName: 'Awa K.',
+      },
     ] as never);
   });
 
@@ -64,7 +70,35 @@ describe('listStockMovements', () => {
     expect(res.movements[0]).toMatchObject({
       actorName: 'Awa',
       orderNumber: 14,
+      orderReference: 'EBA-20261101-AB12',
+      orderCustomerName: 'Awa K.',
     });
+  });
+
+  it('les lignes d’un goût affichent « Produit · Groupe · Option » même si le libellé figé est ancien', async () => {
+    findMany.mockResolvedValue([
+      { ...row, kind: 'OPTION', resourceId: 'o1', label: 'Goût · Caramel' },
+      {
+        ...row,
+        id: 'm2',
+        kind: 'OPTION',
+        resourceId: 'gone',
+        label: 'Goût · Menthe',
+      },
+    ] as never);
+    vi.mocked(prisma.supplementOption.findMany).mockResolvedValue([
+      {
+        id: 'o1',
+        name: 'Caramel',
+        group: { name: 'Goût', product: { name: 'Crêpe' } },
+      },
+    ] as never);
+    const res = await listStockMovements({});
+    expect(res.movements.map((m) => m.label)).toEqual([
+      'Crêpe · Goût · Caramel',
+      // Option supprimée : on garde l'instantané du journal.
+      'Goût · Menthe',
+    ]);
   });
 
   it('borne la taille de page', async () => {

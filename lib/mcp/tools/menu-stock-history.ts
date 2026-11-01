@@ -129,6 +129,7 @@ export const menuStockHistoryTools: McpTool[] = [
           after: m.after,
           orderId: m.orderId,
           orderNumber: m.orderNumber,
+          orderReference: m.orderReference,
           refundId: m.refundId,
           actor: m.actorName,
           note: m.note,
@@ -188,6 +189,7 @@ export const menuStockHistoryTools: McpTool[] = [
         orders: res.orders.map((o) => ({
           orderId: o.id,
           orderNumber: o.dailyNumber,
+          orderReference: o.reference,
           createdAt: o.createdAt.toISOString(),
           status: o.status,
           isPaid: o.isPaid,

@@ -20,6 +20,7 @@ import {
   type ResourceLine,
   type StockExplanation,
 } from './order-audit';
+import { currentOptionLabels } from './labels';
 import { actorNames } from './queries';
 import { needsOf, sumsOf, type LedgerMovement } from './ledger-helpers';
 
@@ -31,6 +32,9 @@ export const AUDIT_ORDER_LIMIT = 300;
 export type LedgerOrder = {
   id: string;
   dailyNumber: number;
+  /** Code de la commande et nom du client : de quoi la reconnaître d'un coup d'œil. */
+  reference: string;
+  customerName: string | null;
   createdAt: Date;
   status: string;
   isPaid: boolean;
@@ -145,6 +149,8 @@ export async function loadOrderLedger(
       select: {
         id: true,
         dailyNumber: true,
+        reference: true,
+        customerName: true,
         createdAt: true,
         status: true,
         isPaid: true,
@@ -162,6 +168,9 @@ export async function loadOrderLedger(
   const names = await actorNames([
     ...new Set(moves.flatMap((m) => (m.actorId ? [m.actorId] : []))),
   ]);
+  const optionLabels = await currentOptionLabels(
+    moves.filter((m) => m.kind === 'OPTION').map((m) => m.resourceId)
+  );
   const movesByOrder = new Map<string, LedgerMovement[]>();
   for (const m of moves) {
     if (!m.orderId) continue;
@@ -171,7 +180,7 @@ export async function loadOrderLedger(
       createdAt: m.createdAt,
       kind: m.kind,
       resourceId: m.resourceId,
-      label: m.label,
+      label: optionLabels.get(m.resourceId) ?? m.label,
       reason: m.reason,
       source: m.source,
       delta: m.delta,
@@ -231,6 +240,8 @@ export async function loadOrderLedger(
     out.push({
       id,
       dailyNumber: o.dailyNumber,
+      reference: o.reference,
+      customerName: o.customerName,
       createdAt: o.createdAt,
       status: o.status,
       isPaid: o.isPaid,
