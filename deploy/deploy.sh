@@ -3,8 +3,8 @@
 # Un seul conteneur par environnement ; le schéma BDD n'est jamais défait au rollback.
 set -euo pipefail
 
-export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
-export DOCKER_HOST="${DOCKER_HOST:-unix://$XDG_RUNTIME_DIR/docker.sock}"
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/docker.sock"
 
 ACTION="${1:-${EBA_ACTION:-deploy}}"
 ENV_NAME="${2:-${EBA_ENV:-}}"
