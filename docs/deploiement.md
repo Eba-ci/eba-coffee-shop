@@ -8,6 +8,7 @@ Un seul conteneur par environnement, sans Docker Compose ni blue/green : le remp
 
 Un push sur la branche `staging` lance `.github/workflows/cd-staging.yml` :
 
+0. **CI** : `ci.yml` (lint, types, tests) en premier ; un échec arrête tout, aucune image n'est construite. La même CI tourne sur les PR vers `staging` ou `master`. Le rollback manuel n'y passe pas.
 1. **tools** : image `…-tools:sha-<commit>` (Prisma + tsx pour le schéma).
 2. **schema** (SSH, `deploy.sh schema`) : `db:push` & co. sur la base de staging. Avant le build, car le prérendu lit la base avec le nouveau code.
 3. **image** : tunnel SSH vers Postgres, puis `docker build --network host` (cible `runner`) : le prérendu de `next build` lit `eba_staging` avec le rôle `eba_build`, en lecture seule.

@@ -23,8 +23,16 @@ env:
   EBA_ENV: staging
 
 jobs:
+  # Première sécurité : lint, types et tests avant de construire quoi que ce soit.
+  # Un échec arrête tout (les jobs suivants en dépendent) ; le rollback n'y passe pas.
+  ci:
+    name: CI
+    if: github.event_name == 'push' || inputs.action == 'deploy'
+    uses: ./.github/workflows/ci.yml
+
   tools:
     name: Image d'outils
+    needs: ci
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || inputs.action == 'deploy'
     environment: staging

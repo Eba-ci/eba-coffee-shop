@@ -1,10 +1,13 @@
 name: CI
 
 on:
+  # Pas de `push` sur staging : `cd-staging.yml` appelle ce workflow (workflow_call)
+  # avant de construire l'image, ce qui évite de le lancer deux fois par push.
   push:
     branches: [master]
   pull_request:
-    branches: [master]
+    branches: [master, staging]
+  workflow_call:
 
 env:
   DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
