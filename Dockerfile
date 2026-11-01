@@ -40,7 +40,7 @@ RUN --mount=type=secret,id=db_url \
     && export DATABASE_URL="$(cat /run/secrets/db_url)" \
     && pnpm build \
     && node deploy/redact-build-url.mjs
-RUN node -p "require('varlock/package.json').version" > /varlock.version
+RUN node -p "JSON.parse(require('fs').readFileSync('node_modules/varlock/package.json','utf8')).version" > /varlock.version
 
 FROM deps AS tools
 ENV TZ=UTC

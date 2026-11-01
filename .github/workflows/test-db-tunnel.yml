@@ -33,6 +33,7 @@ jobs:
           q 'select current_user, current_database()'
           q 'select count(*) from contact_settings'
           q 'select count(*) from "order" where "isPaid"'
+          q 'select id, items from "order" limit 1'
           for denied in 'select 1 from customer limit 1' \
                         'select "customerName" from "order" limit 1' \
                         'delete from contact_settings'; do

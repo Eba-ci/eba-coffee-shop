@@ -22,7 +22,7 @@ Port **2001** (`127.0.0.1`, derrière nginx). Tag en service : `~/.local/state/e
 Le Dockerfile suit `with-docker` (deps → builder → runner). L'URL de la base arrive par secret BuildKit (`db_url`), jamais dans une couche. Les autres valeurs du build sont factices (`deploy/build.env`) ; les `NEXT_PUBLIC_*` viennent des variables GitHub.
 
 - Utilisateur système `eba-tunnel` (sans shell) ; sa clé n'autorise que `permitopen="127.0.0.1:5432"`.
-- Rôle `eba_build` (`CONNECTION LIMIT 10` : le prérendu ouvre jusqu'à 2 connexions par processus, `DATABASE_POOL_MAX`) : `SELECT` sur les tables lues par les pages publiques (réglages, menu, sondages, TikTok) et sur 5 colonnes de `order` ; connexion limitée à `eba_staging` (`pg_hba.conf`).
+- Rôle `eba_build` (`CONNECTION LIMIT 10` : le prérendu ouvre jusqu'à 2 connexions par processus, `DATABASE_POOL_MAX`) : `SELECT` sur les tables lues par les pages publiques (réglages, menu, sondages, TikTok) et sur 6 colonnes de `order` (`id`, `items`, `dailyDate`, `status`, `paymentExpiresAt`, `isPaid`) ; connexion limitée à `eba_staging` (`pg_hba.conf`).
 - Secrets GitHub (environnement `staging`) : `DB_TUNNEL_KEY`, `BUILD_DATABASE_URL` ; communs au dépôt : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`. Variables : `VPS_HOST_FINGERPRINT` (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`), `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME`, `NEXT_PUBLIC_CLOUDINARY_API_KEY`, `NEXT_PUBLIC_WAVE_MERCHANT_ID`.
 - Test du tunnel : workflow `test-db-tunnel.yml` (manuel).
 
