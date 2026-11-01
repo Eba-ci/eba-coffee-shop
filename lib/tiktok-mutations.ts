@@ -10,7 +10,7 @@ import {
   extractTiktokVideoId,
 } from '@/lib/schemas/tiktok';
 import { fetchTiktokOEmbed } from '@/lib/tiktok-oembed';
-import { saveTiktokThumbnailFromUrl } from '@/lib/uploads';
+import { uploadTiktokThumbnail } from '@/lib/cloudinary';
 
 type OEmbedFields = {
   oembedTitle: string | null;
@@ -37,7 +37,7 @@ async function enrichFromOEmbed(url: string): Promise<OEmbedFields> {
   let thumbnailUrl: string | null = null;
   if (oembed.thumbnailUrl) {
     try {
-      thumbnailUrl = await saveTiktokThumbnailFromUrl(oembed.thumbnailUrl);
+      thumbnailUrl = await uploadTiktokThumbnail(oembed.thumbnailUrl);
     } catch {
       thumbnailUrl = null;
     }

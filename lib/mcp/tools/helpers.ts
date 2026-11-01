@@ -28,9 +28,9 @@ export function toRange(args: unknown): { from: Date; to: Date } {
 /**
  * Résout l'argument image d'un outil `set_*` en une URL réellement stockable
  * et affichable :
- *   • `imageBase64` (+ `mimeType`) → retraité (sharp) et écrit localement ;
+ *   • `imageBase64` (+ `mimeType`) → envoyé à Cloudinary ;
  *   • `imageUrl` déjà local (`/uploads/...`) → conservé tel quel ;
- *   • `imageUrl` http(s) → **rapatrié côté serveur** puis écrit localement.
+ *   • `imageUrl` http(s) → **rapatrié côté serveur** puis envoyé à Cloudinary.
  *
  * Le rapatriement des URLs distantes est indispensable : une URL externe
  * stockée telle quelle ne s'afficherait pas (hôte hors `img-src` de la CSP et

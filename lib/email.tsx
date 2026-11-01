@@ -9,6 +9,7 @@ import InventoryReminderEmail, {
   type InventoryReminderItem,
 } from '@/emails/inventory-reminder';
 import type { CartItem } from '@/lib/cart-store';
+import { skipEmailInStaging } from '@/lib/app-env';
 
 type OrderData = {
   id: string;
@@ -26,6 +27,7 @@ export async function sendNewOrderEmail(order: OrderData): Promise<void> {
     console.warn('[email] OWNER_EMAIL non défini — notification ignorée');
     return;
   }
+  if (skipEmailInStaging('nouvelle commande', ownerEmail)) return;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const html = await render(React.createElement(NewOrderEmail, { order }));
@@ -39,6 +41,7 @@ export async function sendNewOrderEmail(order: OrderData): Promise<void> {
 }
 
 export async function sendOtpEmail(to: string, code: string): Promise<void> {
+  if (skipEmailInStaging('code de connexion', to)) return;
   const resend = new Resend(process.env.RESEND_API_KEY);
   const html = await render(React.createElement(OtpCodeEmail, { code }));
   const from =
@@ -64,6 +67,7 @@ export async function sendInventoryReminderEmail(params: {
   lowStockItems: InventoryReminderItem[];
 }): Promise<void> {
   if (params.recipients.length === 0) return;
+  if (skipEmailInStaging('rappel inventaire', params.recipients)) return;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const html = await render(
@@ -94,6 +98,7 @@ export async function sendStaffInviteEmail(params: {
   roleLabel: string;
   loginUrl: string;
 }): Promise<void> {
+  if (skipEmailInStaging('invitation équipe', params.to)) return;
   const resend = new Resend(process.env.RESEND_API_KEY);
   const html = await render(React.createElement(InviteStaffEmail, params));
   const from =

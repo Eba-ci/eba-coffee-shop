@@ -1,0 +1,143 @@
+name: CD Staging
+
+# Déploie l'image Docker sur l'environnement de staging (même serveur que la prod,
+# autre sous-domaine, autre base). Se déclenche sur un push de la branche `staging`
+# (merger la branche à tester dans `staging`) ou à la main. N'affecte JAMAIS la prod :
+# `cd.yml` (pm2) ne réagit qu'à `master`.
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'deploy = construire et déployer ; rollback = relancer le tag précédent'
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    name: Build image
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || inputs.action == 'deploy'
+    environment: staging
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    services:
+      # Le prérendu de `next build` lit la base : on lui donne un schéma vide. Le HTML
+      # obtenu est régénéré au déploiement (réchauffage, cf. deploy/deploy.sh).
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      BUILD_STANDALONE: '1'
+      TZ: UTC
+      NEXT_DEPLOYMENT_ID: ${{ github.sha }}
+      # Valeurs FACTICES, longues et uniques (le scanner de fuites de varlock rejette
+      # les valeurs courtes) : elles sont figées dans le bundle, jamais utilisées.
+      # Les vraies valeurs sont résolues au démarrage du conteneur.
+      BETTER_AUTH_SECRET: build-only-better-auth-secret-0f3c9a7e51d24b86
+      RESEND_API_KEY: re_build_only_key_7c1e5a93d204
+      RESEND_FROM: 'Build <build@staging.invalid>'
+      OWNER_EMAIL: owner-build@staging.invalid
+      ADMIN_EMAIL: admin-build@staging.invalid
+      CLOUDINARY_API_SECRET: build-only-cloudinary-secret-91b4d7c2e6
+      # Valeurs publiques, réellement inlinées dans le JavaScript client.
+      NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ vars.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
+      NEXT_PUBLIC_CLOUDINARY_API_KEY: ${{ vars.NEXT_PUBLIC_CLOUDINARY_API_KEY }}
+      NEXT_PUBLIC_WAVE_MERCHANT_ID: ${{ vars.NEXT_PUBLIC_WAVE_MERCHANT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Schéma de la base de build
+        run: |
+          pnpm db:push
+          pnpm db:trigger
+      - run: pnpm build
+      - id: meta
+        name: Nom et tag de l'image
+        run: |
+          echo "tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "varlock=$(node -p "require('varlock/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image d'exécution
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runner
+          push: true
+          # Retire l'image de base à chaque build : un tag flottant mis en cache
+          # garderait un Node vulnérable (cf. NODE_MIN_VERSION du Dockerfile).
+          pull: true
+          build-args: VARLOCK_VERSION=${{ steps.meta.outputs.varlock }}
+          tags: ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=runner
+          cache-to: type=gha,mode=max,scope=runner
+
+      - name: Image d'outils (schéma BDD)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: tools
+          push: true
+          pull: true
+          tags: ${{ steps.meta.outputs.image }}-tools:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=tools
+          cache-to: type=gha,mode=max,scope=tools
+
+  deploy:
+    name: Déployer sur le serveur
+    runs-on: ubuntu-latest
+    needs: build
+    # `build` est ignoré pour un rollback : on déploie alors sans image neuve.
+    if: always() && (needs.build.result == 'success' || (github.event_name == 'workflow_dispatch' && inputs.action == 'rollback'))
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Déploiement via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          EBA_ACTION: ${{ github.event_name == 'workflow_dispatch' && inputs.action || 'deploy' }}
+          EBA_ENV: staging
+          EBA_TAG: ${{ needs.build.outputs.tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: EBA_ACTION,EBA_ENV,EBA_TAG,GHCR_USER,GHCR_TOKEN
+          script_path: deploy/deploy.sh

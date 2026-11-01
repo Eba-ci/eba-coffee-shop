@@ -7,6 +7,7 @@
 import { Resend } from 'resend';
 import type { z } from 'zod';
 import type { contactFormSchema } from '@/lib/schemas/contact';
+import { skipEmailInStaging } from '@/lib/app-env';
 
 export type ContactMessage = z.infer<typeof contactFormSchema>;
 
@@ -33,6 +34,8 @@ export async function sendContactMessageEmail(
     console.warn('[contact] OWNER_EMAIL non défini — message non acheminé');
     return false;
   }
+  // Staging : message « acheminé » côté visiteur, rien ne part.
+  if (skipEmailInStaging('formulaire de contact', ownerEmail)) return true;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const from =

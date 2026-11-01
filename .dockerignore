@@ -1,0 +1,21 @@
+# Contexte de build Docker. Deux cibles : `runner` (sortie `.next/standalone` produite
+# par la CI) et `tools` (sources complètes pour prisma/tsx).
+.git
+.github
+node_modules
+.next/*
+!.next/standalone
+!.next/static
+.env
+.env.*
+!.env.schema
+!.env.example
+generated
+public/uploads
+docs
+coverage
+**/*.log
+.claude
+.agents
+.junie
+.superpowers

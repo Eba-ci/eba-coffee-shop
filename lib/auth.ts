@@ -5,6 +5,7 @@ import { mcp } from 'better-auth/plugins';
 import { nextCookies } from 'better-auth/next-js';
 import prisma from '@/lib/prisma';
 import { sendOtpEmail } from '@/lib/email';
+import { isStaging, STAGING_OTP } from '@/lib/app-env';
 
 export async function promoteAdminIfMatch(user: { id: string; email: string }) {
   const adminEmail = process.env.ADMIN_EMAIL;
@@ -74,6 +75,9 @@ export const auth = betterAuth({
     emailOTP({
       otpLength: 6,
       expiresIn: 60 * 5,
+      // Staging uniquement : code fixe (aucun e-mail ne part, cf. lib/app-env.ts).
+      // Spread conditionnel : un `generateOTP: undefined` écraserait le défaut.
+      ...(isStaging() ? { generateOTP: () => STAGING_OTP } : {}),
       sendVerificationOTP: async ({ email, otp }) => {
         await sendOtpEmail(email, otp);
       },

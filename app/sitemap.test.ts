@@ -102,4 +102,11 @@ describe('GET /robots.txt', () => {
     const clean = await loadRobots('https://eba-coffee.com');
     expect(clean.sitemap).toBe(trailing.sitemap);
   });
+
+  it('interdit tout en staging', async () => {
+    vi.stubEnv('APP_ENV', 'staging');
+    const robots = await loadRobots('https://staging.eba-coffee.com');
+    expect(robots.rules).toEqual({ userAgent: '*', disallow: '/' });
+    vi.unstubAllEnvs();
+  });
 });

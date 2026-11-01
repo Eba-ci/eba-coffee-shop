@@ -113,6 +113,15 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ['eba.otw.ci', '127.0.0.1'],
+  // Image Docker (blue/green) : `.next/standalone` embarque le serveur et ses
+  // seules dépendances tracées. Activé par le Dockerfile uniquement
+  // (BUILD_STANDALONE=1) : la prod pm2 lance `next start`, incompatible avec ce
+  // mode. `generated/prisma` est gitignoré et chargé via un alias : on le force
+  // dans la trace pour qu'il soit copié dans l'image.
+  output: process.env.BUILD_STANDALONE === '1' ? 'standalone' : undefined,
+  outputFileTracingIncludes: {
+    '/**': ['./generated/prisma/**/*'],
+  },
   serverExternalPackages: ['@prisma/client'],
   // SHA du commit (CD) : le client recharge au lieu de « Failed to find Server Action ».
   deploymentId: process.env.NEXT_DEPLOYMENT_ID || undefined,
