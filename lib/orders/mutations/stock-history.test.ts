@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('@/lib/stock-history/record', async () =>
   (await import('@/lib/stock-history/test-mocks')).recordMock()
 );
+// Ce fichier teste le journal ; l'ordre de verrouillage a son propre test (stock-locks.test.ts).
+vi.mock('./stock-locks', () => ({ lockStockForOrder: vi.fn() }));
 
 import type { Prisma } from '@/generated/prisma/client';
 import type { CartItem } from '@/lib/cart-store';

@@ -27,5 +27,9 @@ export function lifecycleMock() {
 
 /** `before` fixé à 5 : suffisant pour les tests qui ne regardent pas le journal. */
 export function lockMock() {
-  return { lockStock: vi.fn(async () => 5) };
+  return {
+    lockStock: vi.fn(async () => 5),
+    lockStockRows: vi.fn(async () => undefined),
+    lockStockKeys: vi.fn(async () => undefined),
+  };
 }

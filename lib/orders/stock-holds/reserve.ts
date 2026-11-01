@@ -20,6 +20,7 @@ import {
   readStockByKeys,
   releaseStaleHolds,
 } from './holds';
+import { lockStockKeys } from '@/lib/stock-history/lock';
 import { logStockChange } from '@/lib/stock-history/record';
 import { computeHolds, needsToMap, parseHoldKey, type HoldMap } from './keys';
 
@@ -81,6 +82,8 @@ async function reserveOne(
   const held = await loadHolds(tx, orderId);
   const stock = await readStockByKeys(tx, [...needs.keys()]);
   const toHold: HoldMap = computeHolds(needs, held, stock);
+  // Verrou ordonné de toutes les lignes visées, avant la première écriture.
+  await lockStockKeys(tx, toHold.keys());
 
   let units = 0;
   for (const [key, quantity] of toHold) {

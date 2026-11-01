@@ -11,6 +11,7 @@ import {
   reserveForScheduledOrdersSafe,
 } from '@/lib/orders/stock-holds';
 import { resyncStockForItemChange } from './stock-resync';
+import { lockStockForOrder } from './stock-locks';
 
 /** Remplace les articles d'une commande et recalcule son total (net après remises). */
 export async function updateOrderItems(
@@ -40,6 +41,10 @@ export async function updateOrderItems(
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    // Ordre de verrouillage commun à tout le code : la COMMANDE d'abord, le stock
+    // ensuite (comme le lancement, `reserveStockOnce`). Dans l'ordre inverse, une
+    // modification et un envoi en cuisine simultanés se bloquaient mutuellement.
+    await tx.$queryRaw`SELECT "id" FROM "order" WHERE "id" = ${id} FOR UPDATE`;
     const order = await tx.order.findUnique({
       where: { id },
       select: {
@@ -60,6 +65,12 @@ export async function updateOrderItems(
         409
       );
     }
+
+    // Ancien et nouveau contenu verrouillés ensemble, dans l'ordre des identifiants.
+    await lockStockForOrder(tx, id, [
+      order.items as unknown as CartItem[],
+      items,
+    ]);
 
     // Pas encore lancée : ses parts réservées reposent sur l'ancien contenu. On les
     // rend ; le passage ci-dessous les reprend sur le nouveau.

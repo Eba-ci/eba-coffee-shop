@@ -9,6 +9,7 @@ import { notifyOrderCustomer } from '@/lib/push-notify';
 import { decrementResidualNeeds } from '@/lib/orders/stock-holds/consume';
 import { loadHolds } from '@/lib/orders/stock-holds/holds';
 import { decrementStockForOrderItems } from './stock-needs';
+import { lockStockForOrder } from './stock-locks';
 import { resyncStockForItemChange } from './stock-resync';
 import { coverShortageForOrderItems } from './shortage';
 
@@ -29,7 +30,7 @@ export function releaseUnpaidStockHold(
 export async function reserveStockOnce(
   tx: Prisma.TransactionClient,
   orderId: string,
-  items: CartItem[],
+  passedItems: CartItem[],
   opts?: { coverShortage?: boolean; actorId?: string | null }
 ): Promise<boolean> {
   const ctx = { orderId, actorId: opts?.actorId ?? null };
@@ -38,6 +39,21 @@ export async function reserveStockOnce(
     data: { stockReservedAt: new Date() },
   });
   if (claim.count === 0) return false;
+
+  // Le contenu fait foi SOUS VERROU : `items` a été lu avant la transaction, et une
+  // modification d'articles validée entre-temps faisait décompter l'ANCIEN contenu
+  // (stock faux, sans aucune erreur). Le claim ci-dessus verrouille la commande :
+  // plus aucune édition ne passe avant la fin de cette transaction.
+  const locked = await tx.order.findUnique({
+    where: { id: orderId },
+    select: { items: true },
+  });
+  const items =
+    (locked?.items as unknown as CartItem[] | undefined) ?? passedItems;
+
+  // Toutes les lignes de stock, d'un coup et dans l'ordre des identifiants : c'est ce
+  // qui évite l'interblocage entre deux commandes aux articles dans un ordre différent.
+  await lockStockForOrder(tx, orderId, [items]);
 
   // AVANT le décrément, et seulement sur demande explicite : le staff a
   // confirmé avoir produit la quantité manquante.
