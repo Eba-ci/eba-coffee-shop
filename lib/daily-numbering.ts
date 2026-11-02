@@ -30,7 +30,7 @@ export async function getNextDailyNumber(
   // heurter à l'index unique, puis de rejouer ensemble leurs 3 tentatives. Sans lui,
   // dès 4 créations au même instant, des commandes étaient perdues (erreur de
   // contrainte unique). Le verrou est pris AVANT toute ligne de stock : un seul ordre.
-  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${DAILY_NUMBER_LOCK_NAMESPACE}, ${dayIndex(dailyDate)})`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(${DAILY_NUMBER_LOCK_NAMESPACE}::int, ${dayIndex(dailyDate)}::int)`;
   // staff-visibility: exempt — le numéro du jour compte TOUTES les commandes, y compris en attente de paiement, pour qu'aucun numéro ne soit réutilisé
   const result = await tx.order.aggregate({
     where: { dailyDate },

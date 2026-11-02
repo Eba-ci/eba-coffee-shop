@@ -87,6 +87,9 @@ export async function releaseHolds(
   orderId: string,
   ctx?: StockLogCtx
 ): Promise<number> {
+  // Verrou de la commande d'abord (déjà tenu par la plupart des appelants, mais pas par
+  // `releaseStaleHolds`) : les réservations lues ensuite ne peuvent plus changer.
+  await tx.$queryRaw`SELECT "id" FROM "order" WHERE "id" = ${orderId} FOR UPDATE`;
   const held = await loadHolds(tx, orderId);
   if (held.size === 0) return 0;
   await lockStockKeys(tx, held.keys());

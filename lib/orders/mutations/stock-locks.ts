@@ -10,6 +10,11 @@
 // d'un seul coup et dans l'ordre des identifiants (`lockStockRows`,
 // lib/stock-history/lock.ts), AVANT de les modifier. Les écritures qui suivent ne
 // bloquent plus, et toutes les transactions prennent leurs verrous dans le même ordre.
+//
+// Limite connue : `aggregateStockNeeds` ne renvoie pas un goût dont l'option a été
+// renommée ou supprimée (introuvable). Sa ligne n'est donc pas verrouillée ici ; elle
+// n'est de toute façon pas décomptée, et le retrait la traite en anomalie
+// (`logStockAnomaly`), sans écriture sur une ligne de stock.
 
 import type { Prisma } from '@/generated/prisma/client';
 import type { CartItem } from '@/lib/cart-store';

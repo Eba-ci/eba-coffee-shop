@@ -28,6 +28,7 @@ describe('dépaiement et remboursements', () => {
     } as never);
     // Transaction interactive : rejoue le callback sur un client factice.
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
       order: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       orderPayment: { deleteMany: vi.fn() },
       // Dépaiement : les réservations de stock sont rendues (aucune ici).

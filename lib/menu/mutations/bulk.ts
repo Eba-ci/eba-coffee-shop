@@ -300,7 +300,7 @@ export async function bulkSetProductStock(input: BulkSetProductStockInput) {
         kind: 'PRODUCT',
         resourceId: r.id,
         reason: 'BULK_SET',
-        before: current.get(r.id) ?? r.from,
+        before: current.has(r.id) ? current.get(r.id)! : r.from,
         after: r.to,
         label: r.name,
       });

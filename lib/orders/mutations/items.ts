@@ -11,7 +11,6 @@ import {
   reserveForScheduledOrdersSafe,
 } from '@/lib/orders/stock-holds';
 import { resyncStockForItemChange } from './stock-resync';
-import { lockStockForOrder } from './stock-locks';
 
 /** Remplace les articles d'une commande et recalcule son total (net après remises). */
 export async function updateOrderItems(
@@ -66,11 +65,8 @@ export async function updateOrderItems(
       );
     }
 
-    // Ancien et nouveau contenu verrouillés ensemble, dans l'ordre des identifiants.
-    await lockStockForOrder(tx, id, [
-      order.items as unknown as CartItem[],
-      items,
-    ]);
+    // Le stock est verrouillé par `releaseHolds` et `resyncStockForItemChange`
+    // (ancien et nouveau contenu, dans l'ordre des identifiants) : pas ici.
 
     // Pas encore lancée : ses parts réservées reposent sur l'ancien contenu. On les
     // rend ; le passage ci-dessous les reprend sur le nouveau.
