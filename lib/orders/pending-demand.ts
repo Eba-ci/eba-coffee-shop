@@ -20,6 +20,8 @@ import { withStaffVisible } from '@/lib/orders/visibility';
 import type { CartItem } from '@/lib/cart-store';
 import type { MenuCategory } from '@/config/menu';
 import { parseDateOnlyToUTC } from '@/lib/timezone';
+import { holdKey } from '@/lib/orders/stock-holds/keys';
+import { loadHoldsForOrders } from '@/lib/orders/stock-holds/holds';
 
 export type PendingDemand = {
   /** Quantité en attente par `productId`. */
@@ -62,7 +64,7 @@ export async function getPendingDemand(
         status: { not: 'CANCELLED' },
         ...dayFilter,
       }),
-      select: { items: true },
+      select: { id: true, items: true },
     }),
     prisma.supplementOption.findMany({
       where: { available: true },
@@ -115,6 +117,26 @@ export async function getPendingDemand(
       }
     }
   }
+
+  // Parts déjà réservées pour ces commandes (programmées payées du jour, cf.
+  // lib/orders/stock-holds) : elles sont DÉJÀ sorties de `stockQuantity`, les
+  // compter ici les ferait apparaître deux fois.
+  const holds = await loadHoldsForOrders(
+    prisma,
+    orders.map((o) => o.id)
+  );
+  for (const held of holds.values()) {
+    for (const [id, qty] of products) {
+      const reserved = held.get(holdKey('PRODUCT', id)) ?? 0;
+      if (reserved > 0) products.set(id, Math.max(0, qty - reserved));
+    }
+    for (const [id, qty] of optionDemand) {
+      const reserved = held.get(holdKey('OPTION', id)) ?? 0;
+      if (reserved > 0) optionDemand.set(id, Math.max(0, qty - reserved));
+    }
+  }
+  for (const [id, qty] of products) if (qty === 0) products.delete(id);
+  for (const [id, qty] of optionDemand) if (qty === 0) optionDemand.delete(id);
 
   return { products, options: optionDemand };
 }
