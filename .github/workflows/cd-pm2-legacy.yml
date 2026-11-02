@@ -1,0 +1,82 @@
+name: CD pm2 (ancien, secours)
+
+# Ancien déploiement pm2 (git pull + build sur le VPS), gardé en secours manuel
+# le temps de la bascule vers Docker (cd.yml). À supprimer une fois la prod
+# stable sous Docker. Même port 3001 que le conteneur eba-production : arrêter
+# le conteneur (`docker stop eba-production`) avant de relancer pm2.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            source "$HOME/.nvm/nvm.sh"
+            cd /var/www/eba-coffee
+            # env.d.ts est généré (varlock typegen, au postinstall) et n'est
+            # plus versionné : on le supprime avant le pull pour que d'anciennes
+            # modifications locales ne bloquent jamais le merge.
+            rm -f env.d.ts
+            OLD_SHA=$(git rev-parse HEAD)
+            git pull origin master
+            NEW_SHA=$(git rev-parse HEAD)
+
+            if [ "$OLD_SHA" = "$NEW_SHA" ]; then
+              echo "Aucun nouveau commit, déploiement ignoré."
+              exit 0
+            fi
+
+            pnpm install --frozen-lockfile
+            # Idempotent (sans doublon de casse, ne fait rien). Doit précéder
+            # db:push : la colonne email en citext rejetterait le push tant
+            # qu'il reste des comptes qui ne diffèrent que par la casse.
+            pnpm db:merge-duplicate-emails
+            pnpm db:push
+            pnpm db:trigger
+            # Index partiel que Prisma ne sait pas décrire (idempotent).
+            pnpm db:indexes
+
+            # Rebuild Next.js uniquement si un fichier qui alimente réellement
+            # le build a changé. Allowlist plutôt que denylist : la liste des
+            # sources d'un build Next.js est bornée par l'architecture du
+            # projet, contrairement à la liste des dossiers de config d'outils
+            # annexes (docs, CI, assistants IA…) qui ne fait que croître.
+            BUILD_INPUTS="app components lib config emails hooks patches prisma prisma.config.ts .env.schema .npmrc pnpm-workspace.yaml next.config.ts package.json pnpm-lock.yaml postcss.config.mjs tsconfig.json"
+            if ! git diff --quiet "$OLD_SHA" "$NEW_SHA" -- $BUILD_INPUTS; then
+              # Même fuseau qu'au runtime (cf. ecosystem.config.cjs) : le build
+              # prérend des pages, et une date figée dans le fuseau du VPS
+              # ressortirait décalée par rapport au serveur qui les sert.
+              #
+              # Le build est tué par le noyau (exit 137, OOM) quand le VPS
+              # manque de RAM : on plafonne le tas Node pour que le GC
+              # travaille plus tôt, et on ajoute un swap temporaire s'il n'y
+              # en a pas (sans effet si sudo sans mot de passe est absent).
+              if [ "$(swapon --show --noheadings | wc -l)" = "0" ] && sudo -n true 2>/dev/null; then
+                sudo -n fallocate -l 2G /swapfile-build \
+                  && sudo -n chmod 600 /swapfile-build \
+                  && sudo -n mkswap /swapfile-build >/dev/null \
+                  && sudo -n swapon /swapfile-build \
+                  && echo "Swap temporaire de 2G activé pour le build." \
+                  || echo "Swap non activé, build sans swap."
+              fi
+              free -m || true
+              NODE_OPTIONS="--max-old-space-size=1536" NEXT_DEPLOYMENT_ID="$NEW_SHA" TZ=UTC pnpm build
+            else
+              echo "Aucun fichier source du build modifié, rebuild Next.js ignoré."
+            fi
+
+            pm2 startOrReload ecosystem.config.cjs --update-env
