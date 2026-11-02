@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage : deploy.sh schema|deploy <env> <tag> | deploy.sh rollback <env>
+# Usage : deploy.sh schema|deploy <env> <tag>   (env : staging | production) | deploy.sh rollback <env>
 # Un seul conteneur par environnement ; le schéma BDD n'est jamais défait au rollback.
 set -euo pipefail
 
@@ -15,6 +15,8 @@ HOST_ADDR="${EBA_HOST_ADDR:-10.0.2.2}"
 log() { printf '[deploy:%s] %s\n' "${ENV_NAME:-?}" "$*"; }
 die() { log "ERREUR : $*" >&2; exit 1; }
 
+# Montages en lecture seule passés à `docker run` (uploads historiques en prod).
+MOUNTS=()
 case "$ENV_NAME" in
   staging)
     PORT=2001; NAME=eba-staging
@@ -22,7 +24,18 @@ case "$ENV_NAME" in
     STATE_DIR="${EBA_STATE_DIR:-$HOME/.local/state/eba/staging}"
     MEMORY=768m; CPUS=1.0
     ;;
-  *) die "environnement « ${ENV_NAME} » non branché (seul « staging » l'est)" ;;
+  production)
+    # Même port que l'ancien pm2 (ecosystem.config.cjs) : nginx ne change pas.
+    PORT=3001; NAME=eba-production
+    ENV_FILE="${EBA_ENV_FILE:-/var/www/eba-coffee/.env.production}"
+    STATE_DIR="${EBA_STATE_DIR:-$HOME/.local/state/eba/production}"
+    MEMORY=1024m; CPUS=1.5
+    # Fichiers historiques servis par la route /uploads (lecture seule).
+    UPLOADS_DIR="${EBA_UPLOADS_DIR:-/var/www/eba-coffee/public/uploads}"
+    [ -d "$UPLOADS_DIR" ] || die "$UPLOADS_DIR introuvable (uploads historiques)"
+    MOUNTS=(-v "$UPLOADS_DIR:/app/public/uploads:ro")
+    ;;
+  *) die "environnement « ${ENV_NAME} » inconnu (staging ou production)" ;;
 esac
 CURRENT_FILE="$STATE_DIR/current"
 PREVIOUS_FILE="$STATE_DIR/previous"
@@ -33,7 +46,14 @@ exec 9>"$STATE_DIR/deploy.lock"
 flock -n 9 || die "un autre déploiement est en cours"
 
 [ -r "$ENV_FILE" ] || die "$ENV_FILE introuvable"
-grep -q '^APP_ENV=staging$' "$ENV_FILE" || die "$ENV_FILE doit contenir APP_ENV=staging"
+if [ "$ENV_NAME" = staging ]; then
+  grep -q '^APP_ENV=staging$' "$ENV_FILE" || die "$ENV_FILE doit contenir APP_ENV=staging"
+else
+  # Garde-fou inverse : jamais le mode staging (e-mails coupés, code 000000) ni une base staging en prod.
+  ! grep -Eq '^APP_ENV=.+' "$ENV_FILE" || die "$ENV_FILE ne doit pas définir APP_ENV en production"
+  ! grep -Eiq '^DATABASE_URL=.*staging' "$ENV_FILE" || die "$ENV_FILE pointe vers une base staging"
+  grep -q '^DATABASE_URL=.' "$ENV_FILE" || die "DATABASE_URL absent de $ENV_FILE"
+fi
 docker info >/dev/null 2>&1 || die "Docker injoignable (DOCKER_HOST=$DOCKER_HOST)"
 
 wait_healthy() {
@@ -53,6 +73,7 @@ run_container() {
     --add-host="host.docker.internal:$HOST_ADDR" \
     --env-file "$ENV_FILE" \
     -p "127.0.0.1:$PORT:3000" \
+    ${MOUNTS[@]+"${MOUNTS[@]}"} \
     "$IMAGE:$1" >/dev/null
 }
 
@@ -84,7 +105,10 @@ if [ "$ACTION" = schema ]; then
   log "schéma BDD"
   # Le relevé de départ du journal de stock suit db:push (la table doit exister) ;
   # idempotent : sans effet quand tout est déjà journalisé.
-  for task in db:merge-duplicate-emails db:push db:trigger db:indexes db:backfill-stock-baseline; do
+  # En production, le relevé de départ reste un geste volontaire (bouton ou pnpm à la main).
+  tasks="db:merge-duplicate-emails db:push db:trigger db:indexes"
+  [ "$ENV_NAME" != staging ] || tasks="$tasks db:backfill-stock-baseline"
+  for task in $tasks; do
     docker run --rm --add-host="host.docker.internal:$HOST_ADDR" --env-file "$ENV_FILE" \
       "$IMAGE-tools:$TAG" pnpm "$task"
   done

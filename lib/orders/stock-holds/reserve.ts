@@ -80,10 +80,11 @@ async function reserveOne(
     await aggregateStockNeeds(tx, order.items as unknown as CartItem[])
   );
   const held = await loadHolds(tx, orderId);
+  // Verrou ordonné AVANT de lire le stock : la quantité à réserver est calculée sur
+  // la valeur courante, qu'aucune vente concurrente ne peut plus changer.
+  await lockStockKeys(tx, needs.keys());
   const stock = await readStockByKeys(tx, [...needs.keys()]);
   const toHold: HoldMap = computeHolds(needs, held, stock);
-  // Verrou ordonné de toutes les lignes visées, avant la première écriture.
-  await lockStockKeys(tx, toHold.keys());
 
   let units = 0;
   for (const [key, quantity] of toHold) {

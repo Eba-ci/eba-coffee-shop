@@ -51,7 +51,12 @@ describe('reserveStockOnce — le contenu fait foi sous verrou', () => {
       fresh,
       expect.anything()
     );
-    expect(lockStockForOrder).toHaveBeenCalledWith(tx, 'o1', [fresh]);
+    expect(lockStockForOrder).toHaveBeenCalledWith(
+      tx,
+      'o1',
+      [fresh],
+      new Map()
+    );
   });
 
   it('repli sur les articles fournis si la relecture ne renvoie rien', async () => {
