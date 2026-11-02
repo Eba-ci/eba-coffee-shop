@@ -53,6 +53,12 @@ Pre-commit hooks (Husky + lint-staged) run ESLint and Prettier on staged files a
 - **Theme colors:** Primary = deep purple, Secondary = golden orange, Background = cream/dark brown
 - **Taille de fichier : 300 lignes max.** Au-delà, extraire en modules plus petits (composants enfants, helpers dans `lib/`) plutôt que laisser grossir. S'applique au nouveau code et à tout fichier substantiellement modifié ; ne déclenche pas de refactor rétroactif des fichiers existants qui dépassent déjà ce seuil hors du périmètre de la tâche en cours.
 
+## Flux de branches (staging avant master)
+
+- **Tout passe par `staging` avant `master`.** Une branche de travail se crée depuis `staging`, sa PR vise `staging` ; une fois validée là, une PR `staging` → `master` met la production à jour. `master` déclenche le déploiement en production (`cd.yml`) : on n'y fusionne jamais une branche de travail directement.
+- **Exception : le hotfix** (correctif urgent de production). Il part de `master`, sa PR vise `master`, et on **reporte aussitôt** `master` dans `staging` pour que les deux branches ne divergent pas.
+- Garder `master` et `staging` au même niveau : après chaque mise en production, `staging` ne doit avoir aucun commit de retard sur `master`.
+
 ## État d'URL (nuqs)
 
 - **nuqs = défaut** pour tout état porté par l'URL (filtres, tri, pagination, recherche). Plus de `useSearchParams` + `router.push` + `URLSearchParams` à la main dans le code neuf.
