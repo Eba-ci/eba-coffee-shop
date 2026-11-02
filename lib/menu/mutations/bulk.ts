@@ -9,6 +9,7 @@ import { BULK_PRODUCTS_MAX } from '@/config/constants';
 import prisma from '@/lib/prisma';
 import { triggerRestockAlerts } from '@/lib/restock-alerts';
 import { reserveForScheduledOrdersSafe } from '@/lib/orders/stock-holds';
+import { lockStockRows } from '@/lib/stock-history/lock';
 import { logStockSet } from '@/lib/stock-history/record';
 import { productUpdateSchema } from './schemas';
 
@@ -279,6 +280,17 @@ export async function bulkSetProductStock(input: BulkSetProductStockInput) {
   if (dryRun || results.length === 0) return report;
 
   await prisma.$transaction(async (tx) => {
+    // Lignes verrouillées d'un coup (ordre des identifiants) : une vente survenue
+    // depuis l'aperçu n'est plus écrasée sans trace, et `before` est la vraie valeur.
+    await lockStockRows(tx, { productIds: results.map((r) => r.id) });
+    const current = new Map(
+      (
+        await tx.product.findMany({
+          where: { id: { in: results.map((r) => r.id) } },
+          select: { id: true, stockQuantity: true },
+        })
+      ).map((p) => [p.id, p.stockQuantity])
+    );
     for (const r of results) {
       await tx.product.update({
         where: { id: r.id },
@@ -288,7 +300,7 @@ export async function bulkSetProductStock(input: BulkSetProductStockInput) {
         kind: 'PRODUCT',
         resourceId: r.id,
         reason: 'BULK_SET',
-        before: r.from,
+        before: current.get(r.id) ?? r.from,
         after: r.to,
         label: r.name,
       });

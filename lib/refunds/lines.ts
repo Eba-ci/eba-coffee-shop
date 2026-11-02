@@ -8,6 +8,7 @@ import type { Prisma } from '@/generated/prisma/client';
 import type { CartItem } from '@/lib/cart-store';
 import { resolveOptionId } from '@/lib/orders/mutations/stock-needs';
 import type { RefundLineInput } from '@/lib/schemas/refund';
+import { lockStockRows } from '@/lib/stock-history/lock';
 import { logStockAnomaly, logStockChange } from '@/lib/stock-history/record';
 import type { StockLogCtx } from '@/lib/stock-history/types';
 import { RefundError } from './errors';
@@ -73,6 +74,24 @@ export async function restoreStockForRefundLines(
   lines: StoredLine[],
   ctx?: StockLogCtx
 ): Promise<void> {
+  // Résolution d'abord, puis verrou ordonné de toutes les lignes, puis écritures :
+  // deux remboursements simultanés ne se bloquent plus mutuellement.
+  const optionIdOf = new Map<StoredLine, string | null>();
+  for (const line of lines) {
+    if (line.kind === 'PRODUCT' || !line.groupName || !line.optionName)
+      continue;
+    optionIdOf.set(
+      line,
+      await resolveOptionId(tx, line.productId, line.groupName, line.optionName)
+    );
+  }
+  await lockStockRows(tx, {
+    productIds: lines
+      .filter((l) => l.kind === 'PRODUCT')
+      .map((l) => l.productId),
+    optionIds: [...optionIdOf.values()].filter((id): id is string => !!id),
+  });
+
   for (const line of lines) {
     if (line.kind === 'PRODUCT') {
       await tx.product.update({
@@ -89,12 +108,7 @@ export async function restoreStockForRefundLines(
       continue;
     }
     if (!line.groupName || !line.optionName) continue;
-    const optionId = await resolveOptionId(
-      tx,
-      line.productId,
-      line.groupName,
-      line.optionName
-    );
+    const optionId = optionIdOf.get(line) ?? null;
     if (!optionId) {
       const owner = await tx.product.findUnique({
         where: { id: line.productId },
