@@ -53,20 +53,20 @@ export async function reserveStockOnce(
 
   // Toutes les lignes de stock, d'un coup et dans l'ordre des identifiants : c'est ce
   // qui évite l'interblocage entre deux commandes aux articles dans un ordre différent.
-  await lockStockForOrder(tx, orderId, [items]);
+  // Parts déjà réservées avant le lancement (programmée du jour, cf.
+  // lib/orders/stock-holds) : seul le RESTE est décompté. Lues une seule fois, comme
+  // les besoins agrégés, et réutilisées par le verrou puis par le décrément.
+  const held = await loadHolds(tx, orderId);
+  const needs = (await lockStockForOrder(tx, orderId, [items], held))?.[0];
 
   // AVANT le décrément, et seulement sur demande explicite : le staff a
   // confirmé avoir produit la quantité manquante.
-  // Parts déjà réservées avant le lancement (programmée du jour, cf.
-  // lib/orders/stock-holds) : seul le RESTE est décompté.
-  const held = await loadHolds(tx, orderId);
-
   if (opts?.coverShortage) {
     await coverShortageForOrderItems(tx, items, held, ctx);
   }
 
   if (held.size > 0) {
-    await decrementResidualNeeds(tx, orderId, items, held, ctx);
+    await decrementResidualNeeds(tx, orderId, items, held, ctx, needs);
   } else {
     await decrementStockForOrderItems(tx, items, ctx);
   }

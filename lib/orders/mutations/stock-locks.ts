@@ -19,31 +19,39 @@
 import type { Prisma } from '@/generated/prisma/client';
 import type { CartItem } from '@/lib/cart-store';
 import { loadHolds } from '@/lib/orders/stock-holds/holds';
-import { parseHoldKey } from '@/lib/orders/stock-holds/keys';
+import { parseHoldKey, type HoldMap } from '@/lib/orders/stock-holds/keys';
 import { lockStockRows } from '@/lib/stock-history/lock';
 import { aggregateStockNeeds } from './stock-needs';
+
+type StockNeeds = Awaited<ReturnType<typeof aggregateStockNeeds>>;
 
 /**
  * Verrouille tout ce qu'une commande peut toucher : le besoin de chaque contenu
  * fourni (ancien et nouveau lors d'une édition) et ses réservations en cours.
+ * Renvoie les besoins agrégés de chaque contenu (même ordre que `itemLists`) et
+ * accepte les réservations déjà lues (`held`) : l'appelant évite de les recalculer.
  */
 export async function lockStockForOrder(
   tx: Prisma.TransactionClient,
   orderId: string | undefined,
-  itemLists: CartItem[][]
-): Promise<void> {
+  itemLists: CartItem[][],
+  held?: HoldMap
+): Promise<StockNeeds[]> {
+  const allNeeds: StockNeeds[] = [];
   const productIds = new Set<string>();
   const optionIds = new Set<string>();
   for (const items of itemLists) {
     const needs = await aggregateStockNeeds(tx, items);
+    allNeeds.push(needs);
     for (const id of needs.products.keys()) productIds.add(id);
     for (const id of needs.options.keys()) optionIds.add(id);
   }
   if (orderId) {
-    for (const key of (await loadHolds(tx, orderId)).keys()) {
+    for (const key of (held ?? (await loadHolds(tx, orderId))).keys()) {
       const { kind, id } = parseHoldKey(key);
       (kind === 'PRODUCT' ? productIds : optionIds).add(id);
     }
   }
   await lockStockRows(tx, { productIds, optionIds });
+  return allNeeds;
 }

@@ -19,13 +19,13 @@ export async function decrementResidualNeeds(
   orderId: string,
   items: CartItem[],
   held: HoldMap,
-  ctx?: StockLogCtx
+  ctx?: StockLogCtx,
+  /** Besoins déjà agrégés par l'appelant (évite de refaire les requêtes). */
+  needs?: Awaited<ReturnType<typeof aggregateStockNeeds>>
 ): Promise<void> {
   const log = { ...ctx, orderId };
-  const { products, options, unresolved } = await aggregateStockNeeds(
-    tx,
-    items
-  );
+  const { products, options, unresolved } =
+    needs ?? (await aggregateStockNeeds(tx, items));
 
   for (const [id, need] of products) {
     const residual = need.needed - (held.get(holdKey('PRODUCT', id)) ?? 0);
