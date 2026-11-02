@@ -2,6 +2,7 @@
 
 import type { Prisma } from '@/generated/prisma/client';
 import { endOfLocalDay, startOfLocalDay } from '@/lib/timezone';
+import { lockStockKeys } from '@/lib/stock-history/lock';
 import { logStockChange } from '@/lib/stock-history/record';
 import type { StockLogCtx } from '@/lib/stock-history/types';
 import { holdKey, parseHoldKey, type HoldMap } from './keys';
@@ -86,8 +87,12 @@ export async function releaseHolds(
   orderId: string,
   ctx?: StockLogCtx
 ): Promise<number> {
+  // Verrou de la commande d'abord (déjà tenu par la plupart des appelants, mais pas par
+  // `releaseStaleHolds`) : les réservations lues ensuite ne peuvent plus changer.
+  await tx.$queryRaw`SELECT "id" FROM "order" WHERE "id" = ${orderId} FOR UPDATE`;
   const held = await loadHolds(tx, orderId);
   if (held.size === 0) return 0;
+  await lockStockKeys(tx, held.keys());
   let units = 0;
   for (const [key, quantity] of held) {
     const { kind, id } = parseHoldKey(key);

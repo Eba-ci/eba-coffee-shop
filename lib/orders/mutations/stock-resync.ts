@@ -4,6 +4,7 @@ import { Prisma } from '@/generated/prisma/client';
 import type { CartItem } from '@/lib/cart-store';
 import { StockShortageError } from './errors';
 import { aggregateStockNeeds } from './stock-needs';
+import { lockStockForOrder } from './stock-locks';
 import { logStockAnomaly, logStockChange } from '@/lib/stock-history/record';
 import type { StockLogCtx, StockReason } from '@/lib/stock-history/types';
 
@@ -19,6 +20,10 @@ export async function resyncStockForItemChange(
   log?: ResyncLog
 ): Promise<void> {
   const { removeReason, ...ctx } = log ?? {};
+  await lockStockForOrder(tx, log?.orderId ?? undefined, [
+    previousItems,
+    nextItems,
+  ]);
   const before = await aggregateStockNeeds(tx, previousItems);
   const after = await aggregateStockNeeds(tx, nextItems);
 
