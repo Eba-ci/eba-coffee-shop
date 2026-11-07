@@ -9,7 +9,7 @@ export DOCKER_HOST="${DOCKER_HOST:-unix://$XDG_RUNTIME_DIR/docker.sock}"
 ACTION="${1:-${EBA_ACTION:-deploy}}"
 ENV_NAME="${2:-${EBA_ENV:-}}"
 TAG="${3:-${EBA_TAG:-}}"
-IMAGE="${EBA_IMAGE:-ghcr.io/kouakou-christ-axel/eba-coffee-shop}"
+IMAGE="${EBA_IMAGE:-ghcr.io/eba-ci/eba-coffee-shop}"
 HOST_ADDR="${EBA_HOST_ADDR:-10.0.2.2}"
 
 log() { printf '[deploy:%s] %s\n' "${ENV_NAME:-?}" "$*"; }
