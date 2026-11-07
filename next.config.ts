@@ -117,7 +117,16 @@ const nextConfig: NextConfig = {
   // `generated/prisma` (gitignoré, chargé par alias) est forcé dans la trace.
   output: process.env.BUILD_STANDALONE === '1' ? 'standalone' : undefined,
   outputFileTracingIncludes: {
-    '/**': ['./generated/prisma/**/*'],
+    '/**': [
+      './generated/prisma/**/*',
+      // sharp charge libvips (`libvips-cpp.so.*`) par dlopen/rpath : le traçage
+      // statique copie le `.node` mais PAS la bibliothèque native, d'où
+      // « libvips-cpp.so.8.x: cannot open shared object file » dans l'image
+      // standalone. On force les `.so` (glibc, image bookworm) ; le glob couvre
+      // les deux versions de libvips du lockfile.
+      './node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/lib/*',
+      './node_modules/.pnpm/@img+sharp-libvips-linux-arm64@*/node_modules/@img/sharp-libvips-linux-arm64/lib/*',
+    ],
     // Logo lu par fs (reçu PDF, ticket) : invisible pour le traçage statique.
     '/api/orders/**': ['./public/assets/logos/eba_n.png'],
   },
