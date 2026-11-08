@@ -126,6 +126,12 @@ const nextConfig: NextConfig = {
       // les deux versions de libvips du lockfile.
       './node_modules/.pnpm/@img+sharp-libvips-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/lib/*',
       './node_modules/.pnpm/@img+sharp-libvips-linux-arm64@*/node_modules/@img/sharp-libvips-linux-arm64/lib/*',
+      // Le `.node` de sharp cherche libvips par rpath `$ORIGIN/../../sharp-libvips-linux-*/lib`,
+      // soit le lien symbolique pnpm voisin de `@img/sharp-linux-*`, pas le dossier réel
+      // ci-dessus. Sans ce chemin-là dans la trace, le `.so` est copié mais le lien
+      // n'existe pas dans l'image : même erreur « cannot open shared object file ».
+      './node_modules/.pnpm/@img+sharp-linux-x64@*/node_modules/@img/sharp-libvips-linux-x64/lib/*',
+      './node_modules/.pnpm/@img+sharp-linux-arm64@*/node_modules/@img/sharp-libvips-linux-arm64/lib/*',
     ],
     // Logo lu par fs (reçu PDF, ticket) : invisible pour le traçage statique.
     '/api/orders/**': ['./public/assets/logos/eba_n.png'],
