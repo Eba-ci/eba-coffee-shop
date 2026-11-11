@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: false,
+    setupFiles: ['./vitest.setup.ts'],
     // Tests temporairement exclus pendant la migration vers le système caisse-centric.
     // Modèle Order modifié (statuts NEW/PREPARING/COMPLETED, champs nullable,
     // dailyNumber). Ces tests seront réécrits en Phase 6 du plan
