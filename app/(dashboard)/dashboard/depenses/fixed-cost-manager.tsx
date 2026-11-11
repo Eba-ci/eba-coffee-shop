@@ -27,6 +27,8 @@ export type FixedCostManagerRow = {
   categoryId: string;
   categoryName: string;
   linked: boolean;
+  /** Vide = échéance par défaut déduite de la prise d'effet. */
+  installments: { monthOffset: number; day: number; amount: number }[];
 };
 
 const fmt = new Intl.NumberFormat('fr-FR');
@@ -71,6 +73,11 @@ export function FixedCostManager({
       startDate: draft.startDate,
       endDate: draft.endDate || null,
       categoryId: draft.categoryId,
+      installments: draft.installments.map((i) => ({
+        monthOffset: Number(i.monthOffset) || 0,
+        day: Math.round(Number(i.day)),
+        amount: Math.round(Number(i.amount)),
+      })),
     };
     startTransition(async () => {
       const r = editingId
@@ -91,6 +98,11 @@ export function FixedCostManager({
       startDate: row.startDate,
       endDate: row.endDate ?? '',
       categoryId: row.categoryId,
+      installments: row.installments.map((i) => ({
+        monthOffset: String(i.monthOffset),
+        day: String(i.day),
+        amount: String(i.amount),
+      })),
     });
   }
 

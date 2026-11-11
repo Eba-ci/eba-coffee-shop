@@ -12,9 +12,12 @@ export function HideOnTab({
   tab,
   children,
 }: {
-  tab: string;
+  tab: string | string[];
   children: ReactNode;
 }) {
   const active = useSearchParams().get('tab');
-  return active === tab ? null : <>{children}</>;
+  const hidden = Array.isArray(tab)
+    ? tab.includes(active ?? '')
+    : active === tab;
+  return hidden ? null : <>{children}</>;
 }

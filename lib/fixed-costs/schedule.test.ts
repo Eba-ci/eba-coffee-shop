@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   defaultInstallments,
+  occurrenceAt,
   occurrencesInRange,
   scheduleForRange,
   statusOf,
@@ -242,6 +243,28 @@ describe('statut d’une occurrence', () => {
       ['Loyer A', 'PAID'],
       ['Loyer B', 'LATE'],
     ]);
+  });
+});
+
+describe('occurrenceAt (validation d’un paiement lié)', () => {
+  it('rend l’occurrence quand la date est une vraie échéance', () => {
+    const o = occurrenceAt(cost(), '2026-11-05', '2026-11-11');
+    expect(o?.dueDate).toBe('2026-11-05');
+    expect(o?.amount).toBe(300000);
+  });
+  it('null pour un jour qui n’est pas une échéance', () => {
+    expect(occurrenceAt(cost(), '2026-11-06', '2026-11-11')).toBeNull();
+  });
+  it('null hors de la fenêtre d’effet (avant la prise d’effet)', () => {
+    expect(occurrenceAt(cost(), '2025-12-05', '2026-11-11')).toBeNull();
+  });
+  it('null pour une charge inactive ou par jour ouvré', () => {
+    expect(
+      occurrenceAt(cost({ active: false }), '2026-11-05', '2026-11-11')
+    ).toBeNull();
+    expect(
+      occurrenceAt(cost({ periodicity: 'DAILY' }), '2026-11-05', '2026-11-11')
+    ).toBeNull();
   });
 });
 

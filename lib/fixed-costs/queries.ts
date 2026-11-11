@@ -1,16 +1,14 @@
 // lib/fixed-costs/queries.ts
 //
-// Lecture : liste des charges fixes, rapport de point mort sur une plage, et
-// périodes échues sans dépense saisie. La logique de calcul vit dans
-// `compute.ts` / `missing.ts` (pures).
+// Lecture : rapport de point mort sur une plage et périodes échues sans dépense
+// saisie. La logique de calcul vit dans `compute.ts` / `missing.ts` (pures) ;
+// la lecture du calendrier des paiements dans `payments-queries.ts`, réexportée
+// ici pour ne pas changer l'API publique.
 
-import { FIXED_COST_LATE_LOOKBACK_DAYS } from '@/config/constants';
-import prisma from '@/lib/prisma';
 import { getPickupSettings } from '@/lib/pickup-settings-db';
 import { getDailySeries } from '@/lib/stats';
 import { getMarginAggregate } from '@/lib/stats/margin';
 import {
-  formatLocalDateOnly,
   parseDateOnlyToUTC,
   shiftDateString,
   todayDateString,
@@ -19,58 +17,27 @@ import {
   buildBreakEvenSeries,
   computeMarginRate,
   type BreakEvenDay,
-  type FixedCostLike,
   type MarginRate,
 } from './compute';
 import { monthBounds } from './month';
 import { openDayPredicate } from './open-days';
-import {
-  scheduleForRange,
-  toInstallmentLike,
-  type InstallmentLike,
-  type LinkedPayment,
-  type Occurrence,
-} from './schedule';
+import { listFixedCosts } from './payments-queries';
+
+export { listFixedCosts };
+export {
+  getFixedCostSchedule,
+  getMonthSchedule,
+  getPaymentsView,
+  getFixedCostOccurrence,
+  getLateFixedCostOccurrences,
+  assertLinkedPaymentAllowed,
+} from './payments-queries';
+export type { FixedCostRow, PaymentsView } from './payments-queries';
 
 /** Fenêtre (jours) sur laquelle on mesure le taux de marge. */
 export const MARGIN_WINDOW_DAYS = 30;
 /** Plage maximale d'un rapport (jours) : borne le tableau, le graphique et le MCP. */
 export const MAX_REPORT_DAYS = 366;
-
-export type FixedCostRow = FixedCostLike & {
-  categoryId: string;
-  categoryName: string;
-  recurringExpenseId: string | null;
-  note: string | null;
-  /** Vide = échéance par défaut déduite de la prise d'effet. */
-  installments: InstallmentLike[];
-};
-
-export async function listFixedCosts(): Promise<FixedCostRow[]> {
-  const rows = await prisma.fixedCost.findMany({
-    orderBy: [{ active: 'desc' }, { sortOrder: 'asc' }, { label: 'asc' }],
-    include: {
-      category: { select: { name: true } },
-      installments: {
-        orderBy: [{ monthOffset: 'asc' }, { day: 'asc' }],
-      },
-    },
-  });
-  return rows.map((r) => ({
-    id: r.id,
-    label: r.label,
-    amount: r.amount,
-    periodicity: r.periodicity,
-    startDate: formatLocalDateOnly(r.startDate),
-    endDate: r.endDate ? formatLocalDateOnly(r.endDate) : null,
-    active: r.active,
-    categoryId: r.categoryId,
-    categoryName: r.category.name,
-    recurringExpenseId: r.recurringExpenseId,
-    note: r.note,
-    installments: r.installments.map(toInstallmentLike),
-  }));
-}
 
 export type BreakEvenReport = {
   from: string;
@@ -162,57 +129,4 @@ function isAllClosed(
 export async function getMonthReport(month: string): Promise<BreakEvenReport> {
   const { from, to } = monthBounds(month);
   return getBreakEvenReport(from, to);
-}
-
-/** Dépenses liées à une occurrence de charge fixe dont l'échéance est dans la plage. */
-async function listLinkedPayments(
-  from: string,
-  to: string
-): Promise<LinkedPayment[]> {
-  const rows = await prisma.expense.findMany({
-    where: {
-      fixedCostId: { not: null },
-      dueDate: { gte: parseDateOnlyToUTC(from)!, lte: parseDateOnlyToUTC(to)! },
-    },
-    select: { id: true, fixedCostId: true, dueDate: true, amount: true },
-  });
-  return rows.map((r) => ({
-    expenseId: r.id,
-    fixedCostId: r.fixedCostId!,
-    dueDate: formatLocalDateOnly(r.dueDate!),
-    amount: r.amount,
-  }));
-}
-
-/** Échéancier des charges fixes sur [from, to] : dû / payé / partiel / en retard. */
-export async function getFixedCostSchedule(
-  from: string,
-  to: string
-): Promise<Occurrence[]> {
-  const costs = (await listFixedCosts()).filter(
-    (c) => c.active && c.periodicity !== 'DAILY'
-  );
-  if (costs.length === 0) return [];
-  const payments = await listLinkedPayments(from, to);
-  return scheduleForRange(costs, from, to, payments, todayDateString());
-}
-
-/** Échéancier d'un mois civil `YYYY-MM`. */
-export async function getMonthSchedule(month: string): Promise<Occurrence[]> {
-  const { from, to } = monthBounds(month);
-  return getFixedCostSchedule(from, to);
-}
-
-/**
- * Échéances passées pas entièrement réglées, y compris partielles (remplace l'alerte « aucune dépense
- * de la catégorie », fausse quand deux charges partagent une catégorie).
- */
-export async function getLateFixedCostOccurrences(): Promise<Occurrence[]> {
-  const today = todayDateString();
-  const yesterday = shiftDateString(today, -1);
-  const schedule = await getFixedCostSchedule(
-    shiftDateString(today, -FIXED_COST_LATE_LOOKBACK_DAYS),
-    yesterday
-  );
-  return schedule.filter((o) => o.overdue);
 }

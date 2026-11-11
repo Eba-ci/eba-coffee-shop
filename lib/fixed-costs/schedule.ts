@@ -208,6 +208,22 @@ export function occurrencesInRange(
   return out.sort(byDueDateThenLabel);
 }
 
+/**
+ * Occurrence de `cost` dont l'échéance vaut EXACTEMENT `dueDate`, ou null.
+ * Sert à valider qu'un paiement lié vise une vraie échéance de la charge.
+ */
+export function occurrenceAt(
+  cost: ScheduledCost,
+  dueDate: string,
+  today: string
+): Occurrence | null {
+  return (
+    occurrencesInRange(cost, dueDate, dueDate, [], today).find(
+      (o) => o.dueDate === dueDate
+    ) ?? null
+  );
+}
+
 /** Occurrences de toutes les charges sur [from, to], triées par échéance. */
 export function scheduleForRange(
   costs: ScheduledCost[],
