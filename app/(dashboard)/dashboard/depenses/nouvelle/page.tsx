@@ -83,8 +83,11 @@ export default async function NouvelleDepensePage({
         categoryId: fixed.categoryId,
         amount: prefill,
         note: fixed.label,
-        fixedCostId: chargefixe,
-        dueDate: occurrence?.dueDate ?? echeance ?? null,
+        // Sans échéance résolue, on ne pose pas la liaison : `fixedCostId` sans
+        // `dueDate` serait refusé et échouerait avec un message obscur.
+        ...(occurrence
+          ? { fixedCostId: chargefixe, dueDate: occurrence.dueDate }
+          : {}),
       };
       subtitle = occurrence
         ? `Règlement de « ${fixed.label} », échéance du ${formatDay(occurrence.dueDate)}.`
