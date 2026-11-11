@@ -6,6 +6,14 @@
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/**
+ * Comparateur lexicographique déterministe pour les chaînes datées
+ * (« YYYY-MM » et « YYYY-MM-DD » sont ordonnées du plus ancien au plus récent).
+ */
+export function compareStrings(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /** Valide strictement le format « YYYY-MM ». */
 export function isValidMonth(month: string): boolean {
   if (!/^\d{4}-\d{2}$/.test(month)) return false;

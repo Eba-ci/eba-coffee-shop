@@ -89,6 +89,45 @@ describe('salaire dû du mois', () => {
     expect(due.daysEmployed).toBe(21);
   });
 
+  it('prorata exact : 300 000 FCFA, mois de 30 jours, 21 jours = 210 000', () => {
+    const employee21: EmployeeLike = {
+      startDate: '2026-06-10',
+      endDate: '2026-06-30',
+    };
+    const due = salaryDueForMonth(employee21, [rate(300_000)], '2026-06');
+    expect(due.daysEmployed).toBe(21);
+    expect(due.due).toBe(210_000);
+    expect(due.segments).toEqual([
+      {
+        rateStartDate: '2020-01-01',
+        monthlyAmount: 300_000,
+        days: 21,
+        amount: 210_000,
+      },
+    ]);
+  });
+
+  it('arrondi par plus fort reste : mois de 31 jours non divisible', () => {
+    const employee21: EmployeeLike = {
+      startDate: '2026-07-01',
+      endDate: '2026-07-21',
+    };
+    const due = salaryDueForMonth(employee21, [rate(100_000)], '2026-07');
+    // 100 000 × 21 / 31 = 67 741,935… → 67 742 (FCFA entier).
+    expect(due.due).toBe(67_742);
+    expect(due.segments[0].amount).toBe(67_742);
+  });
+
+  it('mois sans taux : daysWithoutRate exposé, dû 0 pour ces jours', () => {
+    // Le seul taux commence le 11 : les 10 premiers jours sont sans taux.
+    const lateRate = [rate(300_000, '2026-06-11')];
+    const due = salaryDueForMonth(employee, lateRate, '2026-06');
+    expect(due.daysEmployed).toBe(30);
+    expect(due.daysWithoutRate).toBe(10);
+    // 20 jours couverts : 300 000 × 20 / 30 = 200 000.
+    expect(due.due).toBe(200_000);
+  });
+
   it('sortie en cours de mois : seuls les jours travaillés sont dus', () => {
     const left: EmployeeLike = {
       startDate: '2020-01-01',
@@ -132,6 +171,23 @@ describe('reste à payer et versements', () => {
     expect(s.salariesPaid).toBe(200_000);
     expect(s.advancesPaid).toBe(50_000);
     expect(s.remainingToPay).toBe(50_000);
+    expect(s.overpaid).toBe(0);
+  });
+
+  it('trop-perçu : overpaid exposé, reste à payer borné à 0', () => {
+    const payments: SalaryPaymentLike[] = [
+      { month: '2026-06', type: 'SALAIRE', amount: 250_000 },
+      { month: '2026-06', type: 'ACOMPTE', amount: 80_000 },
+    ];
+    const s = summarizeSalaryMonth({
+      employee,
+      rates: [rate(300_000)],
+      payments,
+      month: '2026-06',
+    });
+    expect(s.due).toBe(300_000);
+    expect(s.remainingToPay).toBe(0);
+    expect(s.overpaid).toBe(30_000);
   });
 });
 
