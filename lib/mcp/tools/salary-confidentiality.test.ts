@@ -80,11 +80,15 @@ describe('confidentialité des salaires (MCP + assistant)', () => {
     }
   });
 
-  it('le point mort n’a qu’un agrégat, sans détail nominatif annoncé', () => {
+  it('le point mort n’annonce que l’agrégat, sans détail nominatif', () => {
     const breakEven = tools.find((t) => t.name === 'get_break_even');
     expect(breakEven).toBeDefined();
-    expect(
-      /salaire|salary|employ|paie|payroll|rémunér/i.test(breakEven!.description)
-    ).toBe(false);
+    // L'agrégat « Salaires du mois » (un nombre) PEUT être annoncé (#417) ;
+    // le vocabulaire d'un détail par personne — taux, versement, avance,
+    // fiche — reste interdit dans la description.
+    expect(breakEven!.description).toMatch(/sans (employé|nom)/i);
+    expect(breakEven!.description).not.toMatch(
+      /par employé|versement|avance|fiche|individuel/i
+    );
   });
 });

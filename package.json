@@ -45,6 +45,7 @@
     "db:backfill-cloudinary-uploads": "tsx --env-file=.env prisma/backfill-cloudinary-uploads.ts",
     "db:backfill-stock-reserved": "tsx --env-file=.env prisma/backfill-stock-reserved.ts",
     "db:backfill-stock-baseline": "tsx --env-file=.env prisma/backfill-stock-baseline.ts",
+    "db:migrate-salary-fixed-costs": "tsx --env-file=.env scripts/migrate-salary-fixed-costs.ts",
     "db:merge-duplicate-emails": "tsx --env-file=.env prisma/merge-duplicate-emails.ts",
     "jeko:mock": "tsx --env-file=.env scripts/jeko-mock/run.ts",
     "test:race": "tsx --env-file=.env scripts/stock-race/run.ts",
