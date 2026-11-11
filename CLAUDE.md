@@ -213,3 +213,17 @@ Le site vitrine est vu depuis Abidjan, en mobile, sur des liens où le **RTT pè
 - **Règle d'or** : les outils MCP ne dupliquent **aucune** logique métier. Ils branchent `lib/menu.ts` (`getMenuAdmin`) et `lib/menu-mutations.ts`, et réutilisent les schémas Zod existants (`z.toJSONSchema` génère le `inputSchema`). Pour ajouter un outil, étends le module de son domaine dans `lib/mcp/tools/` ; pour un nouveau domaine, crée un module `McpTool[]` **et** ajoute son spread dans `registry.ts` (sinon l'outil est absent de `tools/list`, des gardes de rôle et du filtre `?toolset=`).
 - **Images** : la persistance vit dans `lib/uploads.ts` (`saveImage`), partagée par les routes `/api/upload` + `/api/upload/receipt` (multipart, dashboard) et les outils MCP `set_product_image` / `set_expense_receipt` / `set_investment_document` (base64). Toute image reçue (JPEG/PNG/WebP/AVIF/HEIC, max 25 MB — `MAX_UPLOAD_SIZE_BYTES`) est **retraitée avec `sharp`** : auto-orientation EXIF, redimensionnement « inside » `IMAGE_MAX_DIMENSION` (2200 px), ré-encodage **WebP** (`IMAGE_WEBP_QUALITY`), puis écrite en `/uploads/<subdir>/<uuid>.webp`. Les formats/tailles autorisés sont centralisés dans `lib/schemas/upload.ts` (`ALLOWED_IMAGE_MIME_TYPES`, qui ré-exporte `MAX_UPLOAD_SIZE_BYTES` depuis `config/constants.ts`). `imageUrlSchema` accepte un chemin relatif `/uploads/...` **ou** une URL http(s). `update_product` est une mise à jour **partielle** (champs absents = inchangés).
 - **Outils en lot** : `bulk_update_products` et `bulk_set_product_stock` (`lib/menu/mutations/bulk.ts`, plafond `BULK_PRODUCTS_MAX`) modifient jusqu'à 100 produits en une transaction : validation complète avant écriture (un id inconnu → rien n'est écrit), `dryRun` pour l'aperçu, **valeurs absolues uniquement** (jamais de `toggle_*`/`restock_*` en lot : un rejeu doublerait l'effet). Une écriture de masse ailleurs suit le même patron ; ne jamais mettre en lot suppression, encaissement, remboursement ni fidélité. `pendingLabel` (`lib/ai/assistant/labels.ts`) libelle ces lots sur la carte de confirmation.
+
+## Agent skills
+
+### Issue tracker
+
+Les tickets vivent dans les GitHub Issues de `Eba-ci/eba-coffee-shop` (CLI `gh`). Voir `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Vocabulaire par défaut : needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. Voir `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context : un `GLOSSARY.md` + `docs/adr/` à la racine. Voir `docs/agents/domain.md`.
