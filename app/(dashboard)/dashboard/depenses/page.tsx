@@ -26,6 +26,7 @@ import { ArticlesSection } from './_components/articles-section';
 import { RecurrentesSection } from './_components/recurrentes-section';
 import { PointMortSection } from './_components/point-mort-section';
 import { PaymentsSection } from './_components/paiements/payments-section';
+import { SalairesSection } from './_components/salaires/salaires-section';
 import { HideOnTab } from './_components/hide-on-tab';
 import { loadPointMortParams } from './point-mort-search-params';
 import { parseMonth } from '@/lib/fixed-costs/month';
@@ -56,6 +57,9 @@ export default async function DepensesPage({
   const session = await requireRoleOrAnalyst(['ADMIN', 'MANAGER', 'COMPTABLE']);
   // ANALYSTE = lecture seule : l'onglet Paiements lui masque l'action d'écriture.
   const readOnly = session.user.role === 'ANALYSTE';
+  // Onglet Salaires réservé à l'ADMIN (garde onglet par onglet, cf. #420) :
+  // non-admin ne reçoit ni le contenu, ni l'onglet.
+  const isAdmin = session.user.role === 'ADMIN';
   const params = await searchParams;
   const pointMortMonth = parseMonth(
     loadPointMortParams(params).mois,
@@ -142,6 +146,7 @@ export default async function DepensesPage({
 
       <DepensesTabs
         defaultTab={params.tab}
+        showSalaires={isAdmin}
         apercu={
           <Suspense
             fallback={
@@ -200,6 +205,11 @@ export default async function DepensesPage({
         paiements={
           <Suspense fallback={<TableSkeleton rows={8} withToolbar={false} />}>
             <PaymentsSection month={pointMortMonth} readOnly={readOnly} />
+          </Suspense>
+        }
+        salaires={
+          <Suspense fallback={<TableSkeleton rows={8} withToolbar={false} />}>
+            <SalairesSection month={pointMortMonth} />
           </Suspense>
         }
       />
