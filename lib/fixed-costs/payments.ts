@@ -59,11 +59,6 @@ export function sumAmount(occurrences: Occurrence[]): number {
   return occurrences.reduce((s, o) => s + o.amount, 0);
 }
 
-/** Total restant à payer sur un jeu d'occurrences. */
-export function remainingTotal(occurrences: Occurrence[]): number {
-  return occurrences.reduce((s, o) => s + o.remaining, 0);
-}
-
 /**
  * Statut dominant d'une case : le plus urgent l'emporte (en retard > partiel >
  * à venir > payé). `null` pour une case sans échéance.

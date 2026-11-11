@@ -46,7 +46,7 @@ export function SalaryPaymentForm({
     date: today,
     month: defaultMonth,
     amount: '',
-    paymentMethod: 'CASH',
+    paymentMethod: 'WAVE',
     recoveryMonths: '1',
     note: '',
   });

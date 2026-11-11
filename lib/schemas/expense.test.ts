@@ -95,6 +95,24 @@ describe('expenseUpdateSchema', () => {
     expect(expenseUpdateSchema.safeParse({}).success).toBe(false);
     expect(expenseUpdateSchema.safeParse({ amount: 200 }).success).toBe(true);
   });
+
+  it('exclut la liaison à une occurrence (fixedCostId/dueDate)', () => {
+    // Fournis seuls, ils sont retirés : plus rien à mettre à jour.
+    expect(
+      expenseUpdateSchema.safeParse({
+        fixedCostId: 'fc1',
+        dueDate: '2026-11-05',
+      }).success
+    ).toBe(false);
+    // Fournis avec un vrai champ, ils sont ignorés (jamais renvoyés).
+    const parsed = expenseUpdateSchema.parse({
+      amount: 200,
+      fixedCostId: 'fc1',
+      dueDate: '2026-11-05',
+    });
+    expect('fixedCostId' in parsed).toBe(false);
+    expect('dueDate' in parsed).toBe(false);
+  });
 });
 
 describe('expenseCategoryInputSchema', () => {
