@@ -26,6 +26,7 @@ import { ArticlesSection } from './_components/articles-section';
 import { RecurrentesSection } from './_components/recurrentes-section';
 import { PointMortSection } from './_components/point-mort-section';
 import { PaymentsSection } from './_components/paiements/payments-section';
+import { SalairesGlobalLine } from './_components/salaires-global-line';
 import { HideOnTab } from './_components/hide-on-tab';
 import { loadPointMortParams } from './point-mort-search-params';
 import { parseMonth } from '@/lib/fixed-costs/month';
@@ -135,6 +136,10 @@ export default async function DepensesPage({
           </Button>
         </div>
       </div>
+
+      <Suspense fallback={null}>
+        <SalairesGlobalLine month={pointMortMonth} />
+      </Suspense>
 
       <Suspense fallback={null}>
         <ReceiptBackfillAlertSection />

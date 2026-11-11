@@ -19,18 +19,18 @@ beforeEach(() => {
 
 describe('dépenses liées à un salaire', () => {
   it('updateExpense refuse de modifier une ligne de salaire', async () => {
-    vi.mocked(prisma.$transaction).mockImplementation(
-      (async (fn: (tx: unknown) => unknown) =>
-        fn({
-          expense: {
-            findUnique: vi.fn().mockResolvedValue({
-              amount: 100,
-              salaryPaymentId: 'p1',
-              _count: { items: 0 },
-            }),
-          },
-        })) as never
-    );
+    vi.mocked(prisma.$transaction).mockImplementation((async (
+      fn: (tx: unknown) => unknown
+    ) =>
+      fn({
+        expense: {
+          findUnique: vi.fn().mockResolvedValue({
+            amount: 100,
+            salaryPaymentId: 'p1',
+            _count: { items: 0 },
+          }),
+        },
+      })) as never);
 
     await expect(updateExpense('x1', { note: 'x' })).rejects.toThrow(
       /versement de salaire/

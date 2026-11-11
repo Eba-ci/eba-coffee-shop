@@ -64,9 +64,9 @@ function txMock(overrides: Record<string, unknown> = {}) {
 }
 
 function withTransaction(tx: ReturnType<typeof txMock>) {
-  vi.mocked(prisma.$transaction).mockImplementation(
-    (async (fn: (t: unknown) => unknown) => fn(tx)) as never
-  );
+  vi.mocked(prisma.$transaction).mockImplementation((async (
+    fn: (t: unknown) => unknown
+  ) => fn(tx)) as never);
   return tx;
 }
 

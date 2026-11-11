@@ -10,10 +10,7 @@
 // - la dépense porte le mode de paiement du versement : seules les lignes
 //   espèces touchent la caisse (cf. lib/cash-closing*.ts).
 
-import type {
-  ExpensePaymentMethod,
-  Prisma,
-} from '@/generated/prisma/client';
+import type { ExpensePaymentMethod, Prisma } from '@/generated/prisma/client';
 import { SALARY_EXPENSE_CATEGORY_NAME } from '@/config/constants';
 
 /** Forme minimale d'un versement suffisante pour construire la dépense miroir. */
