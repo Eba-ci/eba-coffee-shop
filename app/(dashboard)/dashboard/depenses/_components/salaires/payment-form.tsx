@@ -35,10 +35,13 @@ export function SalaryPaymentForm({
   employees,
   defaultMonth,
   today,
+  onSaved,
 }: {
   employees: { id: string; name: string }[];
   defaultMonth: string;
   today: string;
+  /** Appelé après un versement enregistré (le tiroir se referme). */
+  onSaved?: () => void;
 }) {
   const [draft, setDraft] = useState<Draft>({
     employeeId: employees[0]?.id ?? '',
@@ -91,6 +94,7 @@ export function SalaryPaymentForm({
         keyRef.current = null;
         setInfo('Versement enregistré.');
         setDraft((d) => ({ ...d, amount: '', note: '' }));
+        onSaved?.();
       } else {
         setError(r.error);
       }
@@ -99,7 +103,7 @@ export function SalaryPaymentForm({
 
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="sal-emp">Employé</Label>
           <select
