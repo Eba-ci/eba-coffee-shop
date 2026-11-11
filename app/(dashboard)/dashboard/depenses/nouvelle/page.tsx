@@ -13,9 +13,13 @@ export const dynamic = 'force-dynamic';
 export default async function NouvelleDepensePage({
   searchParams,
 }: {
-  searchParams: Promise<{ dupliquer?: string; recurrent?: string }>;
+  searchParams: Promise<{
+    dupliquer?: string;
+    recurrent?: string;
+    chargefixe?: string;
+  }>;
 }) {
-  const { dupliquer, recurrent } = await searchParams;
+  const { dupliquer, recurrent, chargefixe } = await searchParams;
   const [, categories, articles] = await Promise.all([
     requireFinance(),
     listExpenseCategories(),
@@ -48,6 +52,21 @@ export default async function NouvelleDepensePage({
         note: template.label,
       };
       subtitle = `Dépense récurrente « ${template.label} », pré-remplie d’après le modèle.`;
+    }
+  } else if (chargefixe) {
+    const fixed = await prisma.fixedCost.findUnique({
+      where: { id: chargefixe },
+      select: { label: true, categoryId: true, amount: true },
+    });
+    if (fixed) {
+      initial = {
+        ...initial,
+        date: todayDateString(),
+        categoryId: fixed.categoryId,
+        amount: String(fixed.amount),
+        note: fixed.label,
+      };
+      subtitle = `Charge fixe « ${fixed.label} », pré-remplie d’après la liste du point mort.`;
     }
   }
 

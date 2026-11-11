@@ -3,7 +3,13 @@
 import { useState, type ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const TAB_VALUES = ['apercu', 'historique', 'articles', 'recurrentes'] as const;
+const TAB_VALUES = [
+  'apercu',
+  'historique',
+  'articles',
+  'recurrentes',
+  'pointmort',
+] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
 /**
@@ -17,12 +23,14 @@ export function DepensesTabs({
   historique,
   articles,
   recurrentes,
+  pointmort,
 }: {
   defaultTab?: string;
   apercu: ReactNode;
   historique: ReactNode;
   articles: ReactNode;
   recurrentes: ReactNode;
+  pointmort: ReactNode;
 }) {
   const [tab, setTab] = useState<TabValue>(
     TAB_VALUES.includes(defaultTab as TabValue)
@@ -44,6 +52,7 @@ export function DepensesTabs({
         <TabsTrigger value="historique">Historique</TabsTrigger>
         <TabsTrigger value="articles">Articles</TabsTrigger>
         <TabsTrigger value="recurrentes">Récurrentes</TabsTrigger>
+        <TabsTrigger value="pointmort">Point mort</TabsTrigger>
       </TabsList>
       <TabsContent value="apercu" className="space-y-4">
         {apercu}
@@ -56,6 +65,9 @@ export function DepensesTabs({
       </TabsContent>
       <TabsContent value="recurrentes" className="space-y-4">
         {recurrentes}
+      </TabsContent>
+      <TabsContent value="pointmort" className="space-y-4">
+        {pointmort}
       </TabsContent>
     </Tabs>
   );

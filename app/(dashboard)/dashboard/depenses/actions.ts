@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireFinance } from '@/lib/auth-helpers';
 import * as expenses from '@/lib/expense-mutations';
 import * as recurring from '@/lib/recurring-expense-mutations';
+import * as fixedCosts from '@/lib/fixed-costs/mutations';
 import { createInventoryItem } from '@/lib/inventory-mutations';
 import { updateExpenseSettings } from '@/lib/expense-settings-db';
 import type { InventoryUnitInput } from '@/lib/schemas/inventory';
@@ -219,4 +220,43 @@ export async function deleteRecurringExpenseAction(
 ): Promise<ActionResult> {
   await requireAdminId();
   return run(() => recurring.deleteRecurringExpense(id));
+}
+
+// ── Charges fixes (point mort) ──
+
+export async function createFixedCostAction(
+  input: unknown
+): Promise<ActionResult> {
+  await requireAdminId();
+  return run(() => fixedCosts.createFixedCost(input));
+}
+
+export async function updateFixedCostAction(
+  id: string,
+  input: unknown
+): Promise<ActionResult> {
+  await requireAdminId();
+  return run(() => fixedCosts.updateFixedCost(id, input));
+}
+
+export async function deleteFixedCostAction(id: string): Promise<ActionResult> {
+  await requireAdminId();
+  return run(() => fixedCosts.deleteFixedCost(id));
+}
+
+/** Importe les dépenses récurrentes actives comme charges fixes (idempotent). */
+export async function syncFixedCostsAction(): Promise<
+  ({ ok: true } & fixedCosts.SyncResult) | { ok: false; error: string }
+> {
+  await requireAdminId();
+  try {
+    const res = await fixedCosts.syncFixedCostsFromRecurring();
+    revalidate();
+    return { ok: true, ...res };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Erreur inattendue',
+    };
+  }
 }
