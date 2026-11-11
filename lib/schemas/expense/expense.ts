@@ -61,6 +61,10 @@ export type ExpenseCreateInput = z.infer<typeof expenseCreateSchema>;
 
 export const expenseUpdateSchema = expenseInputSchema
   .partial()
+  // La liaison à une occurrence (fixedCostId/dueDate) se pose à la CRÉATION et
+  // n'est jamais modifiée : `updateExpense` l'ignorait déjà. On la retire du
+  // schéma de mise à jour pour que l'outil MCP ne l'annonce plus.
+  .omit({ fixedCostId: true, dueDate: true })
   .refine((v) => Object.values(v).some((x) => x !== undefined), {
     message: 'Au moins un champ à mettre à jour est requis',
   });

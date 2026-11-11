@@ -103,7 +103,10 @@ export const expensesTools: McpTool[] = [
       'que `create_expense` ; `items: null` retire tout le détail existant (la ' +
       'dépense redevient globale), `items: [...]` remplace entièrement les ' +
       'lignes (la somme doit égaler le montant).',
-    inputSchema: expenseInputSchema.partial().extend({ id: idSchema }),
+    inputSchema: expenseInputSchema
+      .partial()
+      .omit({ fixedCostId: true, dueDate: true })
+      .extend({ id: idSchema }),
     readOnly: false,
     handler: (args) => {
       const { id, ...rest } = args as { id: string } & Record<string, unknown>;
