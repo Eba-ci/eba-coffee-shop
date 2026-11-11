@@ -41,3 +41,22 @@ export function weekdayShort(day: string): string {
     ).getUTCDay()
   ];
 }
+
+/** « mercredi 4 novembre 2026 » (jour civil, sans dépendre du fuseau). */
+export function formatDayLong(day: string): string {
+  return new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(
+    new Date(
+      Date.UTC(
+        Number(day.slice(0, 4)),
+        Number(day.slice(5, 7)) - 1,
+        Number(day.slice(8, 10))
+      )
+    )
+  );
+}

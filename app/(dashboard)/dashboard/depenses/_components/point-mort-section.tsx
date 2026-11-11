@@ -1,4 +1,5 @@
-// Onglet « Point mort » : KPI du jour, tableau jour par jour, liste des
+// Onglet « Point mort » : navigation par mois, résumé et projection, KPI du
+// jour, graphique, suivi jour par jour (calendrier / liste) et liste des
 // charges fixes. Le calcul vit dans lib/fixed-costs (pur) ; ici, seulement
 // l'assemblage.
 
@@ -6,33 +7,36 @@ import Link from 'next/link';
 import { CalendarOff, Gauge, Target, Wallet } from 'lucide-react';
 import {
   MARGIN_WINDOW_DAYS,
-  getBreakEvenReport,
+  getMonthReport,
   listFixedCosts,
 } from '@/lib/fixed-costs/queries';
+import { projectMonthEnd, summarizeMonth } from '@/lib/fixed-costs/month';
+import { todayDateString } from '@/lib/timezone';
 import { listExpenseCategories } from '@/lib/expenses';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/(dashboard)/kpi-card';
 import { FixedCostManager } from '../fixed-cost-manager';
 import { BreakEvenChart } from '@/components/(dashboard)/charts/break-even-chart';
 import { toChartPoints } from '@/lib/fixed-costs/chart';
-import { PointMortTable } from './point-mort-table';
+import { MonthNav } from './point-mort/month-nav';
+import { MonthSummaryBar } from './point-mort/month-summary';
+import { PointMortDays } from './point-mort/point-mort-days';
 
 const fmt = new Intl.NumberFormat('fr-FR');
 const f = (n: number | null) => (n === null ? '—' : `${fmt.format(n)} F`);
 
-export async function PointMortSection({
-  from,
-  to,
-}: {
-  from: string;
-  to: string;
-}) {
+export async function PointMortSection({ month }: { month: string }) {
+  const today = todayDateString();
+  const currentMonth = today.slice(0, 7);
   const [report, costs, categories] = await Promise.all([
-    getBreakEvenReport(from, to),
+    getMonthReport(month),
     listFixedCosts(),
     listExpenseCategories(),
   ]);
-  const today = report.today;
+  const todayRow = report.today;
+  const summary = summarizeMonth(report.days, today);
+  const projection = projectMonthEnd(report.days, today, report.margin.rate);
+  const noCostThisMonth = report.days.every((d) => d.fixedCost === 0);
   const marginPct =
     report.margin.rate === null ? null : Math.round(report.margin.rate * 100);
 
@@ -48,27 +52,23 @@ export async function PointMortSection({
         </p>
       )}
 
-      {report.clamped && (
-        <p className="text-sm text-muted-foreground">
-          Plage limitée aux 366 derniers jours (jusqu’au {report.to}).
-        </p>
-      )}
+      <MonthNav month={month} currentMonth={currentMonth} />
 
-      {today && (
+      {todayRow && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard
             label="Charges fixes du jour"
-            value={today.open ? f(today.fixedCost) : 'Fermé'}
-            Icon={today.open ? Wallet : CalendarOff}
+            value={todayRow.open ? f(todayRow.fixedCost) : 'Fermé'}
+            Icon={todayRow.open ? Wallet : CalendarOff}
             hint={
-              today.open
+              todayRow.open
                 ? `${report.costCount} charge(s) active(s)`
                 : 'Aucune charge un jour fermé'
             }
           />
           <KpiCard
             label="Point mort du jour"
-            value={today.open ? f(today.breakEven) : '0 F'}
+            value={todayRow.open ? f(todayRow.breakEven) : '0 F'}
             Icon={Target}
             hint={
               marginPct === null
@@ -78,17 +78,17 @@ export async function PointMortSection({
           />
           <KpiCard
             label="CA net du jour"
-            value={f(today.revenue)}
+            value={f(todayRow.revenue)}
             Icon={Gauge}
           />
           <KpiCard
             label="Reste à faire"
-            value={today.open ? f(today.remaining) : '—'}
+            value={todayRow.open ? f(todayRow.remaining) : '—'}
             Icon={Target}
             hint={
-              today.reached === true
+              todayRow.reached === true
                 ? 'Seuil atteint ✓'
-                : today.reached === false
+                : todayRow.reached === false
                   ? 'Seuil non atteint'
                   : undefined
             }
@@ -105,6 +105,25 @@ export async function PointMortSection({
         </p>
       )}
 
+      {noCostThisMonth && report.costCount === 0 && (
+        <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+          Aucune charge fixe active : ajoute-en une plus bas (ou importe tes
+          dépenses récurrentes) pour voir le point mort.
+        </p>
+      )}
+      {noCostThisMonth && report.costCount > 0 && (
+        <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+          Aucune charge fixe ne s’applique à ce mois (prise d’effet plus tardive
+          ou fin passée). Voir la liste des charges plus bas.
+        </p>
+      )}
+
+      <MonthSummaryBar
+        summary={summary}
+        projection={projection}
+        isCurrentMonth={month === currentMonth}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">CA net vs point mort</CardTitle>
@@ -116,22 +135,14 @@ export async function PointMortSection({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">
-            Suivi jour par jour — {report.totals.daysReached} jour(s) au-dessus
-            du seuil sur {report.totals.openDays} ouvré(s)
-          </CardTitle>
+          <CardTitle className="text-base">Suivi jour par jour</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Charges : {f(report.totals.fixedCost)} · CA net :{' '}
-            {f(report.totals.revenue)} · Résultat estimé :{' '}
-            {f(report.totals.result)}
-          </p>
-          <PointMortTable days={report.days} />
+        <CardContent>
+          <PointMortDays days={report.days} today={today} />
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="charges-fixes">
         <CardHeader>
           <CardTitle className="text-base">Charges fixes</CardTitle>
         </CardHeader>

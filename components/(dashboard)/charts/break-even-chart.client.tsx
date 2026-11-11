@@ -85,7 +85,7 @@ export function BreakEvenChart({ data }: { data: BreakEvenChartPoint[] }) {
         </Bar>
         <Line
           dataKey="breakEven"
-          type="stepAfter"
+          type="step"
           stroke="var(--color-breakEven)"
           strokeWidth={2}
           dot={false}
