@@ -164,6 +164,7 @@ Le site vitrine est vu depuis Abidjan, en mobile, sur des liens où le **RTT pè
 - **Suivi par mois** : l'onglet n'utilise plus la plage de dates globale (le filtre de l'en-tête est masqué par `HideOnTab`). Paramètres nuqs `point-mort-search-params.ts` : `mois=YYYY-MM` (relit la base : `shallow: false` + `startTransition`, `MonthNav`), `vue=calendrier|liste` et `manques=1` (affichage seul). Vue par défaut : liste sous `lg`, calendrier au-delà, **par CSS** (sans flash) ; un choix explicite (URL, puis `localStorage`) l'emporte. Logique pure `lib/fixed-costs/month.ts` : `parseMonth`, `buildCalendarGrid`, `dayStatus`, `summarizeMonth`, `projectMonthEnd` (au rythme des jours ouvrés échus, mois courant seulement, masquée sous 3 jours échus ou sans marge). Jours après aujourd'hui = « à venir » (charges prévues, pas de verdict). Le détail d'un jour s'ouvre dans un `Sheet` (état local, pas d'URL). Composants dans `depenses/_components/point-mort/`.
 - **Alerte** : `lib/fixed-costs/missing.ts` — période échue (mois, trimestre…) d'une charge active sans aucune `Expense` de sa catégorie ; la période en cours n'alerte jamais. Bandeau sur `/dashboard/depenses`, lien `nouvelle?chargefixe=<id>` (pré-remplissage).
 - **Import** : bouton « Importer depuis les récurrentes » (`syncFixedCostsFromRecurring`) — idempotent, ne touche jamais une charge déjà liée, liste les récurrentes sans montant.
+- **Droits** : l'onglet « Paiements » ouvre la page Dépenses à MANAGER et COMPTABLE (ADMIN, MANAGER, COMPTABLE en écriture ; ANALYSTE en lecture). Les futurs onglets **Salaires** (issues suivantes) devront rester réservés à ADMIN, garde posé **onglet par onglet**, sans élargir la page entière.
 - **MCP** : `list/create/update/delete_fixed_cost`, `sync_fixed_costs_from_recurring`, `get_break_even`, `get_missing_fixed_costs`.
 - **Après déploiement** : `pnpm db:push` (migration `20261111090000_add_fixed_cost`), puis « Importer depuis les récurrentes » ou saisir les charges, et vérifier les horaires dans Paramètres.
 
@@ -221,3 +222,17 @@ Le site vitrine est vu depuis Abidjan, en mobile, sur des liens où le **RTT pè
 - **Règle d'or** : les outils MCP ne dupliquent **aucune** logique métier. Ils branchent `lib/menu.ts` (`getMenuAdmin`) et `lib/menu-mutations.ts`, et réutilisent les schémas Zod existants (`z.toJSONSchema` génère le `inputSchema`). Pour ajouter un outil, étends le module de son domaine dans `lib/mcp/tools/` ; pour un nouveau domaine, crée un module `McpTool[]` **et** ajoute son spread dans `registry.ts` (sinon l'outil est absent de `tools/list`, des gardes de rôle et du filtre `?toolset=`).
 - **Images** : la persistance vit dans `lib/uploads.ts` (`saveImage`), partagée par les routes `/api/upload` + `/api/upload/receipt` (multipart, dashboard) et les outils MCP `set_product_image` / `set_expense_receipt` / `set_investment_document` (base64). Toute image reçue (JPEG/PNG/WebP/AVIF/HEIC, max 25 MB — `MAX_UPLOAD_SIZE_BYTES`) est **retraitée avec `sharp`** : auto-orientation EXIF, redimensionnement « inside » `IMAGE_MAX_DIMENSION` (2200 px), ré-encodage **WebP** (`IMAGE_WEBP_QUALITY`), puis écrite en `/uploads/<subdir>/<uuid>.webp`. Les formats/tailles autorisés sont centralisés dans `lib/schemas/upload.ts` (`ALLOWED_IMAGE_MIME_TYPES`, qui ré-exporte `MAX_UPLOAD_SIZE_BYTES` depuis `config/constants.ts`). `imageUrlSchema` accepte un chemin relatif `/uploads/...` **ou** une URL http(s). `update_product` est une mise à jour **partielle** (champs absents = inchangés).
 - **Outils en lot** : `bulk_update_products` et `bulk_set_product_stock` (`lib/menu/mutations/bulk.ts`, plafond `BULK_PRODUCTS_MAX`) modifient jusqu'à 100 produits en une transaction : validation complète avant écriture (un id inconnu → rien n'est écrit), `dryRun` pour l'aperçu, **valeurs absolues uniquement** (jamais de `toggle_*`/`restock_*` en lot : un rejeu doublerait l'effet). Une écriture de masse ailleurs suit le même patron ; ne jamais mettre en lot suppression, encaissement, remboursement ni fidélité. `pendingLabel` (`lib/ai/assistant/labels.ts`) libelle ces lots sur la carte de confirmation.
+
+## Agent skills
+
+### Issue tracker
+
+Les tickets vivent dans les GitHub Issues de `Eba-ci/eba-coffee-shop` (CLI `gh`). Voir `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Vocabulaire par défaut : needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix. Voir `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context : un `GLOSSARY.md` + `docs/adr/` à la racine. Voir `docs/agents/domain.md`.

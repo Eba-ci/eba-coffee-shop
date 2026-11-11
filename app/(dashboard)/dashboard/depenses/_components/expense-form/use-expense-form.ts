@@ -176,6 +176,10 @@ export function useExpenseForm({
       note: values.note.trim() || null,
       receiptUrl: values.receiptUrl,
       ...(items !== undefined ? { items } : {}),
+      // Règlement d'une occurrence de charge fixe : lien posé à la création.
+      ...(mode === 'create' && values.fixedCostId
+        ? { fixedCostId: values.fixedCostId, dueDate: values.dueDate ?? null }
+        : {}),
     };
 
     startTransition(async () => {

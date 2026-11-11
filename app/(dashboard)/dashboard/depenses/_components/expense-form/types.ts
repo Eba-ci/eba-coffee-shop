@@ -20,4 +20,7 @@ export type ExpenseFormValues = {
   receiptUrl: string | null;
   /** Lignes de détail (vide = dépense simple, sans détail). */
   items: ExpenseItemFormValues[];
+  /** Occurrence de charge fixe réglée par cette dépense (création seulement). */
+  fixedCostId?: string | null;
+  dueDate?: string | null;
 };

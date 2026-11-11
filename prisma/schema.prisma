@@ -1171,9 +1171,31 @@ model FixedCost {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
+  // Échéances de paiement dans la période. Aucune ligne = une échéance par
+  // défaut déduite de `startDate` (cf. lib/fixed-costs/schedule.ts).
+  installments FixedCostInstallment[]
+  // Dépenses réelles qui règlent une occurrence de cette charge.
+  expenses     Expense[]              @relation("ExpenseFixedCost")
+
   @@index([categoryId])
   @@index([active])
   @@map("fixed_cost")
+}
+
+// Une échéance : « le `day` du mois (décalé de `monthOffset` mois dans la
+// période) on paie `amount` ». Hebdo : `day` = jour de semaine 1 (lun) … 7
+// (dim). Mensuel : `day` 1..31, clampé au dernier jour du mois. Trimestriel :
+// `monthOffset` 0..2 ; annuel : 0..11.
+model FixedCostInstallment {
+  id          String    @id @default(cuid())
+  fixedCostId String
+  fixedCost   FixedCost @relation(fields: [fixedCostId], references: [id], onDelete: Cascade)
+  monthOffset Int       @default(0)
+  day         Int
+  amount      Int // FCFA
+
+  @@unique([fixedCostId, monthOffset, day])
+  @@map("fixed_cost_installment")
 }
 
 // ─── Salaires (admin seul) ────────────────────────────────────────────────────
@@ -1273,6 +1295,13 @@ model Expense {
   receiptPeriod String? // mois d'attribution "YYYY-MM"
   receiptSeq    Int? // séquence dans le mois (1-based)
 
+  // Occurrence de charge fixe réglée par cette dépense : la charge + la date
+  // d'échéance (jour calculé, pas la date de paiement). Nullable : la plupart
+  // des dépenses ne règlent aucune charge fixe.
+  fixedCostId String?
+  fixedCost   FixedCost? @relation("ExpenseFixedCost", fields: [fixedCostId], references: [id], onDelete: SetNull)
+  dueDate     DateTime?  @db.Date
+
   categoryId String
   category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
@@ -1294,6 +1323,7 @@ model Expense {
   @@unique([receiptPeriod, receiptSeq])
   @@index([date(sort: Desc)])
   @@index([categoryId])
+  @@index([fixedCostId, dueDate])
   @@map("expense")
 }
 

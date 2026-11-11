@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   EXPENSE_AMOUNT_MAX,
+  FIXED_COST_MAX_INSTALLMENTS,
   EXPENSE_RECURRING_LABEL_MAX,
 } from '@/config/constants';
 
@@ -27,6 +28,16 @@ export const FIXED_COST_PERIODICITY_LABELS: Record<
 
 const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format YYYY-MM-DD');
 
+export const fixedCostInstallmentSchema = z.object({
+  monthOffset: z.number().int().min(0).max(11).default(0),
+  day: z.number().int().min(1).max(31),
+  amount: z
+    .number()
+    .int('Montant entier (FCFA)')
+    .positive('Montant invalide')
+    .max(EXPENSE_AMOUNT_MAX, 'Montant trop élevé'),
+});
+
 export const fixedCostObjectSchema = z.object({
   label: z
     .string()
@@ -44,6 +55,11 @@ export const fixedCostObjectSchema = z.object({
   categoryId: z.string().min(1, 'Catégorie requise'),
   active: z.boolean().optional(),
   note: z.string().trim().max(200).nullable().optional(),
+  /** Absent = inchangé ; `[]` = retour à l'échéance par défaut. */
+  installments: z
+    .array(fixedCostInstallmentSchema)
+    .max(FIXED_COST_MAX_INSTALLMENTS)
+    .optional(),
 });
 
 const endAfterStart = (v: { startDate?: string; endDate?: string | null }) =>
@@ -76,6 +92,9 @@ export const fixedCostUpdateSchema = fixedCostObjectSchema
     path: ['endDate'],
   });
 
+export type FixedCostInstallmentInput = z.infer<
+  typeof fixedCostInstallmentSchema
+>;
 export type FixedCostInput = z.infer<typeof fixedCostInputSchema>;
 export type FixedCostUpdateInput = z.infer<typeof fixedCostUpdateSchema>;
 export type FixedCostPeriodicityValue =
