@@ -37,7 +37,8 @@ export const expensesTools: McpTool[] = [
       '(CASH/WAVE/BANK/OTHER) et/ou `search` (fournisseur ou note), avec le ' +
       'total. Chaque dépense porte un numéro de reçu `receiptNo` ' +
       '(DEP-YYYY-MM-NNNN, séquence remise à zéro chaque mois). Tous les ' +
-      'filtres sont optionnels.',
+      'filtres sont optionnels. Les lignes de salaire (réservées à l’ADMIN) ne ' +
+      'sont jamais renvoyées ici.',
     inputSchema: expenseFiltersSchema,
     readOnly: true,
     handler: (args) => {
@@ -103,7 +104,10 @@ export const expensesTools: McpTool[] = [
       'que `create_expense` ; `items: null` retire tout le détail existant (la ' +
       'dépense redevient globale), `items: [...]` remplace entièrement les ' +
       'lignes (la somme doit égaler le montant).',
-    inputSchema: expenseInputSchema.partial().extend({ id: idSchema }),
+    inputSchema: expenseInputSchema
+      .partial()
+      .omit({ fixedCostId: true, dueDate: true })
+      .extend({ id: idSchema }),
     readOnly: false,
     handler: (args) => {
       const { id, ...rest } = args as { id: string } & Record<string, unknown>;

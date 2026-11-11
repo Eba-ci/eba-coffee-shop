@@ -68,11 +68,8 @@ export const STATUS_META: Record<DayStatus, StatusMeta> = {
   },
 };
 
-const fmt = new Intl.NumberFormat('fr-FR');
-export const money = (n: number | null) =>
-  n === null ? '—' : `${fmt.format(n)} F`;
-export const compactMoney = (n: number) =>
-  new Intl.NumberFormat('fr-FR', { notation: 'compact' }).format(n);
+// Mise en forme des montants : source unique `lib/fixed-costs/format`.
+export { money, compactMoney } from '@/lib/fixed-costs/format';
 
 /** Jours à montrer quand « Jours non atteints » est actif. */
 export const isMissed = (s: DayStatus) => s === 'missed' || s === 'pending';

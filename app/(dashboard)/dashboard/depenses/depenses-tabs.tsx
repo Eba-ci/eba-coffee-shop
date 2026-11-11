@@ -9,6 +9,8 @@ const TAB_VALUES = [
   'articles',
   'recurrentes',
   'pointmort',
+  'paiements',
+  'salaires',
 ] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
@@ -16,24 +18,35 @@ type TabValue = (typeof TAB_VALUES)[number];
  * Onglets de la page Dépenses. L'onglet actif est reflété dans l'URL (`?tab=`)
  * via l'History API (pas de round-trip serveur) pour survivre aux navigations
  * des filtres (date, catégorie…) qui préservent les search params.
+ *
+ * `showSalaires` (ADMIN seul) masque l'onglet Salaires aux autres rôles : la
+ * page ne lui transmet pas son contenu, et le garde de la section reste posé
+ * onglet par onglet.
  */
 export function DepensesTabs({
   defaultTab,
+  showSalaires = false,
   apercu,
   historique,
   articles,
   recurrentes,
   pointmort,
+  paiements,
+  salaires,
 }: {
   defaultTab?: string;
+  showSalaires?: boolean;
   apercu: ReactNode;
   historique: ReactNode;
   articles: ReactNode;
   recurrentes: ReactNode;
   pointmort: ReactNode;
+  paiements: ReactNode;
+  salaires: ReactNode;
 }) {
   const [tab, setTab] = useState<TabValue>(
-    TAB_VALUES.includes(defaultTab as TabValue)
+    TAB_VALUES.includes(defaultTab as TabValue) &&
+      (defaultTab !== 'salaires' || showSalaires)
       ? (defaultTab as TabValue)
       : 'apercu'
   );
@@ -53,6 +66,8 @@ export function DepensesTabs({
         <TabsTrigger value="articles">Articles</TabsTrigger>
         <TabsTrigger value="recurrentes">Récurrentes</TabsTrigger>
         <TabsTrigger value="pointmort">Point mort</TabsTrigger>
+        <TabsTrigger value="paiements">Paiements</TabsTrigger>
+        {showSalaires && <TabsTrigger value="salaires">Salaires</TabsTrigger>}
       </TabsList>
       <TabsContent value="apercu" className="space-y-4">
         {apercu}
@@ -69,6 +84,14 @@ export function DepensesTabs({
       <TabsContent value="pointmort" className="space-y-4">
         {pointmort}
       </TabsContent>
+      <TabsContent value="paiements" className="space-y-4">
+        {paiements}
+      </TabsContent>
+      {showSalaires && (
+        <TabsContent value="salaires" className="space-y-4">
+          {salaires}
+        </TabsContent>
+      )}
     </Tabs>
   );
 }

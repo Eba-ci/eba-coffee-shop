@@ -55,17 +55,21 @@ export async function GET(req: NextRequest) {
   }
 
   const lines = await prisma.expenseItem.findMany({
-    where:
-      dateFrom || dateTo
-        ? {
-            expense: {
+    where: {
+      // Confidentialité : les lignes de salaire (réservées à l'ADMIN) n'ont pas
+      // de détail d'article, et ne doivent jamais transiter par cet export.
+      expense: {
+        salaryPaymentId: null,
+        ...(dateFrom || dateTo
+          ? {
               date: {
                 ...(dateFrom ? { gte: dateFrom } : {}),
                 ...(dateTo ? { lte: dateTo } : {}),
               },
-            },
-          }
-        : {},
+            }
+          : {}),
+      },
+    },
     orderBy: [{ expense: { date: 'desc' } }, { sortOrder: 'asc' }],
     select: {
       rawLabel: true,

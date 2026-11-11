@@ -50,4 +50,24 @@ describe('computeClosing', () => {
     expect(r.expectedCash).toBe(49500);
     expect(r.difference).toBe(0);
   });
+
+  it('un salaire payé en espèces baisse la caisse théorique (Wave ne la touche pas)', () => {
+    const base = {
+      openingFloat: 10000,
+      cashSales: 50000,
+      cashRefunds: 0,
+      countedCash: 0,
+    };
+    const sansSalaire = computeClosing({ ...base, cashExpenses: 5000 });
+    const avecSalaireEspeces = computeClosing({
+      ...base,
+      cashExpenses: 5000 + 15000,
+    });
+    // Wave n'apparaît pas dans `cashExpenses` : la caisse reste identique.
+    const avecSalaireWave = computeClosing({ ...base, cashExpenses: 5000 });
+
+    expect(sansSalaire.expectedCash).toBe(55000);
+    expect(avecSalaireEspeces.expectedCash).toBe(40000);
+    expect(avecSalaireWave.expectedCash).toBe(sansSalaire.expectedCash);
+  });
 });

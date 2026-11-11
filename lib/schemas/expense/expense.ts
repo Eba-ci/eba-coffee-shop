@@ -32,12 +32,39 @@ export const expenseInputSchema = z.object({
     .optional(),
   receiptUrl: imageUrlSchema.nullable().optional(),
   items: expenseItemsArraySchema.nullable().optional(),
+  /** Charge fixe réglée par cette dépense (occurrence liée). */
+  fixedCostId: z.string().min(1).nullable().optional(),
+  /** Jour d'échéance de l'occurrence réglée (`fixedCostId` + `dueDate`). */
+  dueDate: dateOnly.nullable().optional(),
 });
 
 export type ExpenseInput = z.infer<typeof expenseInputSchema>;
 
+/**
+ * Liaison à une occurrence de charge fixe : `fixedCostId` et `dueDate` vont
+ * ensemble (les deux, ou aucun). Le refine vit ICI et non sur
+ * `expenseInputSchema` : Zod 4 interdit `.partial()` sur un schéma raffiné,
+ * or le MCP s'en sert pour `update_expense`.
+ */
+const linkedOccurrence = (v: {
+  fixedCostId?: string | null;
+  dueDate?: string | null;
+}) => (v.fixedCostId == null) === (v.dueDate == null);
+
+export const expenseCreateSchema = expenseInputSchema.refine(linkedOccurrence, {
+  message:
+    'fixedCostId et dueDate doivent être fournis ensemble (les deux ou aucun).',
+  path: ['dueDate'],
+});
+
+export type ExpenseCreateInput = z.infer<typeof expenseCreateSchema>;
+
 export const expenseUpdateSchema = expenseInputSchema
   .partial()
+  // La liaison à une occurrence (fixedCostId/dueDate) se pose à la CRÉATION et
+  // n'est jamais modifiée : `updateExpense` l'ignorait déjà. On la retire du
+  // schéma de mise à jour pour que l'outil MCP ne l'annonce plus.
+  .omit({ fixedCostId: true, dueDate: true })
   .refine((v) => Object.values(v).some((x) => x !== undefined), {
     message: 'Au moins un champ à mettre à jour est requis',
   });

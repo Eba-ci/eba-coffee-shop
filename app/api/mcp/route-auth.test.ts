@@ -41,6 +41,43 @@ describe('authentification — clé statique', () => {
     // La clé statique court-circuite OAuth : pas d'appel à getMcpSession.
     expect(getMcpSession).not.toHaveBeenCalled();
   });
+
+  it('la clé statique n’a PAS le scope admin (aucun détail salaires)', async () => {
+    const res = await POST(
+      makeRequest({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, authHeader)
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    const names = (json.result.tools as Array<{ name: string }>).map(
+      (t) => t.name
+    );
+    expect(names).toContain('get_menu');
+    // L'agrégat (finance) reste accessible ; le détail (admin) non.
+    expect(names).toContain('get_salary_month_total');
+    expect(names).not.toContain('get_salary_month_view');
+    expect(names).not.toContain('list_salary_employees');
+    expect(names).not.toContain('list_salary_advances');
+  });
+
+  it('la clé statique ne peut PAS appeler un outil de détail salaires', async () => {
+    const res = await POST(
+      makeRequest(
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: {
+            name: 'get_salary_month_view',
+            arguments: { month: '2026-06' },
+          },
+        },
+        authHeader
+      )
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect((json.result as { isError: boolean }).isError).toBe(true);
+  });
 });
 
 describe('authentification — OAuth', () => {
@@ -97,7 +134,7 @@ describe('authentification — OAuth', () => {
     expect(res.status).toBe(403);
   });
 
-  it('accepte un jeton OAuth d’un MANAGER (accès total)', async () => {
+  it('accepte un jeton OAuth d’un MANAGER (accès total hors paie)', async () => {
     getMcpSession.mockResolvedValue({ userId: 'u3' });
     userFindUnique.mockResolvedValue({ role: 'MANAGER' });
     const res = await POST(
@@ -113,6 +150,77 @@ describe('authentification — OAuth', () => {
     );
     expect(names).toContain('get_menu');
     expect(names).toContain('list_expenses');
+    // Le détail de la paie reste à l'ADMIN : le MANAGER ne voit aucun outil
+    // de détail salaires, seulement l'agrégat mensuel (finance).
+    expect(names).toContain('get_salary_month_total');
+    expect(names).not.toContain('get_salary_month_view');
+    expect(names).not.toContain('list_salary_employees');
+    expect(names).not.toContain('list_salary_advances');
+  });
+
+  it('le MANAGER ne peut PAS appeler un outil de détail salaires', async () => {
+    getMcpSession.mockResolvedValue({ userId: 'u3' });
+    userFindUnique.mockResolvedValue({ role: 'MANAGER' });
+    const res = await POST(
+      makeRequest(
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: {
+            name: 'get_salary_month_view',
+            arguments: { month: '2026-06' },
+          },
+        },
+        { authorization: 'Bearer jeton-oauth-manager' }
+      )
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect((json.result as { isError: boolean }).isError).toBe(true);
+  });
+
+  it.each(['COMPTABLE', 'ANALYSTE'])(
+    '%s ne peut PAS appeler un outil de détail salaires',
+    async (role) => {
+      getMcpSession.mockResolvedValue({ userId: 'u8' });
+      userFindUnique.mockResolvedValue({ role });
+      const res = await POST(
+        makeRequest(
+          {
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'tools/call',
+            params: {
+              name: 'list_salary_employees',
+              arguments: {},
+            },
+          },
+          { authorization: `Bearer jeton-oauth-${role}` }
+        )
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect((json.result as { isError: boolean }).isError).toBe(true);
+    }
+  );
+
+  it('accepte un jeton OAuth d’un ADMIN et lui montre le détail salaires', async () => {
+    getMcpSession.mockResolvedValue({ userId: 'u6' });
+    userFindUnique.mockResolvedValue({ role: 'ADMIN' });
+    const res = await POST(
+      makeRequest(
+        { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+        { authorization: 'Bearer jeton-oauth-admin' }
+      )
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    const names = (json.result.tools as Array<{ name: string }>).map(
+      (t) => t.name
+    );
+    expect(names).toContain('get_salary_month_view');
+    expect(names).toContain('list_salary_employees');
   });
 
   it('accepte un jeton OAuth d’un COMPTABLE mais restreint les outils finance', async () => {
@@ -131,8 +239,32 @@ describe('authentification — OAuth', () => {
     );
     expect(names).toContain('list_expenses');
     expect(names).toContain('get_daily_stats');
+    expect(names).toContain('get_salary_month_total');
     expect(names).not.toContain('get_menu');
     expect(names).not.toContain('create_product');
+    expect(names).not.toContain('get_salary_month_view');
+    expect(names).not.toContain('list_salary_employees');
+    expect(names).not.toContain('list_salary_advances');
+  });
+
+  it('ANALYSTE (lecture seule) ne voit aucun détail salaires', async () => {
+    getMcpSession.mockResolvedValue({ userId: 'u7' });
+    userFindUnique.mockResolvedValue({ role: 'ANALYSTE' });
+    const res = await POST(
+      makeRequest(
+        { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+        { authorization: 'Bearer jeton-oauth-analyste' }
+      )
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    const names = (json.result.tools as Array<{ name: string }>).map(
+      (t) => t.name
+    );
+    expect(names).toContain('get_salary_month_total');
+    expect(names).not.toContain('get_salary_month_view');
+    expect(names).not.toContain('list_salary_employees');
+    expect(names).not.toContain('list_salary_advances');
   });
 
   it('refuse (403) un jeton OAuth d’un CASHIER (hors rôles MCP)', async () => {

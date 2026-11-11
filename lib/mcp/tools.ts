@@ -11,5 +11,7 @@ export {
   toolsByName,
   TOOLSET_TOOL_NAMES,
   FINANCE_TOOL_NAMES,
+  ADMIN_ONLY_TOOL_NAMES,
+  NON_ADMIN_TOOL_NAMES,
   READ_ONLY_TOOL_NAMES,
 } from './tools/registry';

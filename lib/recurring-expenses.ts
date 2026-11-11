@@ -51,7 +51,12 @@ export async function getMissingRecurringExpenses(): Promise<
       include: { category: { select: { id: true, name: true } } },
     }),
     prisma.expense.findMany({
-      where: { date: { gte: start, lt: nextStart } },
+      // Une ligne de salaire ne « saisit » pas la dépense récurrente d'une
+      // catégorie : on l'exclut du contrôle (le lien `salaryPaymentId` fait foi).
+      where: {
+        date: { gte: start, lt: nextStart },
+        salaryPaymentId: null,
+      },
       select: { categoryId: true },
       distinct: ['categoryId'],
     }),

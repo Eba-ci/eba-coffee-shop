@@ -9,6 +9,7 @@
 import { Prisma } from '@/generated/prisma/client';
 import prisma from '@/lib/prisma';
 import { anonymizeCustomer } from '@/lib/customer-privacy';
+import { anonymizeExpiredSalaryData } from '@/lib/salaries/retention';
 import { RETENTION, retentionCutoff } from '@/config/data-protection';
 
 /** Plafond de fiches anonymisées par passage (borne la durée d'une requête). */
@@ -109,6 +110,12 @@ export async function purgeExpiredPersonalData(
         }
         return done;
       },
+    ],
+    [
+      // Employés sortis depuis plus de la durée de conservation (10 ans après
+      // la fin du contrat) : nom / poste / note anonymisés, montants conservés.
+      'salaryIdentitiesAnonymized',
+      async () => anonymizeExpiredSalaryData(now),
     ],
     [
       'pollVoteMetaCleared',

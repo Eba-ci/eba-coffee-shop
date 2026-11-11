@@ -40,10 +40,12 @@ export type McpTool = {
   toolset: ToolsetName;
   /**
    * Portée d'accès restreinte. `'finance'` = accessible aux rôles finance
-   * (ADMIN, MANAGER, COMPTABLE) ; absent = accessible à ADMIN/MANAGER
-   * uniquement (cf. `withRoleGuard` dans `app/api/mcp/route.ts`).
+   * (ADMIN, MANAGER, COMPTABLE, ANALYSTE en lecture) ; `'admin'` = ADMIN seul
+   * (jamais MANAGER, COMPTABLE ni ANALYSTE ; jamais l'assistant IA) ;
+   * absent = accessible à ADMIN/MANAGER (cf. `withRoleGuard` dans
+   * `app/api/mcp/route.ts`).
    */
-  scope?: 'finance';
+  scope?: 'finance' | 'admin';
   /** Exécute l'outil. Reçoit les arguments déjà validés par `inputSchema`. */
   handler: (args: unknown) => Promise<unknown>;
 };

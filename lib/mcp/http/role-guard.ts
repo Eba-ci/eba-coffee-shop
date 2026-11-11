@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { withMcpAuth } from 'better-auth/plugins';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import { FINANCE_TOOL_NAMES, READ_ONLY_TOOL_NAMES } from '@/lib/mcp/tools';
+import {
+  FINANCE_TOOL_NAMES,
+  NON_ADMIN_TOOL_NAMES,
+  READ_ONLY_TOOL_NAMES,
+} from '@/lib/mcp/tools';
 import type { UserRole } from '@/generated/prisma/client';
 import { intersectAllowedTools, resolveToolsetParam } from './toolset';
 
@@ -24,8 +28,9 @@ function forbidden(): Response {
 
 /**
  * `withMcpAuth` valide le jeton OAuth (401 + `WWW-Authenticate` sinon), puis
- * on exige un rôle autorisé. COMPTABLE → outils finance ; ANALYSTE → outils
- * en lecture seule.
+ * on exige un rôle autorisé. COMPTABLE → outils finance ; ANALYSTE → outils en
+ * lecture seule (hors admin) ; MANAGER → tout SAUF les outils `scope: 'admin'`
+ * (le détail de la paie reste à l'ADMIN) ; ADMIN → tout.
  */
 export function withRoleGuard(
   handler: (
@@ -45,7 +50,9 @@ export function withRoleGuard(
         ? FINANCE_TOOL_NAMES
         : user.role === 'ANALYSTE'
           ? READ_ONLY_TOOL_NAMES
-          : undefined;
+          : user.role === 'MANAGER'
+            ? NON_ADMIN_TOOL_NAMES
+            : undefined;
 
     const toolset = resolveToolsetParam(req);
     if (toolset instanceof Response) return toolset;

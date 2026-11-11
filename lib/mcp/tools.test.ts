@@ -37,7 +37,7 @@ describe('registre — intégrité', () => {
   // Garde-fou contre un module oublié dans `registry.ts` : à mettre à jour
   // volontairement quand on ajoute ou retire un outil.
   it("expose le nombre attendu d'outils", () => {
-    expect(tools).toHaveLength(165);
+    expect(tools).toHaveLength(170);
   });
 });
 
@@ -59,6 +59,33 @@ describe('create_order — créneau de retrait', () => {
       items: [{ productId: 'p1', quantity: 1 }],
     });
     expect(parsed.success).toBe(true);
+  });
+});
+
+describe('update_expense — schéma de mise à jour', () => {
+  const tool = tools.find((t) => t.name === 'update_expense')!;
+
+  it('n’annonce plus la liaison à une occurrence (fixedCostId/dueDate)', () => {
+    const shape = (
+      tool.inputSchema as unknown as { shape: Record<string, unknown> }
+    ).shape;
+    expect(shape).toHaveProperty('id');
+    expect(shape).not.toHaveProperty('fixedCostId');
+    expect(shape).not.toHaveProperty('dueDate');
+  });
+
+  it('retire fixedCostId/dueDate fournis (ignorés par updateExpense)', () => {
+    const parsed = tool.inputSchema.safeParse({
+      id: 'e1',
+      amount: 200,
+      fixedCostId: 'fc1',
+      dueDate: '2026-11-05',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data).not.toHaveProperty('fixedCostId');
+      expect(parsed.data).not.toHaveProperty('dueDate');
+    }
   });
 });
 
