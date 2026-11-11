@@ -183,7 +183,7 @@ réduite, voire vide, ce n'est pas une erreur.
 ## Outils exposés
 
 | Outil                             | Domaine    | Type     | Description                                                                                      |
-| --------------------------------- | ---------- | -------- | ------------------------------------------------------------------------------------------------ |
+| --------------------------------- | ---------- | -------- | ------------------------------------------------------------------------------------------------ | --- |
 | `get_menu`                        | menu       | lecture  | Menu compact (`id`, nom, prix, stock) ; `search`, `categoryId`, `productId`, `detail:"full"`     |
 | `search_products`                 | menu       | lecture  | Recherche compacte de produits par nom (tolère accents/fautes) — préférer à `get_menu`           |
 | `get_daily_stats`                 | stats      | lecture  | Stats agrégées de la journée en cours                                                            |
@@ -242,7 +242,7 @@ réduite, voire vide, ce n'est pas une erreur.
 | `create_fixed_cost`               | finance    | écriture | Ajouter une charge fixe (répartie sur les jours ouvrés, échéances optionnelles)                  |
 | `update_fixed_cost`               | finance    | écriture | Modifier une charge fixe (partiel, remplace les échéances si fournies)                           |
 | `delete_fixed_cost`               | finance    | écriture | Supprimer une charge fixe                                                                        |
-| `sync_fixed_costs_from_recurring` | finance    | écriture | Importer les récurrentes actives comme charges fixes (idempotent)                                |
+| `sync_fixed_costs_from_recurring` | finance    | écriture | Importer les récurrentes actives comme charges fixes (idempotent ; « salaires » ignorées)        |     |
 | `get_fixed_cost_schedule`         | finance    | lecture  | Échéancier d’un mois : échéances, payé/reste, statut (à venir/payée/partielle/en retard)         |
 | `get_break_even`                  | finance    | lecture  | Point mort jour par jour (charges + total salaires global, seuil de CA, reste à faire, résultat) |
 | `get_missing_fixed_costs`         | finance    | lecture  | Échéances échues non entièrement réglées (sans dépense liée ou partielles)                       |
@@ -526,7 +526,9 @@ dépense qui la règle par `fixedCostId` + `dueDate` (« Enregistrer le paiement
 dans l'app). Le **détail des salaires** (employés, versements, avances) est
 `scope: 'admin'` et n'apparaît donc pas pour un COMPTABLE/ANALYSTE (cf. section
 Salaires) ; seul l'agrégat mensuel `get_salary_month_total` reste `scope:
-'finance'`.
+'finance'`. L'import des récurrentes (`sync_fixed_costs_from_recurring`) **ignore
+les récurrentes « salaires »** (elles ne doivent jamais recréer une charge fixe)
+et les liste dans `skippedSalary`.
 
 L'outil **commande** `create_order` enregistre une commande, y compris
 **ancienne** : `orderDate` (`YYYY-MM-DD`, jour civil Abidjan) antidate la

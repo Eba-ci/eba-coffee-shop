@@ -125,6 +125,10 @@ export function FixedCostManager({
         parts.push(
           `sans montant, à compléter dans « Récurrentes » : ${r.skippedNoAmount.join(', ')}`
         );
+      if (r.skippedSalary.length > 0)
+        parts.push(
+          `« salaires » ignorées (rubrique Salaires) : ${r.skippedSalary.join(', ')}`
+        );
       setInfo(parts.join(' — '));
     });
   }

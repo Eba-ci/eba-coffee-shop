@@ -95,7 +95,10 @@ export const fixedCostsTools: McpTool[] = [
     description:
       'Crée une charge fixe mensuelle pour chaque dépense récurrente ACTIVE qui ' +
       'n’en a pas encore (idempotent, ne modifie jamais une charge déjà liée). ' +
-      'Les récurrentes sans montant attendu sont listées sans être créées.',
+      'Les récurrentes sans montant attendu sont listées sans être créées ' +
+      '(`skippedNoAmount`). Les récurrentes « salaires » (catégorie « Salaires » ' +
+      'ou libellé contenant « salaire ») sont IGNORÉES et listées dans ' +
+      '`skippedSalary` : les salaires vivent dans la rubrique Salaires (ADMIN).',
     inputSchema: z.object({}),
     readOnly: false,
     handler: () => syncFixedCostsFromRecurring(),
