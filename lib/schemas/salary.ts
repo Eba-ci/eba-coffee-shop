@@ -99,3 +99,55 @@ export type SalaryPaymentCreateInput = z.infer<
   typeof salaryPaymentCreateSchema
 >;
 export type SalaryPaymentTypeValue = (typeof SALARY_PAYMENT_TYPES)[number];
+
+// ── Avances : étalement, ajustement, annulation (ADMIN seul) ──
+//
+// Une AVANCE est un prêt récupéré sur les paies suivantes. Ces schémas
+// couvrent les corrections demandées par la revue de #419 : modifier son
+// étalement, ajuster son contenu, ou l'annuler. Chaque mutation est idempotente
+// (rejouer la même opération laisse l'état inchangé).
+
+/** Nouvel étalement (`recoveryMonths`) d'une avance existante. */
+export const salaryAdvanceRecoverySchema = z.object({
+  paymentId: z.string().min(SALARY_ID_MIN_LENGTH, 'Avance requise'),
+  recoveryMonths: z
+    .number()
+    .int()
+    .min(SALARY_RECOVERY_MONTHS_MIN)
+    .max(SALARY_RECOVERY_MONTHS_MAX),
+});
+
+/** Ajustement du contenu d'une avance (au moins un champ). */
+export const salaryAdvanceAdjustSchema = z
+  .object({
+    paymentId: z.string().min(SALARY_ID_MIN_LENGTH, 'Avance requise'),
+    amount: amountSchema.optional(),
+    date: dateOnly.optional(),
+    month: monthSchema.optional(),
+    paymentMethod: expensePaymentMethodSchema.optional(),
+    note: z.string().trim().max(SALARY_NOTE_MAX).nullable().optional(),
+  })
+  .refine(
+    (v) =>
+      v.amount !== undefined ||
+      v.date !== undefined ||
+      v.month !== undefined ||
+      v.paymentMethod !== undefined ||
+      v.note !== undefined,
+    { message: 'Au moins un champ à ajuster est requis' }
+  );
+
+/** Annulation d'une avance. */
+export const salaryAdvanceCancelSchema = z.object({
+  paymentId: z.string().min(SALARY_ID_MIN_LENGTH, 'Avance requise'),
+});
+
+export type SalaryAdvanceRecoveryInput = z.infer<
+  typeof salaryAdvanceRecoverySchema
+>;
+export type SalaryAdvanceAdjustInput = z.infer<
+  typeof salaryAdvanceAdjustSchema
+>;
+export type SalaryAdvanceCancelInput = z.infer<
+  typeof salaryAdvanceCancelSchema
+>;

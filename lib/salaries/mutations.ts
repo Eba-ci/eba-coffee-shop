@@ -8,6 +8,7 @@
 import { SALARY_END_AFTER_START_MESSAGE } from '@/config/constants';
 import { Prisma } from '@/generated/prisma/client';
 import type { SalaryPaymentType } from '@/generated/prisma/enums';
+import { requireAdmin } from '@/lib/auth-helpers';
 import prisma from '@/lib/prisma';
 import {
   employeeCreateSchema,
@@ -24,6 +25,7 @@ import {
 const date = (v: string) => parseDateOnlyToUTC(v)!;
 
 export async function createEmployee(input: unknown) {
+  await requireAdmin();
   const d = employeeCreateSchema.parse(input);
   return prisma.employee.create({
     data: {
@@ -43,6 +45,7 @@ export async function createEmployee(input: unknown) {
  * contrôle et la mise à jour.
  */
 export async function updateEmployee(id: string, input: unknown) {
+  await requireAdmin();
   const d = employeeUpdateSchema.parse(input);
   return prisma.$transaction(async (tx) => {
     if (d.startDate !== undefined || d.endDate !== undefined) {
@@ -77,6 +80,7 @@ export async function updateEmployee(id: string, input: unknown) {
  * la même (employé, date) met à jour le montant au lieu de créer un doublon.
  */
 export async function setSalaryRate(input: unknown) {
+  await requireAdmin();
   const d = salaryRateCreateSchema.parse(input);
   const startDate = date(d.startDate);
   return prisma.salaryRate.upsert({
@@ -113,6 +117,7 @@ const toIdentity = (p: SalaryPaymentRow): SalaryPaymentIdentity => ({
  * un simple `create`.
  */
 export async function recordSalaryPayment(input: unknown) {
+  await requireAdmin();
   const d = salaryPaymentCreateSchema.parse(input);
   const desired: SalaryPaymentIdentity = {
     employeeId: d.employeeId,
