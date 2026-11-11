@@ -11,7 +11,7 @@ import { runWithStockContext } from '@/lib/stock-history/source-context';
 import type { McpTool } from '@/lib/mcp/tools/types';
 import type { UserRole } from '@/generated/prisma/client';
 import type { ToolDefinition } from '../openrouter';
-import { maskPhonesDeep } from './mask-pii';
+import { maskPiiDeep } from './mask-pii';
 
 const RESULT_MAX_CHARS = 12_000;
 const DESCRIPTION_MAX_CHARS = 400;
@@ -46,6 +46,11 @@ function allowedForRole(tool: McpTool, role: UserRole): boolean {
   if (EXCLUDED.test(tool.name) || ASSISTANT_EXCLUDED_TOOLS.has(tool.name)) {
     return false;
   }
+  // Confidentialité : les outils `scope: 'admin'` (détail de la paie) ne
+  // partent JAMAIS au modèle d'IA (destinataire hors Côte d'Ivoire). Les
+  // salaires n'ont aucun sous-traitant externe : l'assistant n'en voit pas le
+  // détail, quel que soit le rôle.
+  if (tool.scope === 'admin') return false;
   if (role === 'COMPTABLE') return tool.scope === 'finance';
   if (role === 'ANALYSTE') return tool.readOnly;
   return role === 'ADMIN' || role === 'MANAGER';
@@ -129,11 +134,12 @@ export async function runAssistantTool(
       tool.handler(parsed.data)
     );
     if (!tool.readOnly && !DRAFT_TOOLS.has(name)) revalidateMenu();
-    // Données personnelles : numéros masqués avant tout envoi au modèle.
+    // Données personnelles : numéros masqués et détail employé/paie retiré
+    // avant tout envoi au modèle.
     const text =
       data === undefined || data === null
         ? 'OK'
-        : JSON.stringify(maskPhonesDeep(data));
+        : JSON.stringify(maskPiiDeep(data));
     return {
       ok: true,
       content:

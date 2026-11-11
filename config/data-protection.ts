@@ -29,6 +29,13 @@ export const RETENTION = {
   orderPushDays: 30,
   /** Validité du choix cookies. */
   consentMonths: 13,
+  /**
+   * Historique des salaires : conservé 10 ans après la FIN DU CONTRAT (sortie
+   * de l'employé), puis nom/poste/note anonymisés (montants agrégés conservés).
+   * Durée fixée par le responsable du traitement ; à faire valider par un avis
+   * juridique (cf. #409 / #415). Aucun numéro d'article de loi n'est cité.
+   */
+  salaryYearsAfterContract: 10,
 } as const;
 
 export const retentionCutoff = {
@@ -147,8 +154,7 @@ export const PROCESSING_ACTIVITIES: ProcessingActivity[] = [
     data: 'Nom, poste, date d’entrée et de sortie, taux mensuel et historique des montants, versements (date, montant, type, mode de paiement, note).',
     people: 'Employés et anciens employés.',
     recipients: 'Personnel autorisé (ADMIN) ; aucun sous-traitant externe.',
-    duration:
-      'À trancher (issue 6) — non définie à ce stade ; question ouverte de #409.',
+    duration: `${RETENTION.salaryYearsAfterContract} ans après la fin du contrat (sortie de l’employé), puis anonymisation du nom, du poste et de la note ; les montants agrégés sont conservés. Durée fixée par le responsable du traitement, à faire valider par un avis juridique — aucun numéro d’article de loi n’est cité.`,
   },
   {
     id: 'assistant',

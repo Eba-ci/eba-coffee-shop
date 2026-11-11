@@ -37,7 +37,7 @@ describe('registre — intégrité', () => {
   // Garde-fou contre un module oublié dans `registry.ts` : à mettre à jour
   // volontairement quand on ajoute ou retire un outil.
   it("expose le nombre attendu d'outils", () => {
-    expect(tools).toHaveLength(165);
+    expect(tools).toHaveLength(169);
   });
 });
 
