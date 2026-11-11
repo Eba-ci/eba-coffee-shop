@@ -235,6 +235,13 @@ réduite, voire vide, ce n'est pas une erreur.
 | `create_revenue_adjustment`      | finance    | écriture | Ajuster le CA sans commande (montant signé)                                                     |
 | `update_revenue_adjustment`      | finance    | écriture | Modifier une régularisation (partiel)                                                           |
 | `delete_revenue_adjustment`      | finance    | écriture | Supprimer une régularisation                                                                    |
+| `list_fixed_costs`               | finance    | lecture  | Charges fixes (montant, périodicité, prise d'effet, catégorie) |
+| `create_fixed_cost`              | finance    | écriture | Ajouter une charge fixe (répartie sur les jours ouvrés) |
+| `update_fixed_cost`              | finance    | écriture | Modifier une charge fixe (partiel) |
+| `delete_fixed_cost`              | finance    | écriture | Supprimer une charge fixe |
+| `sync_fixed_costs_from_recurring`| finance    | écriture | Importer les récurrentes actives comme charges fixes (idempotent) |
+| `get_break_even`                 | finance    | lecture  | Point mort jour par jour (charges, seuil de CA, reste à faire, résultat) |
+| `get_missing_fixed_costs`        | finance    | lecture  | Périodes échues sans dépense saisie pour une charge fixe |
 | `list_refunds`                   | finance    | lecture  | Lister les remboursements (statut, canal, commande, plage de demande)                           |
 | `get_refund`                     | finance    | lecture  | Détail d'un remboursement (lignes, journal, commande)                                           |
 | `get_refund_summary`             | finance    | lecture  | Stats : montant, taux du CA, motifs, canaux, échecs Jèko, délai de validation                   |

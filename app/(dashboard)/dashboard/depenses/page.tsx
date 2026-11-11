@@ -24,6 +24,11 @@ import { ApercuSection } from './_components/apercu-section';
 import { HistoriqueSection } from './_components/historique-section';
 import { ArticlesSection } from './_components/articles-section';
 import { RecurrentesSection } from './_components/recurrentes-section';
+import { PointMortSection } from './_components/point-mort-section';
+import { HideOnTab } from './_components/hide-on-tab';
+import { loadPointMortParams } from './point-mort-search-params';
+import { parseMonth } from '@/lib/fixed-costs/month';
+import { FixedCostMissingSection } from './_components/fixed-cost-missing-section';
 import { ArticleHistorySection } from './_components/article-history-section';
 
 export const dynamic = 'force-dynamic';
@@ -45,10 +50,15 @@ export default async function DepensesPage({
     search?: string;
     tab?: string;
     article?: string;
+    mois?: string;
   }>;
 }) {
   await requireRoleOrAnalyst(['ADMIN']);
   const params = await searchParams;
+  const pointMortMonth = parseMonth(
+    loadPointMortParams(params).mois,
+    todayDateString()
+  );
 
   const isAll = params.range === 'all';
   const today = todayDateString();
@@ -100,11 +110,15 @@ export default async function DepensesPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Dépenses</h1>
-          <p className="text-sm text-muted-foreground">{periodLabel}</p>
+          <HideOnTab tab="pointmort">
+            <p className="text-sm text-muted-foreground">{periodLabel}</p>
+          </HideOnTab>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExpenseSettingsButton settings={expenseSettings} />
-          <DateRangeFilter from={fromStr} to={toStr} isAll={isAll} />
+          <HideOnTab tab="pointmort">
+            <DateRangeFilter from={fromStr} to={toStr} isAll={isAll} />
+          </HideOnTab>
           {/* Accessible quel que soit l'onglet actif, plus seulement depuis
               la table de l'Historique. */}
           <Button asChild size="sm">
@@ -122,6 +136,10 @@ export default async function DepensesPage({
 
       <Suspense fallback={null}>
         <RecurringAlertSection />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <FixedCostMissingSection />
       </Suspense>
 
       <DepensesTabs
@@ -174,6 +192,11 @@ export default async function DepensesPage({
         recurrentes={
           <Suspense fallback={<TableSkeleton rows={6} withToolbar={false} />}>
             <RecurrentesSection />
+          </Suspense>
+        }
+        pointmort={
+          <Suspense fallback={<TableSkeleton rows={8} withToolbar={false} />}>
+            <PointMortSection month={pointMortMonth} />
           </Suspense>
         }
       />
