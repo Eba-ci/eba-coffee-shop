@@ -33,7 +33,10 @@ export default async function StatistiquesPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; range?: string }>;
 }) {
-  await requireStats();
+  const session = await requireStats();
+  // Détail des salaires réservé à l'ADMIN : les autres rôles ne comptent que
+  // les dépenses hors lignes de salaire.
+  const includeSalary = session.user.role === 'ADMIN';
   const params = await searchParams;
 
   const isAll = params.range === 'all';
@@ -120,7 +123,7 @@ export default async function StatistiquesPage({
       </div>
 
       <Suspense fallback={<KpiGridSkeleton count={6} cols={3} />}>
-        <KpiSection from={from} to={to} />
+        <KpiSection from={from} to={to} includeSalary={includeSalary} />
       </Suspense>
 
       <Suspense fallback={<ChartCardSkeleton height={300} />}>
@@ -145,7 +148,7 @@ export default async function StatistiquesPage({
           </div>
         }
       >
-        <BreakdownsSection from={from} to={to} />
+        <BreakdownsSection from={from} to={to} includeSalary={includeSalary} />
       </Suspense>
 
       <Suspense

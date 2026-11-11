@@ -37,7 +37,8 @@ export const expensesTools: McpTool[] = [
       '(CASH/WAVE/BANK/OTHER) et/ou `search` (fournisseur ou note), avec le ' +
       'total. Chaque dépense porte un numéro de reçu `receiptNo` ' +
       '(DEP-YYYY-MM-NNNN, séquence remise à zéro chaque mois). Tous les ' +
-      'filtres sont optionnels.',
+      'filtres sont optionnels. Les lignes de salaire (réservées à l’ADMIN) ne ' +
+      'sont jamais renvoyées ici.',
     inputSchema: expenseFiltersSchema,
     readOnly: true,
     handler: (args) => {

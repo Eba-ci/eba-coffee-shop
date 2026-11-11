@@ -97,9 +97,20 @@ export async function updateExpense(id: string, input: unknown) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.expense.findUnique({
       where: { id },
-      select: { amount: true, _count: { select: { items: true } } },
+      select: {
+        amount: true,
+        salaryPaymentId: true,
+        _count: { select: { items: true } },
+      },
     });
     if (!existing) throw new Error('Dépense introuvable.');
+    // Une ligne de salaire est pilotée par le module salaires : la modifier ici
+    // désynchroniserait le versement lié. On refuse.
+    if (existing.salaryPaymentId) {
+      throw new Error(
+        'Cette dépense est liée à un versement de salaire : modifie le versement.'
+      );
+    }
 
     const itemsProvided = data.items !== undefined;
     if (
@@ -159,5 +170,14 @@ export async function updateExpense(id: string, input: unknown) {
 }
 
 export async function deleteExpense(id: string) {
+  const existing = await prisma.expense.findUnique({
+    where: { id },
+    select: { salaryPaymentId: true },
+  });
+  if (existing?.salaryPaymentId) {
+    throw new Error(
+      'Cette dépense est liée à un versement de salaire : supprime le versement.'
+    );
+  }
   return prisma.expense.delete({ where: { id } });
 }

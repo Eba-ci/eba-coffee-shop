@@ -100,4 +100,21 @@ describe('getCashFigures', () => {
     expect(f.refunds).toBe(0);
     expect(f.cashRefunds).toBe(1500);
   });
+
+  it('un versement de salaire EN ESPÈCES pèse sur la caisse; la requête ne filtre pas les salaires', async () => {
+    stubDay({ CASH: 50_000 });
+    // 20 000 F sortis en espèces dont un salaire de 15 000 : la clôture
+    // n'exclut PAS les lignes de salaire (elles sont bien des sorties d'espèces).
+    vi.mocked(prisma.expense.aggregate).mockResolvedValue({
+      _sum: { amount: 20_000 },
+    } as never);
+
+    const f = await getCashFigures(date);
+
+    expect(f.cashExpenses).toBe(20_000);
+    expect(vi.mocked(prisma.expense.aggregate)).toHaveBeenCalledWith({
+      where: { date, paymentMethod: 'CASH' },
+      _sum: { amount: true },
+    });
+  });
 });

@@ -61,7 +61,9 @@ export async function GET(req: NextRequest) {
     getRangeStats(from, to),
     getDailySeries(from, to),
     getTopProducts(from, to, TOP_PRODUCTS_LIMIT),
-    getExpenseSummary(from, to),
+    getExpenseSummary(from, to, {
+      includeSalary: session.user.role === 'ADMIN',
+    }),
     getInvestmentSummary(from, to),
     getCustomerRangeStats(from, to),
     getRevenueAdjustmentSummary(from, to),

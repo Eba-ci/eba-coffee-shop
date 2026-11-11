@@ -9,6 +9,7 @@ export async function backfillExpenseReceipts(
   client: PrismaClient = prisma
 ): Promise<{ updated: number; total: number }> {
   const expenses = await client.expense.findMany({
+    where: { salaryPaymentId: null },
     orderBy: [{ date: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
     select: {
       id: true,

@@ -61,6 +61,10 @@ export default async function DepensesPage({
   // Onglet Salaires réservé à l'ADMIN (garde onglet par onglet, cf. #420) :
   // non-admin ne reçoit ni le contenu, ni l'onglet.
   const isAdmin = session.user.role === 'ADMIN';
+  // Les lignes de salaire (catégorie « Salaires ») sont réservées à l'ADMIN :
+  // manager, comptable et analyste ne les voient ni dans l'historique ni dans
+  // les totaux par catégorie.
+  const includeSalary = isAdmin;
   const params = await searchParams;
   const pointMortMonth = parseMonth(
     loadPointMortParams(params).mois,
@@ -168,6 +172,7 @@ export default async function DepensesPage({
               categoryId={categoryId}
               paymentMethod={paymentMethod}
               search={search}
+              includeSalary={includeSalary}
             />
           </Suspense>
         }
@@ -181,6 +186,7 @@ export default async function DepensesPage({
               search={search}
               periodLabel={periodLabel}
               exportHref={exportHref}
+              includeSalary={includeSalary}
             />
           </Suspense>
         }

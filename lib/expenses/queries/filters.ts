@@ -9,6 +9,12 @@ export interface ExpenseFilters {
   paymentMethod?: Prisma.ExpenseWhereInput['paymentMethod'];
   /** Recherche texte (fournisseur ou note, insensible à la casse). */
   search?: string;
+  /**
+   * Inclure les lignes de salaire (`Expense.salaryPaymentId` non nul). Faux
+   * par défaut : ces lignes sont réservées à l'ADMIN, tout autre appel (listes,
+   * totaux par catégorie, exports, MCP, assistant IA) les masque.
+   */
+  includeSalary?: boolean;
 }
 
 export function buildExpenseWhere({
@@ -17,6 +23,7 @@ export function buildExpenseWhere({
   categoryId,
   paymentMethod,
   search,
+  includeSalary,
 }: ExpenseFilters): Prisma.ExpenseWhereInput {
   const where: Prisma.ExpenseWhereInput = {};
   if (dateFrom || dateTo) {
@@ -27,6 +34,9 @@ export function buildExpenseWhere({
   }
   if (categoryId) where.categoryId = categoryId;
   if (paymentMethod) where.paymentMethod = paymentMethod;
+  // Confidentialité : une ligne de salaire n'est visible que si l'appelant
+  // l'autorise explicitement (écrans ADMIN).
+  if (!includeSalary) where.salaryPaymentId = null;
   const q = search?.trim();
   if (q) {
     where.OR = [

@@ -67,6 +67,13 @@ export const SALARY_IDEMPOTENCY_KEY_MAX = 200;
 export const SALARY_END_AFTER_START_MESSAGE =
   'La sortie doit être après l’entrée';
 
+/**
+ * Catégorie de dépense qui matérialise les versements de salaire. Réservée à
+ * l'ADMIN : les lignes rattachées sont masquées aux autres rôles (le lien
+ * `Expense.salaryPaymentId` fait foi, pas le nom seul).
+ */
+export const SALARY_EXPENSE_CATEGORY_NAME = 'Salaires';
+
 /** Les opérations d'ajustement / d'annulation ne visent qu'une AVANCE. */
 export const SALARY_ADVANCE_ONLY_MESSAGE =
   'Cette opération ne vise qu’une avance';

@@ -41,7 +41,8 @@ export default async function NouvelleDepensePage({
   // erreur : on retombe simplement sur un formulaire vierge.
   if (dupliquer) {
     const source = await getExpenseForEdit(dupliquer);
-    if (source) {
+    // Une ligne de salaire ne se duplique pas comme dépense manuelle.
+    if (source && !source.salaryPaymentId) {
       initial = expenseToFormValues(source, 'duplicate');
       subtitle = 'Copie d’une dépense existante, à la date du jour.';
     }
