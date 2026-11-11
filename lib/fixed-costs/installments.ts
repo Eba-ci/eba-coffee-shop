@@ -4,10 +4,11 @@
 // la charge. Appelée par les écritures avec les valeurs FINALES (une mise à
 // jour partielle peut changer la périodicité sans renvoyer les échéances).
 
+import type { FixedCostLike } from './compute';
 import type { InstallmentLike } from './schedule';
 import { installmentsTotal } from './schedule';
 
-type Periodicity = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
+type Periodicity = FixedCostLike['periodicity'];
 
 const MONTHS: Record<Periodicity, number> = {
   DAILY: 0,

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   EXPENSE_AMOUNT_MAX,
+  FIXED_COST_MAX_INSTALLMENTS,
   EXPENSE_RECURRING_LABEL_MAX,
 } from '@/config/constants';
 
@@ -55,7 +56,10 @@ export const fixedCostObjectSchema = z.object({
   active: z.boolean().optional(),
   note: z.string().trim().max(200).nullable().optional(),
   /** Absent = inchangé ; `[]` = retour à l'échéance par défaut. */
-  installments: z.array(fixedCostInstallmentSchema).max(12).optional(),
+  installments: z
+    .array(fixedCostInstallmentSchema)
+    .max(FIXED_COST_MAX_INSTALLMENTS)
+    .optional(),
 });
 
 const endAfterStart = (v: { startDate?: string; endDate?: string | null }) =>

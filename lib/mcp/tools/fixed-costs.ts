@@ -113,7 +113,7 @@ export const fixedCostsTools: McpTool[] = [
     title: 'Échéances de charges fixes en retard',
     description:
       'Liste les échéances (loyer le 5, abonnement le 10…) dont la date est ' +
-      'passée sans AUCUNE dépense liée à cette échéance. Une échéance du jour ou ' +
+      'passée sans dépense liée, ou réglée en partie seulement. Une échéance du jour ou ' +
       'à venir n’y figure pas.',
     inputSchema: z.object({}),
     readOnly: true,

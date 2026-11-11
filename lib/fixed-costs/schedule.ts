@@ -9,6 +9,7 @@
 // Les charges « par jour ouvré » (DAILY) n'ont pas d'échéance : elles se
 // consomment chaque jour, il n'y a rien à suivre.
 
+import { FIXED_COST_MAX_PERIODS_PER_RANGE } from '@/config/constants';
 import type { FixedCostLike } from './compute';
 import {
   daysInMonth,
@@ -53,11 +54,14 @@ export type Occurrence = {
   paid: number;
   remaining: number;
   status: OccurrenceStatus;
+  /**
+   * Date STRICTEMENT passée et pas entièrement réglée. Vrai aussi pour une
+   * échéance « partielle » échue : le statut dit où en est le paiement, ce
+   * drapeau dit s'il faut relancer.
+   */
+  overdue: boolean;
   expenseIds: string[];
 };
-
-/** Garde-fou : une plage ne génère jamais plus de périodes que ça par charge. */
-const MAX_PERIODS = 800;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -118,10 +122,17 @@ export function dueDateIn(
   return `${year}-${pad(month)}-${pad(day)}`;
 }
 
+const byDueDateThenLabel = (a: Occurrence, b: Occurrence) =>
+  a.dueDate.localeCompare(b.dueDate) || a.label.localeCompare(b.label);
+
+/** Clé de jointure charge × échéance (paiement lié ↔ occurrence). */
+const occurrenceKey = (costId: string, dueDate: string) =>
+  `${costId}|${dueDate}`;
+
 function sumByKey(payments: LinkedPayment[]) {
   const map = new Map<string, { paid: number; ids: string[] }>();
   for (const p of payments) {
-    const key = `${p.fixedCostId}|${p.dueDate}`;
+    const key = occurrenceKey(p.fixedCostId, p.dueDate);
     const cur = map.get(key) ?? { paid: 0, ids: [] };
     cur.paid += p.amount;
     cur.ids.push(p.expenseId);
@@ -167,11 +178,15 @@ export function occurrencesInRange(
   const installments = effectiveInstallments(cost);
   const out: Occurrence[] = [];
   let period = periodContaining(lo, cost.periodicity);
-  for (let i = 0; i < MAX_PERIODS && period.start <= hi; i++) {
+  for (
+    let i = 0;
+    i < FIXED_COST_MAX_PERIODS_PER_RANGE && period.start <= hi;
+    i++
+  ) {
     for (const inst of installments) {
       const dueDate = dueDateIn(period, cost.periodicity, inst);
       if (!dueDate || dueDate < lo || dueDate > hi) continue;
-      const hit = paidBy.get(`${cost.id}|${dueDate}`);
+      const hit = paidBy.get(occurrenceKey(cost.id, dueDate));
       const paid = hit?.paid ?? 0;
       out.push({
         costId: cost.id,
@@ -184,15 +199,13 @@ export function occurrencesInRange(
         paid,
         remaining: Math.max(inst.amount - paid, 0),
         status: statusOf(dueDate, inst.amount, paid, today),
+        overdue: dueDate < today && paid < inst.amount,
         expenseIds: hit?.ids ?? [],
       });
     }
     period = periodContaining(nextPeriodStart(period.end), cost.periodicity);
   }
-  return out.sort(
-    (a, b) =>
-      a.dueDate.localeCompare(b.dueDate) || a.label.localeCompare(b.label)
-  );
+  return out.sort(byDueDateThenLabel);
 }
 
 /** Occurrences de toutes les charges sur [from, to], triées par échéance. */
@@ -205,13 +218,15 @@ export function scheduleForRange(
 ): Occurrence[] {
   return costs
     .flatMap((c) => occurrencesInRange(c, from, to, payments, today))
-    .sort(
-      (a, b) =>
-        a.dueDate.localeCompare(b.dueDate) || a.label.localeCompare(b.label)
-    );
+    .sort(byDueDateThenLabel);
 }
 
 /** Total des échéances : doit égaler le montant de la charge sur la période. */
 export function installmentsTotal(installments: InstallmentLike[]): number {
   return installments.reduce((s, i) => s + i.amount, 0);
+}
+
+/** Projection d'une ligne d'échéance (base) vers la forme de calcul. */
+export function toInstallmentLike(row: InstallmentLike): InstallmentLike {
+  return { monthOffset: row.monthOffset, day: row.day, amount: row.amount };
 }
