@@ -115,6 +115,6 @@ export async function syncFixedCostsFromRecurring(): Promise<SyncResult> {
   return {
     created: res.count,
     skippedNoAmount: todo.filter((r) => !r.expectedAmount).map((r) => r.label),
-    alreadyLinked: linkedIds.size,
+    alreadyLinked: recurring.length - todo.length,
   };
 }

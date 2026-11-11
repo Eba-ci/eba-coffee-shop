@@ -25,6 +25,7 @@ export async function getMarginAggregate(
     where: withStaffVisible({
       dailyDate: { gte: from, lte: to },
       status: { not: 'CANCELLED' },
+      isPaid: true, // même périmètre que le CA net (getDailySeries)
     }),
     select: { items: true },
   });

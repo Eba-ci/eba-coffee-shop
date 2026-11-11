@@ -16,15 +16,12 @@ describe('findMissingPeriods', () => {
   it('signale les mois échus sans dépense, jamais le mois en cours', () => {
     const expenses = new Map([['cat-loyer', ['2026-09-03']]]);
     const missing = findMissingPeriods([rent], expenses, '2026-11-11');
-    expect(missing.map((m) => m.periodStart)).toEqual([
-      '2026-08-01',
-      '2026-10-01',
-    ]);
+    expect(missing.map((m) => m.periodStart)).toEqual(['2026-10-01']);
   });
 
   it('ne regarde pas la catégorie des autres charges', () => {
     const expenses = new Map([['autre', ['2026-08-20', '2026-10-05']]]);
-    expect(findMissingPeriods([rent], expenses, '2026-11-11')).toHaveLength(3);
+    expect(findMissingPeriods([rent], expenses, '2026-11-11')).toHaveLength(2);
   });
 
   it('s’arrête à la date de fin et ignore inactives / journalières', () => {
@@ -33,7 +30,7 @@ describe('findMissingPeriods', () => {
       findMissingPeriods([ended], new Map(), '2026-11-11').map(
         (m) => m.periodStart
       )
-    ).toEqual(['2026-08-01', '2026-09-01']);
+    ).toEqual(['2026-09-01']);
     expect(
       findMissingPeriods([{ ...rent, active: false }], new Map(), '2026-11-11')
     ).toEqual([]);

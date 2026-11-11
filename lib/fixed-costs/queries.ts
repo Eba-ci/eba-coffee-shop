@@ -26,6 +26,8 @@ import { openDayPredicate } from './open-days';
 
 /** Fenêtre (jours) sur laquelle on mesure le taux de marge. */
 export const MARGIN_WINDOW_DAYS = 30;
+/** Plage maximale d'un rapport (jours) : borne le tableau, le graphique et le MCP. */
+export const MAX_REPORT_DAYS = 366;
 
 export type FixedCostRow = FixedCostLike & {
   categoryId: string;
@@ -71,13 +73,18 @@ export type BreakEvenReport = {
   };
   /** Aucun jour ouvré dans les horaires : rien à répartir. */
   hoursMissing: boolean;
+  /** La plage demandée dépassait MAX_REPORT_DAYS : `from` a été ramené. */
+  clamped: boolean;
   costCount: number;
 };
 
 export async function getBreakEvenReport(
-  from: string,
+  requestedFrom: string,
   to: string
 ): Promise<BreakEvenReport> {
+  const earliest = shiftDateString(to, -(MAX_REPORT_DAYS - 1));
+  const clamped = requestedFrom < earliest;
+  const from = clamped ? earliest : requestedFrom;
   const today = todayDateString();
   const windowTo = to < today ? to : today;
   const windowFrom = shiftDateString(windowTo, -(MARGIN_WINDOW_DAYS - 1));
@@ -120,6 +127,7 @@ export async function getBreakEvenReport(
       daysReached: days.filter((d) => d.reached === true).length,
     },
     hoursMissing: isAllClosed(settings, from),
+    clamped,
     costCount: costs.filter((c) => c.active).length,
   };
 }

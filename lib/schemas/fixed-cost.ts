@@ -38,7 +38,7 @@ export const fixedCostObjectSchema = z.object({
     .int('Montant entier (FCFA)')
     .positive('Montant invalide')
     .max(EXPENSE_AMOUNT_MAX, 'Montant trop élevé'),
-  periodicity: fixedCostPeriodicitySchema.default('MONTHLY'),
+  periodicity: fixedCostPeriodicitySchema,
   startDate: dateOnly,
   endDate: dateOnly.nullable().optional(),
   categoryId: z.string().min(1, 'Catégorie requise'),
@@ -49,7 +49,16 @@ export const fixedCostObjectSchema = z.object({
 const endAfterStart = (v: { startDate?: string; endDate?: string | null }) =>
   !v.startDate || !v.endDate || v.endDate >= v.startDate;
 
-export const fixedCostInputSchema = fixedCostObjectSchema.refine(
+/**
+ * Création : périodicité mensuelle par défaut. Le défaut vit ICI et non dans
+ * `fixedCostObjectSchema` : `.partial()` conserve un `.default()`, et une mise
+ * à jour partielle (ex. `{ active: false }`) réécrirait alors la périodicité.
+ */
+export const fixedCostCreateObjectSchema = fixedCostObjectSchema.extend({
+  periodicity: fixedCostPeriodicitySchema.default('MONTHLY'),
+});
+
+export const fixedCostInputSchema = fixedCostCreateObjectSchema.refine(
   endAfterStart,
   {
     message: 'La fin doit être après la prise d’effet',

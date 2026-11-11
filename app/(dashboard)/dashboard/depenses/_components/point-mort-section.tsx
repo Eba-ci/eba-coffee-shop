@@ -4,7 +4,11 @@
 
 import Link from 'next/link';
 import { CalendarOff, Gauge, Target, Wallet } from 'lucide-react';
-import { getBreakEvenReport, listFixedCosts } from '@/lib/fixed-costs/queries';
+import {
+  MARGIN_WINDOW_DAYS,
+  getBreakEvenReport,
+  listFixedCosts,
+} from '@/lib/fixed-costs/queries';
 import { listExpenseCategories } from '@/lib/expenses';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/(dashboard)/kpi-card';
@@ -44,6 +48,12 @@ export async function PointMortSection({
         </p>
       )}
 
+      {report.clamped && (
+        <p className="text-sm text-muted-foreground">
+          Plage limitée aux 366 derniers jours (jusqu’au {report.to}).
+        </p>
+      )}
+
       {today && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard
@@ -63,7 +73,7 @@ export async function PointMortSection({
             hint={
               marginPct === null
                 ? 'Marge non calculable'
-                : `Marge ${marginPct} % sur ${30} j`
+                : `Marge ${marginPct} % sur ${MARGIN_WINDOW_DAYS} j`
             }
           />
           <KpiCard

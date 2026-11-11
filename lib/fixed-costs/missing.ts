@@ -40,7 +40,11 @@ export function findMissingPeriods(
     const found: MissingPeriod[] = [];
     // Une période est échue quand sa fin est strictement avant aujourd'hui.
     while (period.end < today && period.start <= last) {
-      const hasExpense = days.some((d) => d >= period.start && d <= period.end);
+      // Période de prise d'effet entamée en cours de route : pas d'alerte (le
+      // paiement n'est dû qu'à la période suivante).
+      const partial = period.start < cost.startDate;
+      const hasExpense =
+        partial || days.some((d) => d >= period.start && d <= period.end);
       if (!hasExpense) {
         found.push({
           costId: cost.id,

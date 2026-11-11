@@ -17,6 +17,7 @@ import {
 } from '@/lib/fixed-costs/queries';
 import {
   fixedCostInputSchema,
+  fixedCostCreateObjectSchema,
   fixedCostObjectSchema,
 } from '@/lib/schemas/fixed-cost';
 import { idSchema, rangeSchema } from './helpers';
@@ -46,7 +47,7 @@ export const fixedCostsTools: McpTool[] = [
       '(`periodicity`), répartie sur les JOURS OUVRÉS (horaires de la boutique). ' +
       '`startDate` = prise d’effet (YYYY-MM-DD), `categoryId` = catégorie de ' +
       'dépense attendue (pour l’alerte des périodes non saisies).',
-    inputSchema: fixedCostObjectSchema,
+    inputSchema: fixedCostCreateObjectSchema,
     readOnly: false,
     handler: (args) => createFixedCost(fixedCostInputSchema.parse(args)),
   },

@@ -4,6 +4,7 @@
 // l'arithmétique UTC suffit). Aucune dépendance serveur.
 
 import type { FixedCostPeriodicity } from '@/generated/prisma/enums';
+import { shiftDateString } from '@/lib/timezone';
 
 export type Period = { start: string; end: string };
 
@@ -19,15 +20,7 @@ function toUtc(day: string): Date {
   );
 }
 
-function fromUtc(d: Date): string {
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
-}
-
-export function addDays(day: string, delta: number): string {
-  const d = toUtc(day);
-  d.setUTCDate(d.getUTCDate() + delta);
-  return fromUtc(d);
-}
+const addDays = shiftDateString;
 
 /** Jour de la semaine, 0 = dimanche … 6 = samedi (même convention que `weeklyHours`). */
 export function weekdayOf(day: string): number {
