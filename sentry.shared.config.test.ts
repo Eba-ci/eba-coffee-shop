@@ -96,4 +96,33 @@ describe('scrubUrl / scrubPii', () => {
     expect(event.request?.headers).toEqual({ accept: '*/*' });
     expect(event.user).toEqual({ id: 'u1' });
   });
+
+  it('neutralise tout détail employé / salaire (extra, contextes, balises, fils d’Ariane)', () => {
+    const event = scrubPii({
+      extra: {
+        employee: { name: 'Awa', salaryAmount: 250_000 },
+        orderId: 'ord-1',
+      },
+      contexts: { payroll: { total: 5_000 } },
+      tags: { env: 'prod', salaryMonth: '2026-06' },
+      breadcrumbs: [
+        {
+          data: {
+            employees: [{ name: 'Awa' }],
+            url: 'https://eba-coffee.com/dashboard/depenses',
+          },
+        },
+      ],
+    });
+    expect(event.extra?.employee).toBe('[masqué]');
+    expect(event.extra?.orderId).toBe('ord-1');
+    expect((event.contexts as Record<string, unknown>).payroll).toBe(
+      '[masqué]'
+    );
+    expect(event.tags?.salaryMonth).toBe('[masqué]');
+    expect(event.tags?.env).toBe('prod');
+    const crumbData = event.breadcrumbs?.[0].data as Record<string, unknown>;
+    expect(crumbData.employees).toBe('[masqué]');
+    expect(crumbData.url).toBe('https://eba-coffee.com/dashboard/depenses');
+  });
 });

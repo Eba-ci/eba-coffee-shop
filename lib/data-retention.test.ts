@@ -17,7 +17,11 @@ vi.mock('@/lib/prisma', () => ({ default: prismaMock }));
 vi.mock('@/lib/customer-privacy', () => ({
   anonymizeCustomer: vi.fn().mockResolvedValue({ alreadyAnonymized: false }),
 }));
+vi.mock('@/lib/salaries/retention', () => ({
+  anonymizeExpiredSalaryData: vi.fn().mockResolvedValue(0),
+}));
 
+import { anonymizeExpiredSalaryData } from '@/lib/salaries/retention';
 import { purgeExpiredPersonalData } from './data-retention';
 
 describe('purgeExpiredPersonalData', () => {
@@ -32,6 +36,7 @@ describe('purgeExpiredPersonalData', () => {
     prismaMock.assistantConversation.deleteMany = count(2);
     prismaMock.session.deleteMany = count(6);
     prismaMock.verification.deleteMany = count(7);
+    vi.mocked(anonymizeExpiredSalaryData).mockResolvedValue(2);
   });
 
   it('applique la grille et rapporte chaque étape', async () => {
@@ -40,6 +45,7 @@ describe('purgeExpiredPersonalData', () => {
       ordersAnonymized: 3,
       refundIdentitiesCleared: 8,
       customersAnonymized: 2,
+      salaryIdentitiesAnonymized: 2,
       pollVoteMetaCleared: 4,
       assistantConversationsDeleted: 2,
       sessionsDeleted: 6,

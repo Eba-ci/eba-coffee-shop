@@ -63,6 +63,27 @@ export function shouldDropEvent(event: SentryEvent): boolean {
 // ne doit quitter l'application vers un sous-traitant hors Côte d'Ivoire.
 const ORDER_ID_IN_PATH = /(\/(?:api\/)?commandes?\/)[^/?#]+/gi;
 
+// Confidentialité des salaires : ni nom d'employé ni montant individuel de paie
+// ne doit figurer dans un événement Sentry. Toute clé « employé / paie » d'un
+// `extra`, d'un contexte, d'une balise ou d'un fil d'Ariane est neutralisée.
+const SALARY_KEY = /employ|salari|salary|paie|payroll|rémunér|remuner/i;
+const REDACTED = '[masqué]';
+
+/** Neutralise récursivement toute clé « employé / paie » d'une structure. */
+function redactSalaryData(value: unknown): void {
+  if (Array.isArray(value)) {
+    for (const item of value) redactSalaryData(item);
+    return;
+  }
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    const record = value as Record<string, unknown>;
+    for (const key of Object.keys(record)) {
+      if (SALARY_KEY.test(key)) record[key] = REDACTED;
+      else redactSalaryData(record[key]);
+    }
+  }
+}
+
 /** Retire query string et identifiants de commande d'une URL (best-effort). */
 export function scrubUrl(rawUrl: string): string {
   return rawUrl.split(/[?#]/)[0].replace(ORDER_ID_IN_PATH, '$1:id');
@@ -90,7 +111,12 @@ export function scrubPii(event: SentryEvent): SentryEvent {
     delete event.user.email;
     delete event.user.username;
   }
+  // Ni nom d'employé ni montant individuel de paie dans les événements.
+  redactSalaryData(event.extra);
+  redactSalaryData(event.contexts);
+  redactSalaryData(event.tags);
   for (const crumb of event.breadcrumbs ?? []) {
+    redactSalaryData(crumb.data);
     const url = crumb.data?.url;
     if (typeof url === 'string' && crumb.data) crumb.data.url = scrubUrl(url);
   }
