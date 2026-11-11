@@ -14,6 +14,7 @@ import {
 } from '@/lib/schemas/fixed-cost';
 
 import { installmentsError } from './installments';
+import { toInstallmentLike } from './schedule';
 
 const date = (v: string) => parseDateOnlyToUTC(v)!;
 
@@ -67,12 +68,7 @@ export async function updateFixedCost(id: string, input: unknown) {
   const periodicity = d.periodicity ?? cur.periodicity;
   const amount = d.amount ?? cur.amount;
   const installments =
-    d.installments ??
-    cur.installments.map((i) => ({
-      monthOffset: i.monthOffset,
-      day: i.day,
-      amount: i.amount,
-    }));
+    d.installments ?? cur.installments.map(toInstallmentLike);
   assertInstallments(periodicity, amount, installments);
 
   return prisma.fixedCost.update({

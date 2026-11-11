@@ -4,6 +4,7 @@
 // périodes échues sans dépense saisie. La logique de calcul vit dans
 // `compute.ts` / `missing.ts` (pures).
 
+import { FIXED_COST_LATE_LOOKBACK_DAYS } from '@/config/constants';
 import prisma from '@/lib/prisma';
 import { getPickupSettings } from '@/lib/pickup-settings-db';
 import { getDailySeries } from '@/lib/stats';
@@ -26,6 +27,7 @@ import { openDayPredicate } from './open-days';
 import { weekBounds } from './payments';
 import {
   scheduleForRange,
+  toInstallmentLike,
   type InstallmentLike,
   type LinkedPayment,
   type Occurrence,
@@ -67,11 +69,7 @@ export async function listFixedCosts(): Promise<FixedCostRow[]> {
     categoryName: r.category.name,
     recurringExpenseId: r.recurringExpenseId,
     note: r.note,
-    installments: r.installments.map((i) => ({
-      monthOffset: i.monthOffset,
-      day: i.day,
-      amount: i.amount,
-    })),
+    installments: r.installments.map(toInstallmentLike),
   }));
 }
 
@@ -212,7 +210,7 @@ export type PaymentsView = {
   month: Occurrence[];
   /** Échéances de la semaine civile en cours (lundi → dimanche). */
   week: Occurrence[];
-  /** Échéances passées sans aucun paiement lié (tous mois confondus). */
+  /** Échéances échues pas entièrement réglées (tous mois confondus). */
   late: Occurrence[];
 };
 
@@ -235,19 +233,16 @@ export async function getFixedCostOccurrence(
   return schedule.find((o) => o.costId === costId) ?? null;
 }
 
-/** Garde-fou : on ne remonte pas plus loin que 2 ans pour les retards. */
-const LATE_LOOKBACK_DAYS = 731;
-
 /**
- * Échéances passées sans aucun paiement lié (remplace l'alerte « aucune dépense
+ * Échéances passées pas entièrement réglées, y compris partielles (remplace l'alerte « aucune dépense
  * de la catégorie », fausse quand deux charges partagent une catégorie).
  */
 export async function getLateFixedCostOccurrences(): Promise<Occurrence[]> {
   const today = todayDateString();
   const yesterday = shiftDateString(today, -1);
   const schedule = await getFixedCostSchedule(
-    shiftDateString(today, -LATE_LOOKBACK_DAYS),
+    shiftDateString(today, -FIXED_COST_LATE_LOOKBACK_DAYS),
     yesterday
   );
-  return schedule.filter((o) => o.status === 'LATE');
+  return schedule.filter((o) => o.overdue);
 }

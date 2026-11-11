@@ -244,3 +244,31 @@ describe('statut d’une occurrence', () => {
     ]);
   });
 });
+
+describe('échéance échue', () => {
+  it('une partielle échue est en retard (overdue) sans changer de statut', () => {
+    const [o] = occurrencesInRange(
+      cost(),
+      '2026-11-01',
+      '2026-11-30',
+      [pay({ amount: 100000 })],
+      '2026-11-11'
+    );
+    expect(o.status).toBe('PARTIAL');
+    expect(o.overdue).toBe(true);
+  });
+  it('payée, du jour ou à venir : jamais overdue', () => {
+    const occ = (today: string, amount: number) =>
+      occurrencesInRange(
+        cost(),
+        '2026-11-01',
+        '2026-11-30',
+        amount ? [pay({ amount })] : [],
+        today
+      )[0];
+    expect(occ('2026-11-11', 300000).overdue).toBe(false);
+    expect(occ('2026-11-05', 0).overdue).toBe(false); // le jour même
+    expect(occ('2026-11-04', 0).overdue).toBe(false);
+    expect(occ('2026-11-06', 0).overdue).toBe(true);
+  });
+});
