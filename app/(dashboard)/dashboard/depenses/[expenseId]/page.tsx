@@ -22,6 +22,8 @@ export default async function ModifierDepensePage({
     loadArticleOptions(),
   ]);
   if (!expense) notFound();
+  // Ligne de salaire : pilotée par le module salaires, jamais éditée ici.
+  if (expense.salaryPaymentId) notFound();
 
   const plainCategories = categories.map((c) => ({ id: c.id, name: c.name }));
 

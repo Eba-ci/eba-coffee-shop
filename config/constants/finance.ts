@@ -66,3 +66,10 @@ export const SALARY_IDEMPOTENCY_KEY_MAX = 200;
 /** Message unique de cohérence des bornes d'emploi (entrée / sortie). */
 export const SALARY_END_AFTER_START_MESSAGE =
   'La sortie doit être après l’entrée';
+
+/**
+ * Catégorie de dépense qui matérialise les versements de salaire. Réservée à
+ * l'ADMIN : les lignes rattachées sont masquées aux autres rôles (le lien
+ * `Expense.salaryPaymentId` fait foi, pas le nom seul).
+ */
+export const SALARY_EXPENSE_CATEGORY_NAME = 'Salaires';

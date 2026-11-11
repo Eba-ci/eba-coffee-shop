@@ -56,6 +56,10 @@ export default async function DepensesPage({
   const session = await requireRoleOrAnalyst(['ADMIN', 'MANAGER', 'COMPTABLE']);
   // ANALYSTE = lecture seule : l'onglet Paiements lui masque l'action d'écriture.
   const readOnly = session.user.role === 'ANALYSTE';
+  // Les lignes de salaire (catégorie « Salaires ») sont réservées à l'ADMIN :
+  // manager, comptable et analyste ne les voient ni dans l'historique ni dans
+  // les totaux par catégorie.
+  const includeSalary = session.user.role === 'ADMIN';
   const params = await searchParams;
   const pointMortMonth = parseMonth(
     loadPointMortParams(params).mois,
@@ -158,6 +162,7 @@ export default async function DepensesPage({
               categoryId={categoryId}
               paymentMethod={paymentMethod}
               search={search}
+              includeSalary={includeSalary}
             />
           </Suspense>
         }
@@ -171,6 +176,7 @@ export default async function DepensesPage({
               search={search}
               periodLabel={periodLabel}
               exportHref={exportHref}
+              includeSalary={includeSalary}
             />
           </Suspense>
         }

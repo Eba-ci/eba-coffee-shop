@@ -1264,6 +1264,11 @@ model SalaryPayment {
   createdBy      User?                @relation("SalaryPaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt      DateTime             @default(now())
 
+  // Dépense miroir du versement (catégorie « Salaires », sans numéro de reçu).
+  // Relation 1:1 : la dépense porte `Expense.salaryPaymentId` et tombe avec le
+  // versement (ON DELETE CASCADE) — jamais de dépense orpheline.
+  expense        Expense?             @relation("SalaryPaymentExpense")
+
   @@index([employeeId, month])
   @@index([month])
   @@index([date])
@@ -1301,6 +1306,14 @@ model Expense {
   fixedCostId String?
   fixedCost   FixedCost? @relation("ExpenseFixedCost", fields: [fixedCostId], references: [id], onDelete: SetNull)
   dueDate     DateTime?  @db.Date
+
+  // Versement de salaire matérialisé par cette ligne (réservé à l'ADMIN). Le
+  // lien explicite identifie les lignes de salaire pour les masquer aux autres
+  // rôles ; il n'y a JAMAIS de dépense orpheline (supprimer le versement
+  // supprime la ligne, ON DELETE CASCADE). Ces lignes n'ont pas de numéro de
+  // reçu : la séquence DEP n'est pas consommée par les salaires.
+  salaryPaymentId String?        @unique
+  salaryPayment   SalaryPayment? @relation("SalaryPaymentExpense", fields: [salaryPaymentId], references: [id], onDelete: Cascade)
 
   categoryId String
   category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)

@@ -28,6 +28,7 @@ export async function HistoriqueSection({
   search,
   periodLabel,
   exportHref,
+  includeSalary,
 }: {
   dateFrom?: Date;
   dateTo?: Date;
@@ -36,9 +37,17 @@ export async function HistoriqueSection({
   search?: string;
   periodLabel: string;
   exportHref: string;
+  includeSalary?: boolean;
 }) {
   const [{ expenses, total }, categories] = await Promise.all([
-    listExpenses({ dateFrom, dateTo, categoryId, paymentMethod, search }),
+    listExpenses({
+      dateFrom,
+      dateTo,
+      categoryId,
+      paymentMethod,
+      search,
+      includeSalary,
+    }),
     listExpenseCategories(),
   ]);
 

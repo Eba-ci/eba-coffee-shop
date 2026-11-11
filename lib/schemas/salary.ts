@@ -70,7 +70,11 @@ export const salaryRateCreateSchema = z.object({
   startDate: dateOnly,
 });
 
-export const salaryPaymentCreateSchema = z.object({
+// Champs communs à la création et à la mise à jour d'un versement. Le défaut
+// du mode de paiement (WAVE) vit dans `salaryPaymentCreateSchema` : en pratique
+// on règle par Wave, et un versement espèces est un cas explicite (il sort du
+// tiroir à la clôture). Pas de migration pour changer le défaut en base.
+const salaryPaymentObjectSchema = z.object({
   employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
   date: dateOnly,
   month: monthSchema,
@@ -84,6 +88,10 @@ export const salaryPaymentCreateSchema = z.object({
     .max(SALARY_RECOVERY_MONTHS_MAX)
     .optional(),
   note: z.string().trim().max(SALARY_NOTE_MAX).nullable().optional(),
+});
+
+export const salaryPaymentCreateSchema = salaryPaymentObjectSchema.extend({
+  paymentMethod: expensePaymentMethodSchema.default('WAVE'),
   idempotencyKey: z
     .string()
     .trim()
@@ -92,10 +100,19 @@ export const salaryPaymentCreateSchema = z.object({
     .optional(),
 });
 
+export const salaryPaymentUpdateSchema = salaryPaymentObjectSchema
+  .partial()
+  .refine((v) => Object.values(v).some((x) => x !== undefined), {
+    message: 'Au moins un champ à mettre à jour est requis',
+  });
+
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;
 export type EmployeeUpdateInput = z.infer<typeof employeeUpdateSchema>;
 export type SalaryRateCreateInput = z.infer<typeof salaryRateCreateSchema>;
 export type SalaryPaymentCreateInput = z.infer<
   typeof salaryPaymentCreateSchema
+>;
+export type SalaryPaymentUpdateInput = z.infer<
+  typeof salaryPaymentUpdateSchema
 >;
 export type SalaryPaymentTypeValue = (typeof SALARY_PAYMENT_TYPES)[number];
