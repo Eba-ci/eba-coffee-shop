@@ -28,6 +28,10 @@ const advance = {
   type: 'AVANCE',
   amount: 30_000,
   recoveryMonths: 1,
+  month: '2026-06',
+  date: '2026-06-30',
+  note: null,
+  paymentMethod: 'WAVE',
 };
 
 describe('mutations d’avance (ADMIN seul, idempotentes)', () => {
@@ -73,15 +77,45 @@ describe('mutations d’avance (ADMIN seul, idempotentes)', () => {
   });
 
   it('ajuste le contenu d’une avance (montant, mois, note)', async () => {
-    await adjustSalaryAdvance({
-      paymentId: 'adv1',
-      amount: 25_000,
-      month: '2026-07',
-      note: 'corrigé',
-    });
+    // Le mois en cours (2026-07) n'est pas compté comme récupéré.
+    await adjustSalaryAdvance(
+      {
+        paymentId: 'adv1',
+        amount: 25_000,
+        month: '2026-07',
+        note: 'corrigé',
+      },
+      '2026-07-05'
+    );
     expect(tx.salaryPayment.update).toHaveBeenCalledWith({
       where: { id: 'adv1' },
       data: { amount: 25_000, month: '2026-07', note: 'corrigé' },
+    });
+  });
+
+  it('refuse de réduire le montant sous ce qui a déjà été récupéré', async () => {
+    // Avance versée en 2026-06, récupérée en une fois en 2026-07 : 30 000 déjà
+    // récupérés au 2026-11.
+    await expect(
+      adjustSalaryAdvance({ paymentId: 'adv1', amount: 5_000 }, '2026-11-11')
+    ).rejects.toThrow('récupéré');
+    expect(tx.salaryPayment.update).not.toHaveBeenCalled();
+  });
+
+  it('accepte une réduction restant au-dessus du récupéré', async () => {
+    // 30 000 étalés sur 3 mois => 10 000 récupérés en 2026-07 ; au 2026-08 on
+    // peut encore ramener le montant à 20 000.
+    tx.salaryPayment.findUniqueOrThrow.mockResolvedValue({
+      ...advance,
+      recoveryMonths: 3,
+    });
+    await adjustSalaryAdvance(
+      { paymentId: 'adv1', amount: 20_000 },
+      '2026-08-15'
+    );
+    expect(tx.salaryPayment.update).toHaveBeenCalledWith({
+      where: { id: 'adv1' },
+      data: { amount: 20_000 },
     });
   });
 

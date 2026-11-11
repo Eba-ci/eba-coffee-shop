@@ -27,6 +27,7 @@ import { RecurrentesSection } from './_components/recurrentes-section';
 import { PointMortSection } from './_components/point-mort-section';
 import { PaymentsSection } from './_components/paiements/payments-section';
 import { SalairesSection } from './_components/salaires/salaires-section';
+import { SalairesGlobalLine } from './_components/salaires-global-line';
 import { HideOnTab } from './_components/hide-on-tab';
 import { loadPointMortParams } from './point-mort-search-params';
 import { parseMonth } from '@/lib/fixed-costs/month';
@@ -116,13 +117,13 @@ export default async function DepensesPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Dépenses</h1>
-          <HideOnTab tab={['pointmort', 'paiements']}>
+          <HideOnTab tab={['pointmort', 'paiements', 'salaires']}>
             <p className="text-sm text-muted-foreground">{periodLabel}</p>
           </HideOnTab>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExpenseSettingsButton settings={expenseSettings} />
-          <HideOnTab tab={['pointmort', 'paiements']}>
+          <HideOnTab tab={['pointmort', 'paiements', 'salaires']}>
             <DateRangeFilter from={fromStr} to={toStr} isAll={isAll} />
           </HideOnTab>
           {/* Accessible quel que soit l'onglet actif, plus seulement depuis
@@ -135,6 +136,10 @@ export default async function DepensesPage({
           </Button>
         </div>
       </div>
+
+      <Suspense fallback={null}>
+        <SalairesGlobalLine month={pointMortMonth} />
+      </Suspense>
 
       <Suspense fallback={null}>
         <ReceiptBackfillAlertSection />
@@ -208,9 +213,11 @@ export default async function DepensesPage({
           </Suspense>
         }
         salaires={
-          <Suspense fallback={<TableSkeleton rows={8} withToolbar={false} />}>
-            <SalairesSection month={pointMortMonth} />
-          </Suspense>
+          isAdmin ? (
+            <Suspense fallback={<TableSkeleton rows={8} withToolbar={false} />}>
+              <SalairesSection month={pointMortMonth} />
+            </Suspense>
+          ) : null
         }
       />
 

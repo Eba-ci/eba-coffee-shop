@@ -8,7 +8,10 @@
 // succès. Le journal de paie étant recalculé à la lecture (`ledger.ts`), une
 // avance ajustée ou annulée change aussitôt les soldes des mois suivants.
 
-import { SALARY_ADVANCE_ONLY_MESSAGE } from '@/config/constants';
+import {
+  SALARY_ADVANCE_ONLY_MESSAGE,
+  SALARY_ADVANCE_BELOW_RECOVERED_MESSAGE,
+} from '@/config/constants';
 import type { SalaryPaymentType } from '@/generated/prisma/enums';
 import { requireAdmin } from '@/lib/auth-helpers';
 import prisma from '@/lib/prisma';
@@ -17,7 +20,8 @@ import {
   salaryAdvanceCancelSchema,
   salaryAdvanceRecoverySchema,
 } from '@/lib/schemas/salary';
-import { parseDateOnlyToUTC } from '@/lib/timezone';
+import { parseDateOnlyToUTC, todayDateString } from '@/lib/timezone';
+import { advanceRecoveredBefore } from './advance-recovery';
 
 /** Vérifie que la ligne ciblée est bien une AVANCE (jamais un salaire/acompte). */
 function assertAdvance(type: SalaryPaymentType): void {
@@ -46,16 +50,34 @@ export async function updateAdvanceRecovery(input: unknown) {
 
 /**
  * Ajuste le contenu d'une avance (montant, date, mois, mode, note). Idempotent :
- * les valeurs visées sont posées, un rejeu identique ne change rien.
+ * les valeurs visées sont posées, un rejeu identique ne change rien. Refuse de
+ * réduire le montant sous ce qui a déjà été récupéré sur l'avance.
  */
-export async function adjustSalaryAdvance(input: unknown) {
+export async function adjustSalaryAdvance(
+  input: unknown,
+  today: string = todayDateString()
+) {
   await requireAdmin();
   const d = salaryAdvanceAdjustSchema.parse(input);
+  const currentMonth = today.slice(0, 7);
   return prisma.$transaction(async (tx) => {
     const payment = await tx.salaryPayment.findUniqueOrThrow({
       where: { id: d.paymentId },
     });
     assertAdvance(payment.type);
+    if (d.amount !== undefined) {
+      const recovered = advanceRecoveredBefore(
+        {
+          month: payment.month,
+          amount: payment.amount,
+          recoveryMonths: payment.recoveryMonths,
+        },
+        currentMonth
+      );
+      if (d.amount < recovered) {
+        throw new Error(SALARY_ADVANCE_BELOW_RECOVERED_MESSAGE);
+      }
+    }
     return tx.salaryPayment.update({
       where: { id: payment.id },
       data: {
