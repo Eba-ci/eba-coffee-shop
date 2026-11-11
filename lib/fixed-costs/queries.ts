@@ -5,6 +5,7 @@
 // la lecture du calendrier des paiements dans `payments-queries.ts`, réexportée
 // ici pour ne pas changer l'API publique.
 
+import { MARGIN_ESTIMATE_WINDOW_DAYS } from '@/config/constants';
 import { getPickupSettings } from '@/lib/pickup-settings-db';
 import { getDailySeries } from '@/lib/stats';
 import { getMarginAggregate } from '@/lib/stats/margin';
@@ -21,6 +22,8 @@ import {
   type BreakEvenDay,
   type MarginRate,
 } from './compute';
+import { getVariableExpenseTotal } from './expense-margin-query';
+import { marginRateFromExpenses, type MarginSource } from './expense-margin';
 import { monthBounds } from './month';
 import { openDayPredicate } from './open-days';
 import { listFixedCosts } from './payments-queries';
@@ -47,7 +50,12 @@ export type BreakEvenReport = {
   days: BreakEvenDay[];
   /** Jour courant s'il est dans la plage. */
   today: BreakEvenDay | null;
-  margin: MarginRate & { windowFrom: string; windowTo: string };
+  margin: MarginRate & {
+    windowFrom: string;
+    windowTo: string;
+    /** D'où vient le taux : coûts de revient produits, ou estimation par les dépenses. */
+    source: MarginSource | null;
+  };
   totals: {
     openDays: number;
     revenue: number;
@@ -89,7 +97,8 @@ export async function getBreakEvenReport(
     ),
   ]);
   const isOpen = openDayPredicate(settings);
-  const margin = computeMarginRate(agg);
+  const productMargin = computeMarginRate(agg);
+  const margin = await withExpenseFallback(productMargin, windowTo);
   // Un nombre global de salaires par mois, jamais un détail : le point mort
   // lisse ce total sur les jours ouvrés, comme une charge MONTHLY.
   const salaryPairs = await Promise.all(
@@ -135,6 +144,29 @@ export async function getBreakEvenReport(
     clamped,
     costCount: costs.filter((c) => c.active).length,
   };
+}
+
+/**
+ * Taux « produits » s'il est fiable ; sinon estimation d'après les dépenses
+ * variables sur `MARGIN_ESTIMATE_WINDOW_DAYS` jours (toujours `source` renseignée).
+ */
+async function withExpenseFallback(
+  product: MarginRate,
+  windowTo: string
+): Promise<MarginRate & { source: MarginSource | null }> {
+  if (product.rate !== null) return { ...product, source: 'products' };
+  const from = shiftDateString(windowTo, -(MARGIN_ESTIMATE_WINDOW_DAYS - 1));
+  const fromDate = parseDateOnlyToUTC(from)!;
+  const toDate = parseDateOnlyToUTC(windowTo)!;
+  const [series, variable] = await Promise.all([
+    getDailySeries(fromDate, toDate),
+    getVariableExpenseTotal(fromDate, toDate),
+  ]);
+  const revenue = series.reduce((a, p) => a + p.revenue, 0);
+  const rate = marginRateFromExpenses(revenue, variable);
+  return rate === null
+    ? { ...product, source: null }
+    : { rate, coverage: product.coverage, source: 'expenses' };
 }
 
 function isAllClosed(

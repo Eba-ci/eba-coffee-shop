@@ -81,3 +81,11 @@ export const SALARY_ADVANCE_ONLY_MESSAGE =
 /** On ne réduit pas le montant d'une avance sous ce qui a déjà été récupéré. */
 export const SALARY_ADVANCE_BELOW_RECOVERED_MESSAGE =
   'Le montant ne peut pas être inférieur à ce qui a déjà été récupéré sur cette avance';
+
+/**
+ * Fenêtre (jours) de la marge ESTIMÉE d'après les dépenses variables, utilisée
+ * quand les coûts de revient des produits manquent. Plus longue que les 30 jours
+ * de la marge « produits » : un achat n'est pas une consommation, et un gros
+ * réappro fausse un mois à lui seul.
+ */
+export const MARGIN_ESTIMATE_WINDOW_DAYS = 90;

@@ -10,6 +10,7 @@ import {
   getMonthReport,
   listFixedCosts,
 } from '@/lib/fixed-costs/queries';
+import { MARGIN_ESTIMATE_WINDOW_DAYS } from '@/config/constants';
 import { projectMonthEnd, summarizeMonth } from '@/lib/fixed-costs/month';
 import { todayDateString } from '@/lib/timezone';
 import { listExpenseCategories } from '@/lib/expenses';
@@ -73,7 +74,9 @@ export async function PointMortSection({ month }: { month: string }) {
             hint={
               marginPct === null
                 ? 'Marge non calculable'
-                : `Marge ${marginPct} % sur ${MARGIN_WINDOW_DAYS} j`
+                : report.margin.source === 'expenses'
+                  ? `Marge estimée ${marginPct} % (dépenses, ${MARGIN_ESTIMATE_WINDOW_DAYS} j)`
+                  : `Marge ${marginPct} % sur ${MARGIN_WINDOW_DAYS} j`
             }
           />
           <KpiCard
@@ -94,6 +97,17 @@ export async function PointMortSection({ month }: { month: string }) {
             }
           />
         </div>
+      )}
+
+      {report.margin.source === 'expenses' && (
+        <p className="text-sm text-muted-foreground">
+          Marge estimée d’après tes dépenses d’achat des{' '}
+          {MARGIN_ESTIMATE_WINDOW_DAYS} derniers jours : moins de 50 % du CA a
+          un coût de revient renseigné (couverture{' '}
+          {Math.round(report.margin.coverage * 100)} %). Le seuil est indicatif
+          ; renseigne les coûts matière / emballage des produits pour un seuil
+          précis.
+        </p>
       )}
 
       {report.margin.rate === null && (
