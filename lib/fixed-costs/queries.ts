@@ -13,6 +13,8 @@ import {
   shiftDateString,
   todayDateString,
 } from '@/lib/timezone';
+import { getMonthlySalaryTotal } from '@/lib/salaries/queries';
+import { monthRange } from '@/lib/salaries/month';
 import {
   buildBreakEvenSeries,
   computeMarginRate,
@@ -54,6 +56,12 @@ export type BreakEvenReport = {
     result: number | null;
     daysReached: number;
   };
+  /**
+   * Total des salaires de la plage (agrégat mensuel, sans aucun détail). Un
+   * seul nombre franchit cette frontière : jamais un nom ni un montant par
+   * employé.
+   */
+  salaryTotal: number;
   /** Aucun jour ouvré dans les horaires : rien à répartir. */
   hoursMissing: boolean;
   /** La plage demandée dépassait MAX_REPORT_DAYS : `from` a été ramené. */
@@ -82,11 +90,24 @@ export async function getBreakEvenReport(
   ]);
   const isOpen = openDayPredicate(settings);
   const margin = computeMarginRate(agg);
+  // Un nombre global de salaires par mois, jamais un détail : le point mort
+  // lisse ce total sur les jours ouvrés, comme une charge MONTHLY.
+  const salaryPairs = await Promise.all(
+    monthRange(from.slice(0, 7), to.slice(0, 7)).map(
+      async (m) => [m, await getMonthlySalaryTotal(m)] as const
+    )
+  );
+  const salariesByMonth = Object.fromEntries(salaryPairs) as Record<
+    string,
+    number
+  >;
+  const salaryTotal = salaryPairs.reduce((sum, [, v]) => sum + v, 0);
   const days = buildBreakEvenSeries({
     days: series.map((p) => ({ date: p.date, revenue: p.revenue })),
     costs,
     isOpen,
     marginRate: margin.rate,
+    salariesByMonth,
   });
 
   const open = days.filter((d) => d.open);
@@ -109,6 +130,7 @@ export async function getBreakEvenReport(
       result: grossMargin === null ? null : grossMargin - fixedCost,
       daysReached: days.filter((d) => d.reached === true).length,
     },
+    salaryTotal,
     hoursMissing: isAllClosed(settings, from),
     clamped,
     costCount: costs.filter((c) => c.active).length,

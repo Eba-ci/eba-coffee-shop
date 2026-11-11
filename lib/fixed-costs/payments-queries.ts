@@ -7,6 +7,7 @@
 import { FIXED_COST_LATE_LOOKBACK_DAYS } from '@/config/constants';
 import type { Prisma } from '@/generated/prisma/client';
 import prisma from '@/lib/prisma';
+import { getMonthlySalaryTotal } from '@/lib/salaries/queries';
 import {
   formatLocalDateOnly,
   parseDateOnlyToUTC,
@@ -116,18 +117,21 @@ export type PaymentsView = {
   week: Occurrence[];
   /** Échéances échues pas entièrement réglées (tous mois confondus). */
   late: Occurrence[];
+  /** Total GLOBAL des salaires du mois (un nombre, sans employé). */
+  salaryTotal: number;
 };
 
 export async function getPaymentsView(month: string): Promise<PaymentsView> {
   // Une seule lecture des charges pour les trois vues (mois, semaine, retards).
   const costs = await listFixedCosts();
   const { from, to } = weekBounds(todayDateString());
-  const [monthOcc, week, late] = await Promise.all([
+  const [monthOcc, week, late, salaryTotal] = await Promise.all([
     getMonthSchedule(month, costs),
     getFixedCostSchedule(from, to, costs),
     getLateFixedCostOccurrences(costs),
+    getMonthlySalaryTotal(month),
   ]);
-  return { month: monthOcc, week, late };
+  return { month: monthOcc, week, late, salaryTotal };
 }
 
 /** Occurrence précise d'une charge à une date d'échéance (pré-remplissage). */
