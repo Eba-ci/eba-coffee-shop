@@ -12,7 +12,7 @@ import {
 } from '@/lib/fixed-costs/mutations';
 import {
   getBreakEvenReport,
-  getMissingFixedCostPeriods,
+  getLateFixedCostOccurrences,
   listFixedCosts,
 } from '@/lib/fixed-costs/queries';
 import {
@@ -110,12 +110,13 @@ export const fixedCostsTools: McpTool[] = [
     name: 'get_missing_fixed_costs',
     toolset: 'finance',
     scope: 'finance',
-    title: 'Charges fixes non saisies',
+    title: 'Échéances de charges fixes en retard',
     description:
-      'Liste les périodes échues (mois, trimestre…) d’une charge fixe active où ' +
-      'AUCUNE dépense de sa catégorie n’a été saisie. La période en cours n’y figure pas.',
+      'Liste les échéances (loyer le 5, abonnement le 10…) dont la date est ' +
+      'passée sans AUCUNE dépense liée à cette échéance. Une échéance du jour ou ' +
+      'à venir n’y figure pas.',
     inputSchema: z.object({}),
     readOnly: true,
-    handler: () => getMissingFixedCostPeriods(),
+    handler: () => getLateFixedCostOccurrences(),
   },
 ];
