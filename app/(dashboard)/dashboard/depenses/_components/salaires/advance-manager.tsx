@@ -1,10 +1,16 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2, Pencil, Trash2, X } from 'lucide-react';
+import { Check, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { money } from '@/lib/fixed-costs/format';
 import type { SalaryAdvanceRow } from '@/lib/salaries/admin-queries';
 import {
@@ -74,7 +80,7 @@ function AdvanceRow({ advance }: { advance: SalaryAdvanceRow }) {
             size="icon"
             variant="ghost"
             className="h-11 w-11"
-            onClick={() => setEditing((v) => !v)}
+            onClick={() => setEditing(true)}
             aria-label="Ajuster l’avance"
           >
             <Pencil className="h-4 w-4" />
@@ -92,78 +98,75 @@ function AdvanceRow({ advance }: { advance: SalaryAdvanceRow }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="space-y-1">
-          <Label htmlFor={`rec-${advance.id}`} className="text-xs">
-            Récupération sur (mois)
-          </Label>
-          <Input
-            id={`rec-${advance.id}`}
-            className="h-11 w-24"
-            type="number"
-            min={1}
-            max={60}
-            value={recovery}
-            onChange={(e) => setRecovery(e.target.value)}
-          />
-        </div>
-        <Button
-          variant="outline"
-          className="h-11"
-          onClick={saveRecovery}
-          disabled={pending}
-        >
-          {pending ? (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          ) : (
-            <Check className="mr-1.5 h-4 w-4" />
-          )}
-          Étaler
-        </Button>
-      </div>
+      <Sheet open={editing} onOpenChange={setEditing}>
+        <SheetContent side="right" className="overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>
+              Avance de {advance.employeeName} · {money(advance.amount)}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 px-4 pb-4">
+            <div className="space-y-1.5">
+              <Label htmlFor={`amt-${advance.id}`}>Montant</Label>
+              <Input
+                id={`amt-${advance.id}`}
+                className="h-11"
+                type="number"
+                inputMode="numeric"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`mon-${advance.id}`}>Mois concerné</Label>
+              <Input
+                id={`mon-${advance.id}`}
+                className="h-11"
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+              />
+            </div>
+            <Button
+              className="h-11 w-full"
+              onClick={saveAdjust}
+              disabled={pending}
+            >
+              <Check className="mr-1.5 h-4 w-4" />
+              Enregistrer l’ajustement
+            </Button>
 
-      {editing && (
-        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-dashed p-2">
-          <div className="space-y-1">
-            <Label htmlFor={`amt-${advance.id}`} className="text-xs">
-              Montant
-            </Label>
-            <Input
-              id={`amt-${advance.id}`}
-              className="h-11 w-32"
-              type="number"
-              inputMode="numeric"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
+            <div className="space-y-1.5 border-t pt-4">
+              <Label htmlFor={`rec-${advance.id}`}>
+                Récupération sur (mois)
+              </Label>
+              <Input
+                id={`rec-${advance.id}`}
+                className="h-11"
+                type="number"
+                min={1}
+                max={60}
+                value={recovery}
+                onChange={(e) => setRecovery(e.target.value)}
+              />
+              <Button
+                variant="outline"
+                className="h-11 w-full"
+                onClick={saveRecovery}
+                disabled={pending}
+              >
+                {pending ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-1.5 h-4 w-4" />
+                )}
+                Étaler la récupération
+              </Button>
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
-          <div className="space-y-1">
-            <Label htmlFor={`mon-${advance.id}`} className="text-xs">
-              Mois concerné
-            </Label>
-            <Input
-              id={`mon-${advance.id}`}
-              className="h-11"
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-            />
-          </div>
-          <Button className="h-11" onClick={saveAdjust} disabled={pending}>
-            <Check className="mr-1.5 h-4 w-4" />
-            Enregistrer
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-11 w-11"
-            onClick={() => setEditing(false)}
-            aria-label="Fermer l’ajustement"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
+        </SheetContent>
+      </Sheet>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
     </li>

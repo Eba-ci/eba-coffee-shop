@@ -14,7 +14,7 @@ import { todayDateString } from '@/lib/timezone';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SalairesMonthNav } from './month-nav';
 import { SalaryMonthView } from './month-view';
-import { SalaryPaymentForm } from './payment-form';
+import { SalaryPaymentDrawer } from './payment-drawer';
 import { EmployeeManager } from './employee-manager';
 import { AdvanceManager } from './advance-manager';
 
@@ -46,7 +46,7 @@ export async function SalairesSection({ month }: { month: string }) {
           <CardTitle className="text-base">Nouveau versement</CardTitle>
         </CardHeader>
         <CardContent>
-          <SalaryPaymentForm
+          <SalaryPaymentDrawer
             employees={options}
             defaultMonth={month}
             today={todayDateString()}
