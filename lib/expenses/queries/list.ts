@@ -15,7 +15,13 @@ export const listExpenseCategories = cache(
     return prisma.expenseCategory.findMany({
       where: { deletedAt: null },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: { _count: { select: { expenses: true } } },
+      // Le compteur ignore les lignes de salaire : leur nombre n'est pas exposé
+      // hors écran ADMIN (le lien `salaryPaymentId` fait foi).
+      include: {
+        _count: {
+          select: { expenses: { where: { salaryPaymentId: null } } },
+        },
+      },
     });
   }
 );
