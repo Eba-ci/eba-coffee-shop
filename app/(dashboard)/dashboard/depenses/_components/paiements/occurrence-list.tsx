@@ -42,10 +42,12 @@ export function OccurrenceRow({
   occurrence,
   month,
   showDay,
+  readOnly = false,
 }: {
   occurrence: Occurrence;
   month: string;
   showDay: boolean;
+  readOnly?: boolean;
 }) {
   const { dueDate, label, amount, remaining, status } = occurrence;
   return (
@@ -60,7 +62,7 @@ export function OccurrenceRow({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <OccurrenceStatusBadge status={status} />
-        {status !== 'PAID' && (
+        {!readOnly && status !== 'PAID' && (
           <Button asChild size="sm" variant="outline" className="h-11 sm:h-9">
             <Link href={payHref(occurrence, month)}>
               Enregistrer le paiement
@@ -77,11 +79,13 @@ export function OccurrenceList({
   month,
   emptyLabel,
   showDay = true,
+  readOnly = false,
 }: {
   occurrences: Occurrence[];
   month: string;
   emptyLabel: string;
   showDay?: boolean;
+  readOnly?: boolean;
 }) {
   if (occurrences.length === 0)
     return (
@@ -97,6 +101,7 @@ export function OccurrenceList({
           occurrence={o}
           month={month}
           showDay={showDay}
+          readOnly={readOnly}
         />
       ))}
     </ul>

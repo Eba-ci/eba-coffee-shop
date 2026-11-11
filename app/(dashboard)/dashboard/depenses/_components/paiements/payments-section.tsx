@@ -10,7 +10,7 @@ import {
   unpaid,
   weekBounds,
 } from '@/lib/fixed-costs/payments';
-import { formatDay } from '@/lib/fixed-costs/format';
+import { formatDay, money } from '@/lib/fixed-costs/format';
 import { todayDateString } from '@/lib/timezone';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/(dashboard)/kpi-card';
@@ -18,10 +18,13 @@ import { MonthNav } from '../point-mort/month-nav';
 import { PaymentsCalendar } from './payments-calendar';
 import { OccurrenceList } from './occurrence-list';
 
-const fmt = new Intl.NumberFormat('fr-FR');
-const f = (n: number) => `${fmt.format(n)} F`;
-
-export async function PaymentsSection({ month }: { month: string }) {
+export async function PaymentsSection({
+  month,
+  readOnly = false,
+}: {
+  month: string;
+  readOnly?: boolean;
+}) {
   const today = todayDateString();
   const currentMonth = today.slice(0, 7);
   const { month: monthOcc, week, late } = await getPaymentsView(month);
@@ -36,13 +39,13 @@ export async function PaymentsSection({ month }: { month: string }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard
           label="Restant à payer ce mois"
-          value={f(summary.remaining)}
+          value={money(summary.remaining)}
           Icon={Wallet}
           hint={`${summary.upcomingCount + summary.partialCount + summary.lateCount} échéance(s) ouverte(s)`}
         />
         <KpiCard
           label="Déjà payé ce mois"
-          value={f(summary.paid)}
+          value={money(summary.paid)}
           Icon={Wallet}
           hint={`${summary.paidCount} échéance(s) réglée(s)`}
         />
@@ -71,6 +74,7 @@ export async function PaymentsSection({ month }: { month: string }) {
             <OccurrenceList
               occurrences={late}
               month={month}
+              readOnly={readOnly}
               emptyLabel="Aucun retard."
             />
           </CardContent>
@@ -86,6 +90,7 @@ export async function PaymentsSection({ month }: { month: string }) {
             month={month}
             today={today}
             occurrences={monthOcc}
+            readOnly={readOnly}
           />
         </CardContent>
       </Card>
@@ -103,6 +108,7 @@ export async function PaymentsSection({ month }: { month: string }) {
           <OccurrenceList
             occurrences={weekToPay}
             month={month}
+            readOnly={readOnly}
             emptyLabel="Rien à payer cette semaine."
           />
         </CardContent>

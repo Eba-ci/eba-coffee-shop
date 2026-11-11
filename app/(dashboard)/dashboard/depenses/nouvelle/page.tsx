@@ -70,13 +70,18 @@ export default async function NouvelleDepensePage({
         echeance && DATE_ONLY_RE.test(echeance)
           ? await getFixedCostOccurrence(chargefixe, echeance)
           : null;
+      // Reste à payer pré-rempli, jamais `remaining || amount` : une échéance
+      // entièrement réglée (remaining = 0) ne doit pas rouvrir un montant.
+      const prefill = occurrence
+        ? occurrence.remaining > 0
+          ? String(occurrence.remaining)
+          : ''
+        : String(fixed.amount);
       initial = {
         ...initial,
         date: todayDateString(),
         categoryId: fixed.categoryId,
-        amount: String(
-          occurrence?.remaining || occurrence?.amount || fixed.amount
-        ),
+        amount: prefill,
         note: fixed.label,
         fixedCostId: chargefixe,
         dueDate: occurrence?.dueDate ?? echeance ?? null,

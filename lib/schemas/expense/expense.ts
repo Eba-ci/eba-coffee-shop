@@ -40,6 +40,25 @@ export const expenseInputSchema = z.object({
 
 export type ExpenseInput = z.infer<typeof expenseInputSchema>;
 
+/**
+ * Liaison à une occurrence de charge fixe : `fixedCostId` et `dueDate` vont
+ * ensemble (les deux, ou aucun). Le refine vit ICI et non sur
+ * `expenseInputSchema` : Zod 4 interdit `.partial()` sur un schéma raffiné,
+ * or le MCP s'en sert pour `update_expense`.
+ */
+const linkedOccurrence = (v: {
+  fixedCostId?: string | null;
+  dueDate?: string | null;
+}) => (v.fixedCostId == null) === (v.dueDate == null);
+
+export const expenseCreateSchema = expenseInputSchema.refine(linkedOccurrence, {
+  message:
+    'fixedCostId et dueDate doivent être fournis ensemble (les deux ou aucun).',
+  path: ['dueDate'],
+});
+
+export type ExpenseCreateInput = z.infer<typeof expenseCreateSchema>;
+
 export const expenseUpdateSchema = expenseInputSchema
   .partial()
   .refine((v) => Object.values(v).some((x) => x !== undefined), {

@@ -7,7 +7,11 @@ import {
   formatReceiptNo,
   RECEIPT_NUMBER_MAX_RETRIES,
 } from '@/lib/expense-numbering';
-import { expenseInputSchema, expenseUpdateSchema } from '@/lib/schemas/expense';
+import { assertLinkedPaymentAllowed } from '@/lib/fixed-costs/queries';
+import {
+  expenseCreateSchema,
+  expenseUpdateSchema,
+} from '@/lib/schemas/expense';
 import {
   expenseItemsInclude,
   createExpenseItems,
@@ -15,7 +19,7 @@ import {
 } from './items';
 
 export async function createExpense(input: unknown, createdById?: string) {
-  const data = expenseInputSchema.parse(input);
+  const data = expenseCreateSchema.parse(input);
   const date = parseDateOnlyToUTC(data.date)!;
   // Numéro de reçu : compteur du mois civil de la dépense. Figé à la création.
   const receiptPeriod = receiptPeriodFromDate(date);
@@ -34,6 +38,16 @@ export async function createExpense(input: unknown, createdById?: string) {
   for (let attempt = 0; attempt < RECEIPT_NUMBER_MAX_RETRIES; attempt++) {
     try {
       return await prisma.$transaction(async (tx) => {
+        // Paiement lié à une échéance de charge fixe : la charge doit exister,
+        // l'échéance doit être réelle, et le cumul ne peut pas la dépasser.
+        if (data.fixedCostId && data.dueDate) {
+          await assertLinkedPaymentAllowed(
+            tx,
+            data.fixedCostId,
+            data.dueDate,
+            data.amount
+          );
+        }
         const receiptSeq = await getNextReceiptSeq(tx, receiptPeriod);
         const expense = await tx.expense.create({
           data: {

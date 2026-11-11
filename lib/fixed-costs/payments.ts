@@ -54,6 +54,11 @@ export function unpaid(occurrences: Occurrence[]): Occurrence[] {
   return occurrences.filter((o) => o.status !== 'PAID');
 }
 
+/** Total dû (montant des échéances) sur un jeu d'occurrences. */
+export function sumAmount(occurrences: Occurrence[]): number {
+  return occurrences.reduce((s, o) => s + o.amount, 0);
+}
+
 /** Total restant à payer sur un jeu d'occurrences. */
 export function remainingTotal(occurrences: Occurrence[]): number {
   return occurrences.reduce((s, o) => s + o.remaining, 0);

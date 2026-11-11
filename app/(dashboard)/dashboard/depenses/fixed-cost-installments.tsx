@@ -4,6 +4,8 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { FIXED_COST_MAX_INSTALLMENTS } from '@/config/constants';
+import { MONTHS, WEEKDAYS_MONDAY_FIRST, money } from '@/lib/fixed-costs/format';
 import type { FixedCostPeriodicityValue } from '@/lib/schemas/fixed-cost';
 
 /** Une échéance en cours de saisie (valeurs de formulaire, chaînes). */
@@ -15,35 +17,8 @@ export type InstallmentDraft = {
   amount: string;
 };
 
-const WEEKDAYS = [
-  'Lundi',
-  'Mardi',
-  'Mercredi',
-  'Jeudi',
-  'Vendredi',
-  'Samedi',
-  'Dimanche',
-];
-
-const MONTHS = [
-  'janv.',
-  'févr.',
-  'mars',
-  'avr.',
-  'mai',
-  'juin',
-  'juil.',
-  'août',
-  'sept.',
-  'oct.',
-  'nov.',
-  'déc.',
-];
-
 const selectClass =
   'h-11 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';
-
-const fmt = new Intl.NumberFormat('fr-FR');
 
 /**
  * Saisie des jours de paiement d'une charge : un ou plusieurs jours dans la
@@ -72,6 +47,7 @@ export function FixedCostInstallments({
     0
   );
   const startDay = Number(startDate.slice(8, 10)) || 1;
+  const atLimit = installments.length >= FIXED_COST_MAX_INSTALLMENTS;
 
   const patch = (index: number, key: keyof InstallmentDraft, value: string) =>
     onChange(
@@ -79,6 +55,7 @@ export function FixedCostInstallments({
     );
 
   function add() {
+    if (atLimit) return;
     const fresh: InstallmentDraft =
       installments.length === 0
         ? { monthOffset: '0', day: String(startDay), amount: String(amount) }
@@ -94,7 +71,7 @@ export function FixedCostInstallments({
           <p className="text-xs text-muted-foreground">
             {installments.length === 0
               ? 'Sans échéance : le paiement tombe le jour de la prise d’effet.'
-              : `Total des échéances : ${fmt.format(total)} F sur ${fmt.format(amount)} F`}
+              : `Total des échéances : ${money(total)} sur ${money(amount)}`}
           </p>
         </div>
         <Button
@@ -103,6 +80,7 @@ export function FixedCostInstallments({
           size="sm"
           className="h-11 sm:h-9"
           onClick={add}
+          disabled={atLimit}
         >
           <Plus className="mr-1.5 h-4 w-4" />
           Ajouter une échéance
@@ -141,7 +119,7 @@ export function FixedCostInstallments({
                 value={it.day}
                 onChange={(e) => patch(i, 'day', e.target.value)}
               >
-                {WEEKDAYS.map((w, wi) => (
+                {WEEKDAYS_MONDAY_FIRST.map((w, wi) => (
                   <option key={wi} value={wi + 1}>
                     {w}
                   </option>

@@ -16,11 +16,13 @@ export function DayOccurrencesSheet({
   date,
   occurrences,
   month,
+  readOnly = false,
   onClose,
 }: {
   date: string | null;
   occurrences: Occurrence[];
   month: string;
+  readOnly?: boolean;
   onClose: () => void;
 }) {
   return (
@@ -41,6 +43,7 @@ export function DayOccurrencesSheet({
                 occurrences={occurrences}
                 month={month}
                 showDay={false}
+                readOnly={readOnly}
                 emptyLabel="Aucune échéance ce jour-là."
               />
             </div>

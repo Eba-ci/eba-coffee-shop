@@ -53,7 +53,9 @@ export default async function DepensesPage({
     mois?: string;
   }>;
 }) {
-  await requireRoleOrAnalyst(['ADMIN', 'MANAGER', 'COMPTABLE']);
+  const session = await requireRoleOrAnalyst(['ADMIN', 'MANAGER', 'COMPTABLE']);
+  // ANALYSTE = lecture seule : l'onglet Paiements lui masque l'action d'écriture.
+  const readOnly = session.user.role === 'ANALYSTE';
   const params = await searchParams;
   const pointMortMonth = parseMonth(
     loadPointMortParams(params).mois,
@@ -197,7 +199,7 @@ export default async function DepensesPage({
         }
         paiements={
           <Suspense fallback={<TableSkeleton rows={8} withToolbar={false} />}>
-            <PaymentsSection month={pointMortMonth} />
+            <PaymentsSection month={pointMortMonth} readOnly={readOnly} />
           </Suspense>
         }
       />

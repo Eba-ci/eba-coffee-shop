@@ -5,6 +5,7 @@
 // `compute.ts` / `missing.ts` (pures).
 
 import { FIXED_COST_LATE_LOOKBACK_DAYS } from '@/config/constants';
+import type { Prisma } from '@/generated/prisma/client';
 import prisma from '@/lib/prisma';
 import { getPickupSettings } from '@/lib/pickup-settings-db';
 import { getDailySeries } from '@/lib/stats';
@@ -22,15 +23,18 @@ import {
   type FixedCostLike,
   type MarginRate,
 } from './compute';
+import { formatDay } from './format';
 import { monthBounds } from './month';
 import { openDayPredicate } from './open-days';
 import { weekBounds } from './payments';
 import {
+  occurrenceAt,
   scheduleForRange,
   toInstallmentLike,
   type InstallmentLike,
   type LinkedPayment,
   type Occurrence,
+  type ScheduledCost,
 } from './schedule';
 
 /** Fenêtre (jours) sur laquelle on mesure le taux de marge. */
@@ -245,4 +249,53 @@ export async function getLateFixedCostOccurrences(): Promise<Occurrence[]> {
     yesterday
   );
   return schedule.filter((o) => o.overdue);
+}
+
+/**
+ * Valide qu'un paiement lié peut être enregistré sur l'échéance `dueDate`
+ * d'une charge : la charge existe, `dueDate` est une VRAIE échéance, et la
+ * somme des paiements liés ne dépasse pas le montant de l'échéance (refus du
+ * double paiement). Lève une erreur française, jamais silencieuse.
+ */
+export async function assertLinkedPaymentAllowed(
+  db: Prisma.TransactionClient,
+  costId: string,
+  dueDate: string,
+  amount: number
+): Promise<void> {
+  const cost = await db.fixedCost.findUnique({
+    where: { id: costId },
+    include: { installments: true },
+  });
+  if (!cost)
+    throw new Error(
+      'Charge fixe introuvable : le paiement ne peut pas y être lié.'
+    );
+
+  const scheduled: ScheduledCost = {
+    id: cost.id,
+    label: cost.label,
+    amount: cost.amount,
+    periodicity: cost.periodicity,
+    startDate: formatLocalDateOnly(cost.startDate),
+    endDate: cost.endDate ? formatLocalDateOnly(cost.endDate) : null,
+    active: cost.active,
+    categoryId: cost.categoryId,
+    installments: cost.installments.map(toInstallmentLike),
+  };
+  const occurrence = occurrenceAt(scheduled, dueDate, todayDateString());
+  if (!occurrence)
+    throw new Error(
+      `Le ${formatDay(dueDate)} n’est pas une échéance de la charge « ${cost.label} ».`
+    );
+
+  const agg = await db.expense.aggregate({
+    where: { fixedCostId: costId, dueDate: parseDateOnlyToUTC(dueDate) },
+    _sum: { amount: true },
+  });
+  const already = agg._sum.amount ?? 0;
+  if (already + amount > occurrence.amount)
+    throw new Error(
+      `Le paiement dépasserait l’échéance « ${cost.label} » : ${already} F déjà réglés sur ${occurrence.amount} F.`
+    );
 }

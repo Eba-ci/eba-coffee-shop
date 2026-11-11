@@ -6,23 +6,29 @@ import {
   buildPaymentGrid,
   dominantStatus,
   groupByDueDate,
+  sumAmount,
 } from '@/lib/fixed-costs/payments';
-import { formatDayLong } from '@/lib/fixed-costs/format';
+import {
+  WEEKDAYS_MONDAY_FIRST,
+  compactMoney,
+  formatDayLong,
+  money,
+} from '@/lib/fixed-costs/format';
 import { cn } from '@/lib/utils';
-import { OCCURRENCE_STATUS_META, compactMoney, money } from './status';
+import { OCCURRENCE_STATUS_META } from './status';
 import { DayOccurrencesSheet } from './day-occurrences-sheet';
-
-const WEEKDAYS = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
 
 /** Grille du mois (lun→dim) : chaque jour porte ses échéances et son statut. */
 export function PaymentsCalendar({
   month,
   today,
   occurrences,
+  readOnly = false,
 }: {
   month: string;
   today: string;
   occurrences: Occurrence[];
+  readOnly?: boolean;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const byDate = groupByDueDate(occurrences);
@@ -37,7 +43,7 @@ export function PaymentsCalendar({
         className="space-y-1"
       >
         <div role="row" className="grid grid-cols-7 gap-1">
-          {WEEKDAYS.map((w) => (
+          {WEEKDAYS_MONDAY_FIRST.map((w) => (
             <div
               key={w}
               role="columnheader"
@@ -70,6 +76,7 @@ export function PaymentsCalendar({
         date={selected}
         occurrences={selectedOcc}
         month={month}
+        readOnly={readOnly}
         onClose={() => setSelected(null)}
       />
       <p className="text-xs text-muted-foreground">
@@ -93,7 +100,7 @@ function DayCell({
   const status = dominantStatus(occurrences);
   const meta = status ? OCCURRENCE_STATUS_META[status] : null;
   const has = occurrences.length > 0;
-  const total = occurrences.reduce((s, o) => s + o.amount, 0);
+  const total = sumAmount(occurrences);
 
   return (
     <div role="gridcell">

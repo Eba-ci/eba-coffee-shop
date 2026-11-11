@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import type { OccurrenceStatus } from '@/lib/fixed-costs/schedule';
 
-export { compactMoney, money } from '../point-mort/status';
+export { compactMoney, money } from '@/lib/fixed-costs/format';
 
 export type OccurrenceStatusMeta = {
   label: string;

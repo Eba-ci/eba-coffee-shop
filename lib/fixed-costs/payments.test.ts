@@ -5,6 +5,7 @@ import {
   dominantStatus,
   groupByDueDate,
   remainingTotal,
+  sumAmount,
   summarizeOccurrences,
   unpaid,
   weekBounds,
@@ -21,6 +22,7 @@ const occ = (over: Partial<Occurrence> = {}): Occurrence => ({
   paid: 0,
   remaining: 300000,
   status: 'LATE',
+  overdue: true,
   expenseIds: [],
   ...over,
 });
@@ -82,7 +84,7 @@ describe('groupByDueDate', () => {
   });
 });
 
-describe('unpaid / remainingTotal', () => {
+describe('unpaid / remainingTotal / sumAmount', () => {
   it('écarte les échéances payées', () => {
     const list = [
       occ({ status: 'PAID', paid: 300000, remaining: 0 }),
@@ -91,6 +93,11 @@ describe('unpaid / remainingTotal', () => {
     ];
     expect(unpaid(list).map((o) => o.status)).toEqual(['LATE', 'PARTIAL']);
     expect(remainingTotal(list)).toBe(500000);
+    // sumAmount additionne le montant dû, payées comprises.
+    expect(sumAmount(list)).toBe(900000);
+  });
+  it('sumAmount([]) = 0', () => {
+    expect(sumAmount([])).toBe(0);
   });
 });
 

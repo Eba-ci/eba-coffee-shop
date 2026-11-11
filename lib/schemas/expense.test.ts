@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   expenseInputSchema,
+  expenseCreateSchema,
   expenseUpdateSchema,
   expenseCategoryInputSchema,
   expenseNatureSchema,
@@ -49,6 +50,43 @@ describe('expenseInputSchema', () => {
       receiptUrl: '/uploads/receipts/abc.jpg',
     });
     expect(parsed.receiptUrl).toBe('/uploads/receipts/abc.jpg');
+  });
+});
+
+describe('expenseCreateSchema — liaison à une occurrence', () => {
+  const base = { date: '2026-11-11', amount: 1000, categoryId: 'c' };
+
+  it('accepte aucune liaison', () => {
+    expect(expenseCreateSchema.safeParse(base).success).toBe(true);
+  });
+
+  it('accepte fixedCostId + dueDate ensemble', () => {
+    expect(
+      expenseCreateSchema.safeParse({
+        ...base,
+        fixedCostId: 'fc1',
+        dueDate: '2026-11-05',
+      }).success
+    ).toBe(true);
+  });
+
+  it('refuse un seul des deux', () => {
+    expect(
+      expenseCreateSchema.safeParse({ ...base, fixedCostId: 'fc1' }).success
+    ).toBe(false);
+    expect(
+      expenseCreateSchema.safeParse({ ...base, dueDate: '2026-11-05' }).success
+    ).toBe(false);
+  });
+
+  it('accepte les deux à null', () => {
+    expect(
+      expenseCreateSchema.safeParse({
+        ...base,
+        fixedCostId: null,
+        dueDate: null,
+      }).success
+    ).toBe(true);
   });
 });
 
