@@ -138,6 +138,19 @@ export const PROCESSING_ACTIVITIES: ProcessingActivity[] = [
       'Sessions et codes expirés supprimés ; compte supprimé à la demande.',
   },
   {
+    id: 'salaires',
+    label: 'Gestion des salaires',
+    purpose:
+      'Calculer la paie due, enregistrer les versements (salaires, acomptes, avances) et suivre les avances des employés.',
+    basis:
+      'Exécution du contrat de travail ; obligation légale de tenue de la paie.',
+    data: 'Nom, poste, date d’entrée et de sortie, taux mensuel et historique des montants, versements (date, montant, type, mode de paiement, note).',
+    people: 'Employés et anciens employés.',
+    recipients: 'Personnel autorisé (ADMIN) ; aucun sous-traitant externe.',
+    duration:
+      'À trancher (issue 6) — non définie à ce stade ; question ouverte de #409.',
+  },
+  {
     id: 'assistant',
     label: 'Assistant IA du dashboard',
     purpose: 'Aider le personnel à lire les chiffres et saisir des écritures.',
