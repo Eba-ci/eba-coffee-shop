@@ -45,6 +45,10 @@ export async function createExpense(input: unknown, createdById?: string) {
             note: data.note ?? null,
             receiptUrl: data.receiptUrl ?? null,
             createdById: createdById ?? null,
+            // Règlement d'une occurrence de charge fixe (calendrier des
+            // paiements) : la dépense porte l'occurrence qu'elle solde.
+            fixedCostId: data.fixedCostId ?? null,
+            dueDate: data.dueDate ? parseDateOnlyToUTC(data.dueDate) : null,
             receiptPeriod,
             receiptSeq,
             receiptNo: formatReceiptNo(receiptPeriod, receiptSeq),

@@ -9,6 +9,7 @@ const TAB_VALUES = [
   'articles',
   'recurrentes',
   'pointmort',
+  'paiements',
 ] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
@@ -24,6 +25,7 @@ export function DepensesTabs({
   articles,
   recurrentes,
   pointmort,
+  paiements,
 }: {
   defaultTab?: string;
   apercu: ReactNode;
@@ -31,6 +33,7 @@ export function DepensesTabs({
   articles: ReactNode;
   recurrentes: ReactNode;
   pointmort: ReactNode;
+  paiements: ReactNode;
 }) {
   const [tab, setTab] = useState<TabValue>(
     TAB_VALUES.includes(defaultTab as TabValue)
@@ -53,6 +56,7 @@ export function DepensesTabs({
         <TabsTrigger value="articles">Articles</TabsTrigger>
         <TabsTrigger value="recurrentes">Récurrentes</TabsTrigger>
         <TabsTrigger value="pointmort">Point mort</TabsTrigger>
+        <TabsTrigger value="paiements">Paiements</TabsTrigger>
       </TabsList>
       <TabsContent value="apercu" className="space-y-4">
         {apercu}
@@ -68,6 +72,9 @@ export function DepensesTabs({
       </TabsContent>
       <TabsContent value="pointmort" className="space-y-4">
         {pointmort}
+      </TabsContent>
+      <TabsContent value="paiements" className="space-y-4">
+        {paiements}
       </TabsContent>
     </Tabs>
   );

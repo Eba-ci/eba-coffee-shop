@@ -23,6 +23,7 @@ import {
 } from './compute';
 import { monthBounds } from './month';
 import { openDayPredicate } from './open-days';
+import { weekBounds } from './payments';
 import {
   scheduleForRange,
   type InstallmentLike,
@@ -203,6 +204,35 @@ export async function getFixedCostSchedule(
 export async function getMonthSchedule(month: string): Promise<Occurrence[]> {
   const { from, to } = monthBounds(month);
   return getFixedCostSchedule(from, to);
+}
+
+/** Vue « paiements » d'un mois : échéances du mois, de la semaine et retards. */
+export type PaymentsView = {
+  /** Toutes les échéances du mois affiché (payées comprises). */
+  month: Occurrence[];
+  /** Échéances de la semaine civile en cours (lundi → dimanche). */
+  week: Occurrence[];
+  /** Échéances passées sans aucun paiement lié (tous mois confondus). */
+  late: Occurrence[];
+};
+
+export async function getPaymentsView(month: string): Promise<PaymentsView> {
+  const { from, to } = weekBounds(todayDateString());
+  const [monthOcc, week, late] = await Promise.all([
+    getMonthSchedule(month),
+    getFixedCostSchedule(from, to),
+    getLateFixedCostOccurrences(),
+  ]);
+  return { month: monthOcc, week, late };
+}
+
+/** Occurrence précise d'une charge à une date d'échéance (pré-remplissage). */
+export async function getFixedCostOccurrence(
+  costId: string,
+  dueDate: string
+): Promise<Occurrence | null> {
+  const schedule = await getFixedCostSchedule(dueDate, dueDate);
+  return schedule.find((o) => o.costId === costId) ?? null;
 }
 
 /** Garde-fou : on ne remonte pas plus loin que 2 ans pour les retards. */

@@ -1,6 +1,8 @@
 import { requireFinance } from '@/lib/auth-helpers';
 import prisma from '@/lib/prisma';
 import { getExpenseForEdit, listExpenseCategories } from '@/lib/expenses';
+import { getFixedCostOccurrence } from '@/lib/fixed-costs/queries';
+import { formatDay } from '@/lib/fixed-costs/format';
 import { todayDateString } from '@/lib/timezone';
 import { BackButton } from '@/components/(dashboard)/back-button';
 import { ExpenseForm } from '../expense-form';
@@ -17,9 +19,12 @@ export default async function NouvelleDepensePage({
     dupliquer?: string;
     recurrent?: string;
     chargefixe?: string;
+    echeance?: string;
+    mois?: string;
   }>;
 }) {
-  const { dupliquer, recurrent, chargefixe } = await searchParams;
+  const { dupliquer, recurrent, chargefixe, echeance, mois } =
+    await searchParams;
   const [, categories, articles] = await Promise.all([
     requireFinance(),
     listExpenseCategories(),
@@ -29,6 +34,8 @@ export default async function NouvelleDepensePage({
   const plainCategories = categories.map((c) => ({ id: c.id, name: c.name }));
   let initial = emptyExpense(plainCategories);
   let subtitle: string | null = null;
+  // Après enregistrement, on revient au calendrier des paiements du mois.
+  let cancelHref = '/dashboard/depenses';
 
   // Pré-remplissages optionnels. Une référence introuvable n'est pas une
   // erreur : on retombe simplement sur un formulaire vierge.
@@ -59,14 +66,27 @@ export default async function NouvelleDepensePage({
       select: { label: true, categoryId: true, amount: true },
     });
     if (fixed) {
+      const occurrence =
+        echeance && DATE_ONLY_RE.test(echeance)
+          ? await getFixedCostOccurrence(chargefixe, echeance)
+          : null;
       initial = {
         ...initial,
         date: todayDateString(),
         categoryId: fixed.categoryId,
-        amount: String(fixed.amount),
+        amount: String(
+          occurrence?.remaining || occurrence?.amount || fixed.amount
+        ),
         note: fixed.label,
+        fixedCostId: chargefixe,
+        dueDate: occurrence?.dueDate ?? echeance ?? null,
       };
-      subtitle = `Charge fixe « ${fixed.label} », pré-remplie d’après la liste du point mort.`;
+      subtitle = occurrence
+        ? `Règlement de « ${fixed.label} », échéance du ${formatDay(occurrence.dueDate)}.`
+        : `Charge fixe « ${fixed.label} », pré-remplie.`;
+      cancelHref = `/dashboard/depenses?tab=paiements${
+        mois && MONTH_RE.test(mois) ? `&mois=${mois}` : ''
+      }`;
     }
   }
 
@@ -88,7 +108,11 @@ export default async function NouvelleDepensePage({
         articles={articles}
         mode="create"
         initial={initial}
+        cancelHref={cancelHref}
       />
     </div>
   );
 }
+
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_RE = /^\d{4}-\d{2}$/;

@@ -32,6 +32,10 @@ export const expenseInputSchema = z.object({
     .optional(),
   receiptUrl: imageUrlSchema.nullable().optional(),
   items: expenseItemsArraySchema.nullable().optional(),
+  /** Charge fixe réglée par cette dépense (occurrence liée). */
+  fixedCostId: z.string().min(1).nullable().optional(),
+  /** Jour d'échéance de l'occurrence réglée (`fixedCostId` + `dueDate`). */
+  dueDate: dateOnly.nullable().optional(),
 });
 
 export type ExpenseInput = z.infer<typeof expenseInputSchema>;
