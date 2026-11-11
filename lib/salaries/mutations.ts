@@ -242,16 +242,21 @@ export async function updateSalaryPayment(id: string, input: unknown) {
       where: { id },
       data: paymentWriteData(d),
     });
+    // `upsert` sur le lien unique : que la dépense existe déjà ou qu'il
+    // s'agisse d'un versement hérité sans dépense, une seule requête suffit —
+    // deux corrections concurrentes ne lèvent pas de P2002.
     const fields = salaryExpenseFields(payment);
-    const linked = await tx.expense.findUnique({
+    const categoryId = await getSalaryCategoryId(tx);
+    await tx.expense.upsert({
       where: { salaryPaymentId: id },
-      select: { id: true },
+      create: {
+        ...fields,
+        categoryId,
+        salaryPaymentId: id,
+        createdById: session.user.id,
+      },
+      update: { ...fields, categoryId },
     });
-    if (linked) {
-      await tx.expense.update({ where: { id: linked.id }, data: fields });
-    } else {
-      await createSalaryExpense(tx, payment, session.user.id);
-    }
     return payment;
   });
 }

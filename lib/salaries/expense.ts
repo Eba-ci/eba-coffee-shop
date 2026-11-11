@@ -42,31 +42,25 @@ export function salaryExpenseFields(payment: SalaryPaymentForExpense) {
  * Identifiant de la catégorie « Salaires », créée à la demande (nature FIXED)
  * si elle manque. Une catégorie du même nom soft-delete est « ressuscitée »
  * comme ailleurs dans les dépenses.
+ *
+ * `upsert` sur le nom unique : deux créations concurrentes (deux versements
+ * simultanés) ne lèvent pas de P2002, l'une crée, l'autre met à jour.
  */
 export async function getSalaryCategoryId(
   tx: Prisma.TransactionClient
 ): Promise<string> {
-  const existing = await tx.expenseCategory.findUnique({
-    where: { name: SALARY_EXPENSE_CATEGORY_NAME },
-  });
-  if (existing) {
-    if (existing.deletedAt) {
-      await tx.expenseCategory.update({
-        where: { id: existing.id },
-        data: { deletedAt: null, nature: 'FIXED' },
-      });
-    }
-    return existing.id;
-  }
   const max = await tx.expenseCategory.aggregate({
     _max: { sortOrder: true },
   });
-  const created = await tx.expenseCategory.create({
-    data: {
+  const category = await tx.expenseCategory.upsert({
+    where: { name: SALARY_EXPENSE_CATEGORY_NAME },
+    create: {
       name: SALARY_EXPENSE_CATEGORY_NAME,
       nature: 'FIXED',
       sortOrder: (max._max.sortOrder ?? -1) + 1,
     },
+    // Un nom déjà pris (même soft-delete) est réutilisé tel quel, reclassé FIXED.
+    update: { deletedAt: null, nature: 'FIXED' },
   });
-  return created.id;
+  return category.id;
 }

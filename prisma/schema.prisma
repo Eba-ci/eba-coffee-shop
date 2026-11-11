@@ -1256,7 +1256,7 @@ model SalaryPayment {
   month          String // mois concerné "YYYY-MM"
   amount         Int // FCFA
   type           SalaryPaymentType
-  paymentMethod  ExpensePaymentMethod @default(CASH)
+  paymentMethod  ExpensePaymentMethod @default(WAVE)
   recoveryMonths Int                  @default(1)
   note           String?
   idempotencyKey String?              @unique

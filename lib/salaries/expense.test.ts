@@ -32,67 +32,50 @@ describe('salaryExpenseFields', () => {
 });
 
 function fakeTx(overrides: {
-  findUnique?: ReturnType<typeof vi.fn>;
-  update?: ReturnType<typeof vi.fn>;
+  upsert?: ReturnType<typeof vi.fn>;
   aggregate?: ReturnType<typeof vi.fn>;
-  create?: ReturnType<typeof vi.fn>;
 }) {
   return {
     expenseCategory: {
-      findUnique: overrides.findUnique,
-      update: overrides.update,
+      upsert: overrides.upsert,
       aggregate: overrides.aggregate,
-      create: overrides.create,
     },
   } as unknown as Prisma.TransactionClient;
 }
 
 describe('getSalaryCategoryId', () => {
-  it('renvoie la catégorie existante sans la recréer', async () => {
-    const create = vi.fn();
+  it('upsert la catégorie « Salaires » (concurrence sans P2002)', async () => {
+    const upsert = vi.fn().mockResolvedValue({ id: 'cat-1' });
     const id = await getSalaryCategoryId(
       fakeTx({
-        findUnique: vi.fn().mockResolvedValue({ id: 'cat-1', deletedAt: null }),
-        create,
+        aggregate: vi.fn().mockResolvedValue({ _max: { sortOrder: 4 } }),
+        upsert,
       })
     );
     expect(id).toBe('cat-1');
-    expect(create).not.toHaveBeenCalled();
-  });
-
-  it('crée la catégorie « Salaires » en FIXED si elle manque', async () => {
-    const create = vi.fn().mockResolvedValue({ id: 'cat-new' });
-    const id = await getSalaryCategoryId(
-      fakeTx({
-        findUnique: vi.fn().mockResolvedValue(null),
-        aggregate: vi.fn().mockResolvedValue({ _max: { sortOrder: 4 } }),
-        create,
-      })
-    );
-    expect(id).toBe('cat-new');
-    expect(create).toHaveBeenCalledWith({
-      data: {
+    expect(upsert).toHaveBeenCalledWith({
+      where: { name: SALARY_EXPENSE_CATEGORY_NAME },
+      create: {
         name: SALARY_EXPENSE_CATEGORY_NAME,
         nature: 'FIXED',
         sortOrder: 5,
       },
+      // Une catégorie existante (même soft-delete) est reclassée FIXED.
+      update: { deletedAt: null, nature: 'FIXED' },
     });
   });
 
-  it('ressuscite une catégorie soft-delete et la repasse en FIXED', async () => {
-    const update = vi.fn().mockResolvedValue({ id: 'cat-1' });
-    const id = await getSalaryCategoryId(
-      fakeTx({
-        findUnique: vi
-          .fn()
-          .mockResolvedValue({ id: 'cat-1', deletedAt: new Date() }),
-        update,
-      })
-    );
-    expect(id).toBe('cat-1');
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'cat-1' },
-      data: { deletedAt: null, nature: 'FIXED' },
-    });
+  it('ne fait ni findUnique ni create (une seule requête atomique)', async () => {
+    const upsert = vi.fn().mockResolvedValue({ id: 'cat-1' });
+    const tx = fakeTx({
+      aggregate: vi.fn().mockResolvedValue({ _max: { sortOrder: null } }),
+      upsert,
+    }) as unknown as {
+      expenseCategory: Record<string, unknown>;
+    };
+    await getSalaryCategoryId(tx as never);
+    expect(upsert).toHaveBeenCalledOnce();
+    expect('findUnique' in tx.expenseCategory).toBe(false);
+    expect('create' in tx.expenseCategory).toBe(false);
   });
 });

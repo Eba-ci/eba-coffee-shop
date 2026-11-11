@@ -47,15 +47,12 @@ function txMock(overrides: Record<string, unknown> = {}) {
       delete: vi.fn().mockResolvedValue(paymentRow),
     },
     expenseCategory: {
-      findUnique: vi.fn().mockResolvedValue({ id: 'cat-sal', deletedAt: null }),
-      update: vi.fn(),
-      aggregate: vi.fn(),
-      create: vi.fn(),
+      upsert: vi.fn().mockResolvedValue({ id: 'cat-sal' }),
+      aggregate: vi.fn().mockResolvedValue({ _max: { sortOrder: null } }),
     },
     expense: {
       create: vi.fn().mockResolvedValue({ id: 'x1' }),
-      findUnique: vi.fn().mockResolvedValue({ id: 'x1' }),
-      update: vi.fn().mockResolvedValue({ id: 'x1' }),
+      upsert: vi.fn().mockResolvedValue({ id: 'x1' }),
       deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     ...overrides,
@@ -156,15 +153,20 @@ describe('recordSalaryPayment', () => {
 });
 
 describe('updateSalaryPayment', () => {
-  it('met à jour la dépense liée dans la même transaction', async () => {
+  it('met à jour la dépense liée dans la même transaction (upsert)', async () => {
     const tx = withTransaction(txMock());
 
     await updateSalaryPayment('p1', { amount: 300_000, paymentMethod: 'CASH' });
 
     expect(tx.salaryPayment.update).toHaveBeenCalled();
-    expect(tx.expense.update).toHaveBeenCalledWith({
-      where: { id: 'x1' },
-      data: expect.objectContaining({
+    expect(tx.expense.upsert).toHaveBeenCalledWith({
+      where: { salaryPaymentId: 'p1' },
+      create: expect.objectContaining({
+        salaryPaymentId: 'p1',
+        categoryId: 'cat-sal',
+        receiptNo: null,
+      }),
+      update: expect.objectContaining({
         amount: 300_000,
         paymentMethod: 'CASH',
         receiptNo: null,
@@ -172,23 +174,18 @@ describe('updateSalaryPayment', () => {
     });
   });
 
-  it('recrée la dépense liée si elle manque (jamais de versement sans dépense)', async () => {
-    const tx = withTransaction(
-      txMock({
-        expense: {
-          create: vi.fn().mockResolvedValue({ id: 'x-new' }),
-          findUnique: vi.fn().mockResolvedValue(null),
-          update: vi.fn(),
-          deleteMany: vi.fn(),
-        },
-      })
-    );
+  it('un versement hérité sans dépense est rattrapé par le create de l’upsert', async () => {
+    const tx = withTransaction(txMock());
 
     await updateSalaryPayment('p1', { note: 'correction' });
 
-    expect(tx.expense.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ salaryPaymentId: 'p1' }),
-    });
+    // Une seule requête atomique : pas de findUnique+create (course → P2002).
+    expect(tx.expense.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { salaryPaymentId: 'p1' },
+        create: expect.objectContaining({ salaryPaymentId: 'p1' }),
+      })
+    );
   });
 });
 
