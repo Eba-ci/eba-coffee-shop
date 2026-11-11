@@ -4,7 +4,6 @@ import {
   buildPaymentGrid,
   dominantStatus,
   groupByDueDate,
-  remainingTotal,
   sumAmount,
   summarizeOccurrences,
   unpaid,
@@ -84,7 +83,7 @@ describe('groupByDueDate', () => {
   });
 });
 
-describe('unpaid / remainingTotal / sumAmount', () => {
+describe('unpaid / sumAmount', () => {
   it('écarte les échéances payées', () => {
     const list = [
       occ({ status: 'PAID', paid: 300000, remaining: 0 }),
@@ -92,7 +91,6 @@ describe('unpaid / remainingTotal / sumAmount', () => {
       occ({ status: 'PARTIAL', paid: 100000, remaining: 200000 }),
     ];
     expect(unpaid(list).map((o) => o.status)).toEqual(['LATE', 'PARTIAL']);
-    expect(remainingTotal(list)).toBe(500000);
     // sumAmount additionne le montant dû, payées comprises.
     expect(sumAmount(list)).toBe(900000);
   });
