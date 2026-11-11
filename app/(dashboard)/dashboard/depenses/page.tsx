@@ -24,6 +24,8 @@ import { ApercuSection } from './_components/apercu-section';
 import { HistoriqueSection } from './_components/historique-section';
 import { ArticlesSection } from './_components/articles-section';
 import { RecurrentesSection } from './_components/recurrentes-section';
+import { PointMortSection } from './_components/point-mort-section';
+import { FixedCostMissingSection } from './_components/fixed-cost-missing-section';
 import { ArticleHistorySection } from './_components/article-history-section';
 
 export const dynamic = 'force-dynamic';
@@ -124,6 +126,10 @@ export default async function DepensesPage({
         <RecurringAlertSection />
       </Suspense>
 
+      <Suspense fallback={null}>
+        <FixedCostMissingSection />
+      </Suspense>
+
       <DepensesTabs
         defaultTab={params.tab}
         apercu={
@@ -174,6 +180,14 @@ export default async function DepensesPage({
         recurrentes={
           <Suspense fallback={<TableSkeleton rows={6} withToolbar={false} />}>
             <RecurrentesSection />
+          </Suspense>
+        }
+        pointmort={
+          <Suspense fallback={<TableSkeleton rows={8} withToolbar={false} />}>
+            <PointMortSection
+              from={isAll ? defaultFrom : fromStr}
+              to={isAll ? today : toStr}
+            />
           </Suspense>
         }
       />

@@ -31,6 +31,7 @@ import { pollsTools } from './polls';
 import { pollOptionsTools } from './poll-options';
 import { tiktokTools } from './tiktok';
 import { refundsTools } from './refunds';
+import { fixedCostsTools } from './fixed-costs';
 
 export const tools: McpTool[] = [
   ...menuReadTools,
@@ -42,6 +43,7 @@ export const tools: McpTool[] = [
   ...expenseMaintenanceTools,
   ...investmentsTools,
   ...revenueAdjustmentsTools,
+  ...fixedCostsTools,
   ...refundsTools,
   ...cashClosingTools,
   ...ordersTools,
