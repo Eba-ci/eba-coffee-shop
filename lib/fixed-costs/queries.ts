@@ -21,6 +21,7 @@ import {
   type FixedCostLike,
   type MarginRate,
 } from './compute';
+import { monthBounds } from './month';
 import { findMissingPeriods, type MissingPeriod } from './missing';
 import { openDayPredicate } from './open-days';
 
@@ -140,6 +141,12 @@ function isAllClosed(
   for (let i = 0; i < 7; i++)
     if (isOpen(shiftDateString(anchor, i))) return false;
   return true;
+}
+
+/** Rapport d'un mois civil `YYYY-MM` (navigation de l'onglet Point mort). */
+export async function getMonthReport(month: string): Promise<BreakEvenReport> {
+  const { from, to } = monthBounds(month);
+  return getBreakEvenReport(from, to);
 }
 
 /** Périodes échues d'une charge active sans aucune dépense de sa catégorie. */
