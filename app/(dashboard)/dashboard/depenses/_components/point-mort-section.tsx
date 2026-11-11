@@ -9,6 +9,8 @@ import { listExpenseCategories } from '@/lib/expenses';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/(dashboard)/kpi-card';
 import { FixedCostManager } from '../fixed-cost-manager';
+import { BreakEvenChart } from '@/components/(dashboard)/charts/break-even-chart';
+import { toChartPoints } from '@/lib/fixed-costs/chart';
 import { PointMortTable } from './point-mort-table';
 
 const fmt = new Intl.NumberFormat('fr-FR');
@@ -92,6 +94,15 @@ export async function PointMortSection({
           matière / emballage des produits pour obtenir un seuil.
         </p>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">CA net vs point mort</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <BreakEvenChart data={toChartPoints(report.days)} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
