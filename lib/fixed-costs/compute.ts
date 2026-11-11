@@ -65,11 +65,37 @@ export function dailyCostFor(
 
 export type FixedCostShare = { id: string; label: string; amount: number };
 
+/**
+ * Identité de la ligne unique des salaires dans le détail d'un jour. Le total
+ * mensuel des salaires est un nombre global (sans employé) : il n'apparaît
+ * jamais qu'en une seule ligne, jamais nominative.
+ */
+export const SALARY_SHARE_ID = 'salaries';
+export const SALARY_SHARE_LABEL = 'Salaires';
+
+/**
+ * Part journalière du montant GLOBAL des salaires d'un mois (un nombre, sans
+ * détail) : réparti à parts égales sur les JOURS OUVRÉS du mois contenant
+ * `day`, comme une charge MONTHLY. 0 un jour fermé, ou si le montant est nul.
+ */
+export function dailySalaryCost(
+  salariesMonthly: number,
+  day: string,
+  isOpen: OpenDayPredicate,
+  countOpen: OpenDayCounter
+): number {
+  if (salariesMonthly <= 0 || !isOpen(day)) return 0;
+  const period = periodContaining(day, 'MONTHLY');
+  const open = countOpen(period.start, period.end);
+  return open > 0 ? salariesMonthly / open : 0;
+}
+
 export function fixedCostsForDay(
   costs: FixedCostLike[],
   day: string,
   isOpen: OpenDayPredicate,
-  countOpen: OpenDayCounter
+  countOpen: OpenDayCounter,
+  salariesMonthly = 0
 ): { total: number; shares: FixedCostShare[] } {
   const shares: FixedCostShare[] = [];
   let total = 0;
@@ -78,6 +104,15 @@ export function fixedCostsForDay(
     if (amount <= 0) continue;
     shares.push({ id: cost.id, label: cost.label, amount });
     total += amount;
+  }
+  const salary = dailySalaryCost(salariesMonthly, day, isOpen, countOpen);
+  if (salary > 0) {
+    shares.push({
+      id: SALARY_SHARE_ID,
+      label: SALARY_SHARE_LABEL,
+      amount: salary,
+    });
+    total += salary;
   }
   return { total, shares };
 }
@@ -124,7 +159,8 @@ export type BreakEvenDay = {
   date: string;
   open: boolean;
   revenue: number; // CA net du jour
-  fixedCost: number; // charges fixes du jour (arrondies)
+  fixedCost: number; // charges fixes + salaires du jour (arrondies)
+  salaryCost: number; // part des salaires du jour (agrégat, sans employé)
   breakEven: number | null; // CA minimal ; 0 si fermé ; null si marge inconnue
   remaining: number | null; // reste à faire pour atteindre le seuil
   grossMargin: number | null; // marge estimée = CA × taux
@@ -138,16 +174,22 @@ export function buildBreakEvenSeries(args: {
   costs: FixedCostLike[];
   isOpen: OpenDayPredicate;
   marginRate: number | null;
+  /** Total GLOBAL des salaires par mois `YYYY-MM` (un nombre, sans employé). */
+  salariesByMonth?: Record<string, number>;
 }): BreakEvenDay[] {
   const countOpen = createOpenDayCounter(args.isOpen);
   return args.days.map(({ date, revenue }) => {
     const open = args.isOpen(date);
+    const salariesMonthly = args.salariesByMonth?.[date.slice(0, 7)] ?? 0;
     const { total, shares } = fixedCostsForDay(
       args.costs,
       date,
       args.isOpen,
-      countOpen
+      countOpen,
+      salariesMonthly
     );
+    const salaryCost =
+      shares.find((s) => s.id === SALARY_SHARE_ID)?.amount ?? 0;
     const fixedCost = Math.round(total);
     const breakEven = open ? breakEvenRevenue(fixedCost, args.marginRate) : 0;
     const grossMargin =
@@ -157,6 +199,7 @@ export function buildBreakEvenSeries(args: {
       open,
       revenue,
       fixedCost,
+      salaryCost,
       breakEven,
       remaining: breakEven === null ? null : Math.max(0, breakEven - revenue),
       grossMargin,
