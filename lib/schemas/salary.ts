@@ -1,9 +1,15 @@
 import { z } from 'zod';
 import {
   EXPENSE_AMOUNT_MAX,
+  SALARY_END_AFTER_START_MESSAGE,
+  SALARY_IDEMPOTENCY_KEY_MAX,
+  SALARY_IDEMPOTENCY_KEY_MIN,
+  SALARY_ID_MIN_LENGTH,
   SALARY_NAME_MAX,
   SALARY_NOTE_MAX,
   SALARY_POSITION_MAX,
+  SALARY_RECOVERY_MONTHS_MAX,
+  SALARY_RECOVERY_MONTHS_MIN,
 } from '@/config/constants';
 import { dateOnly, expensePaymentMethodSchema } from './expense/common';
 import { isValidMonth } from '@/lib/salaries/month';
@@ -44,7 +50,7 @@ const endAfterStart = (v: { startDate?: string; endDate?: string | null }) =>
   !v.endDate || !v.startDate || v.endDate >= v.startDate;
 
 export const employeeCreateSchema = employeeObjectSchema.refine(endAfterStart, {
-  message: 'La sortie doit être après l’entrée',
+  message: SALARY_END_AFTER_START_MESSAGE,
   path: ['endDate'],
 });
 
@@ -54,26 +60,36 @@ export const employeeUpdateSchema = employeeObjectSchema
     message: 'Au moins un champ à mettre à jour est requis',
   })
   .refine(endAfterStart, {
-    message: 'La sortie doit être après l’entrée',
+    message: SALARY_END_AFTER_START_MESSAGE,
     path: ['endDate'],
   });
 
 export const salaryRateCreateSchema = z.object({
-  employeeId: z.string().min(1, 'Employé requis'),
+  employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
   monthlyAmount: amountSchema,
   startDate: dateOnly,
 });
 
 export const salaryPaymentCreateSchema = z.object({
-  employeeId: z.string().min(1, 'Employé requis'),
+  employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
   date: dateOnly,
   month: monthSchema,
   amount: amountSchema,
   type: salaryPaymentTypeSchema,
   paymentMethod: expensePaymentMethodSchema.optional(),
-  recoveryMonths: z.number().int().min(1).max(60).optional(),
+  recoveryMonths: z
+    .number()
+    .int()
+    .min(SALARY_RECOVERY_MONTHS_MIN)
+    .max(SALARY_RECOVERY_MONTHS_MAX)
+    .optional(),
   note: z.string().trim().max(SALARY_NOTE_MAX).nullable().optional(),
-  idempotencyKey: z.string().trim().min(1).max(200).optional(),
+  idempotencyKey: z
+    .string()
+    .trim()
+    .min(SALARY_IDEMPOTENCY_KEY_MIN)
+    .max(SALARY_IDEMPOTENCY_KEY_MAX)
+    .optional(),
 });
 
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;

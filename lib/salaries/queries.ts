@@ -7,12 +7,9 @@
 // renvoie un nombre seul, sans jamais exposer d'employé.
 
 import prisma from '@/lib/prisma';
-import { formatLocalDateOnly, parseDateOnlyToUTC } from '@/lib/timezone';
-import {
-  salaryDueForMonth,
-  type EmployeeLike,
-  type SalaryRateLike,
-} from './compute';
+import { parseDateOnlyToUTC } from '@/lib/timezone';
+import { salaryDueForMonth } from './compute';
+import { toEmployeeLike, toSalaryRateLike } from './mappers';
 import { monthBounds } from './month';
 
 /**
@@ -36,14 +33,8 @@ export async function getMonthlySalaryTotal(month: string): Promise<number> {
 
   let total = 0;
   for (const e of employees) {
-    const employee: EmployeeLike = {
-      startDate: formatLocalDateOnly(e.startDate),
-      endDate: e.endDate ? formatLocalDateOnly(e.endDate) : null,
-    };
-    const rates: SalaryRateLike[] = e.rates.map((r) => ({
-      monthlyAmount: r.monthlyAmount,
-      startDate: formatLocalDateOnly(r.startDate),
-    }));
+    const employee = toEmployeeLike(e);
+    const rates = e.rates.map(toSalaryRateLike);
     total += salaryDueForMonth(employee, rates, month).due;
   }
   return total;
