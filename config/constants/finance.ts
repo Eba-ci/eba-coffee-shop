@@ -73,3 +73,11 @@ export const SALARY_END_AFTER_START_MESSAGE =
  * `Expense.salaryPaymentId` fait foi, pas le nom seul).
  */
 export const SALARY_EXPENSE_CATEGORY_NAME = 'Salaires';
+
+/** Les opérations d'ajustement / d'annulation ne visent qu'une AVANCE. */
+export const SALARY_ADVANCE_ONLY_MESSAGE =
+  'Cette opération ne vise qu’une avance';
+
+/** On ne réduit pas le montant d'une avance sous ce qui a déjà été récupéré. */
+export const SALARY_ADVANCE_BELOW_RECOVERED_MESSAGE =
+  'Le montant ne peut pas être inférieur à ce qui a déjà été récupéré sur cette avance';
