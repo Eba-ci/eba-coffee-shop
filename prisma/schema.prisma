@@ -54,6 +54,7 @@ model User {
   refundsRequested          Refund[]                @relation("RefundRequestedBy")
   refundsApproved           Refund[]                @relation("RefundApprovedBy")
   refundEvents              RefundEvent[]           @relation("RefundEventActor")
+  salaryPaymentsCreated     SalaryPayment[]         @relation("SalaryPaymentCreatedBy")
 
   @@map("user")
 }
@@ -1138,6 +1139,16 @@ enum FixedCostPeriodicity {
   YEARLY
 }
 
+// Nature d'un versement de salaire :
+// - SALAIRE : paie (partielle ou totale) d'un mois ;
+// - ACOMPTE : avance sur le salaire du MOIS EN COURS (déduite du dû du mois) ;
+// - AVANCE : prêt daté, récupéré automatiquement sur les paies SUIVANTES.
+enum SalaryPaymentType {
+  SALAIRE
+  ACOMPTE
+  AVANCE
+}
+
 // Charge fixe suivie pour le point mort (loyer, salaires, abonnements…).
 // Distincte de `RecurringExpense` (simple aide-mémoire de saisie) : ici on
 // porte un montant, une périodicité et une date de prise d'effet pour ramener
@@ -1163,6 +1174,78 @@ model FixedCost {
   @@index([categoryId])
   @@index([active])
   @@map("fixed_cost")
+}
+
+// ─── Salaires (admin seul) ────────────────────────────────────────────────────
+//
+// Modèle séparé des charges fixes et des dépenses : aucune jointure dans les
+// requêtes génériques de dépenses. Trois tables — `Employee` (le salarié,
+// indépendant des comptes de connexion), `SalaryRate` (le montant mensuel à
+// partir d'une date : l'historique rend les changements de salaire possibles
+// sans écraser le passé) et `SalaryPayment` (les versements datés).
+// Les règles de calcul (dû du mois, prorata au jour, avances) vivent dans
+// `lib/salaries/` (pures, testées) et ne sont pas dupliquées ici.
+
+// Employé. `startDate` = date d'entrée, `endDate` = date de sortie (incluse,
+// null = en poste). `active` sert au filtrage des listes ; le calcul du dû
+// s'appuie sur la fenêtre `startDate` … `endDate`, pas sur ce drapeau.
+model Employee {
+  id        String    @id @default(cuid())
+  name      String
+  position  String?
+  startDate DateTime  @db.Date
+  endDate   DateTime? @db.Date
+  active    Boolean   @default(true)
+  note      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  rates    SalaryRate[]
+  payments SalaryPayment[]
+
+  @@index([active])
+  @@map("employee")
+}
+
+// Taux mensuel d'un employé PRENANT EFFET à `startDate` (incluse) et valant
+// jusqu'au taux suivant. Un changement en cours de mois est proratisé au jour
+// calendaire (cf. lib/salaries/compute.ts).
+model SalaryRate {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  monthlyAmount Int // FCFA
+  startDate     DateTime @db.Date // prise d'effet (incluse)
+  createdAt     DateTime @default(now())
+
+  @@unique([employeeId, startDate])
+  @@map("salary_rate")
+}
+
+// Versement de salaire daté. `month` = mois concerné « YYYY-MM » (un salaire de
+// juin peut être payé en juillet). `recoveryMonths` ne sert qu'aux AVANCE :
+// nombre de mois sur lesquels étaler la récupération (1 = tout sur le mois
+// suivant). `idempotencyKey` rend l'enregistrement rejouable (double clic).
+model SalaryPayment {
+  id             String               @id @default(cuid())
+  employeeId     String
+  employee       Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  date           DateTime             @db.Date // jour du versement
+  month          String // mois concerné "YYYY-MM"
+  amount         Int // FCFA
+  type           SalaryPaymentType
+  paymentMethod  ExpensePaymentMethod @default(CASH)
+  recoveryMonths Int                  @default(1)
+  note           String?
+  idempotencyKey String?              @unique
+  createdById    String?
+  createdBy      User?                @relation("SalaryPaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime             @default(now())
+
+  @@index([employeeId, month])
+  @@index([month])
+  @@index([date])
+  @@map("salary_payment")
 }
 
 model Expense {

@@ -35,3 +35,10 @@ export const INVESTMENT_AMOUNT_MAX = 1_000_000_000;
 export const REVENUE_ADJUSTMENT_NOTE_MAX = 500;
 
 export const REVENUE_ADJUSTMENT_AMOUNT_MAX = 100_000_000;
+
+/** Salaires (admin seul). */
+export const SALARY_NAME_MAX = 100;
+
+export const SALARY_POSITION_MAX = 100;
+
+export const SALARY_NOTE_MAX = 500;

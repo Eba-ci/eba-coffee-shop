@@ -167,6 +167,14 @@ Le site vitrine est vu depuis Abidjan, en mobile, sur des liens où le **RTT pè
 - **MCP** : `list/create/update/delete_fixed_cost`, `sync_fixed_costs_from_recurring`, `get_break_even`, `get_missing_fixed_costs`.
 - **Après déploiement** : `pnpm db:push` (migration `20261111090000_add_fixed_cost`), puis « Importer depuis les récurrentes » ou saisir les charges, et vérifier les horaires dans Paramètres.
 
+## Salaires (admin)
+
+- **Quoi** : la rubrique « Salaires » de Dépenses est **réservée à l'ADMIN** (écrans à venir) ; les autres rôles ne voient qu'un montant global, `getMonthlySalaryTotal(month)` (`lib/salaries/queries.ts`), qui renvoie **un nombre seul, sans employé**. Tables **séparées** des dépenses (aucune jointure dans leurs requêtes génériques) : `Employee` (nom, poste, entrée/sortie, actif), `SalaryRate` (montant mensuel **à partir d'une date** = historique daté), `SalaryPayment` (versement daté, type `SALAIRE | ACOMPTE | AVANCE`, mois concerné, mode de paiement, note, `recoveryMonths`, `idempotencyKey`).
+- **Règles pures** (`lib/salaries/compute.ts`, testées) : dû d'un mois **proratisé au jour calendaire** (changement de taux en cours de mois, entrée ou sortie en cours de mois) ; arrondi **FCFA entier** par plus fort reste (`money.ts` — la somme des parts retombe exactement sur le total) ; un `ACOMPTE` se déduit du dû du mois ; le solde d'`AVANCE` est suivi **mois par mois** et **récupéré automatiquement sur les paies suivantes** (`recoveryMonths` étale la récupération, un reliquat non absorbé est reporté) ; `reste à payer = dû − salaires − acomptes − avances récupérées`.
+- **Enregistrement idempotent** : `recordSalaryPayment` (`lib/salaries/mutations.ts`) — rejouer avec la même `idempotencyKey` renvoie le versement déjà créé au lieu d'en créer un second. Schémas Zod : `lib/schemas/salary.ts`.
+- **Hors périmètre (plus tard)** : primes, 13e mois, solde de tout compte au départ.
+- **Après déploiement** : `pnpm db:push` (migration `20261113090000_add_salary_model`).
+
 ## Manuel d'utilisation (mise à jour après merge)
 
 - **Le manuel du personnel** est un Doc Claude, « Manuel d'utilisation – EBA Coffee Shop » : https://claude.ai/code/artifact/312ba27a-9ee4-481c-9928-ddf92b8700a9. Il est écrit en français, au « vous », avec des captures annotées (pastilles numérotées) qui renvoient à des listes numérotées. Il suit le plan par rôle : 1 Prise en main · 2 Caisse · 3 Cuisine · 4 Menu · 5 Commandes · 6 Clôture et régularisations · 7 Finances · 8 Inventaire · 9 Clients et fidélité · 10 Sondages et TikTok · 11 Administration (équipe, paramètres, Jèko, MCP) · 12 Côté client · Annexes (glossaire, dépannage, bonnes habitudes).
