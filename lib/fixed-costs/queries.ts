@@ -1,7 +1,7 @@
 // lib/fixed-costs/queries.ts
 //
-// Lecture : rapport de point mort sur une plage et périodes échues sans dépense
-// saisie. La logique de calcul vit dans `compute.ts` / `missing.ts` (pures) ;
+// Lecture : rapport de point mort sur une plage et échéancier des charges
+// fixes. La logique de calcul vit dans `compute.ts` / `schedule.ts` (pures) ;
 // la lecture du calendrier des paiements dans `payments-queries.ts`, réexportée
 // ici pour ne pas changer l'API publique.
 

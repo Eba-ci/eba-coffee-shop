@@ -14,6 +14,7 @@ import {
 } from '@/lib/schemas/fixed-cost';
 
 import { installmentsError } from './installments';
+import { planRecurringImport } from './salary-migration';
 import { toInstallmentLike } from './schedule';
 
 const date = (v: string) => parseDateOnlyToUTC(v)!;
@@ -104,6 +105,11 @@ export type SyncResult = {
   created: number;
   /** Récurrentes actives sans montant attendu : à compléter à la main. */
   skippedNoAmount: string[];
+  /**
+   * Récurrentes « salaires » ignorées : elles ne doivent jamais redevenir des
+   * charges fixes (sinon le total serait compté deux fois, cf. migration).
+   */
+  skippedSalary: string[];
   /** Récurrentes déjà reprises (rien à faire). */
   alreadyLinked: number;
 };
@@ -112,29 +118,41 @@ export type SyncResult = {
  * Crée une charge fixe pour chaque dépense récurrente ACTIVE qui n'en a pas
  * encore. Idempotent (`recurringExpenseId` unique) ; ne touche jamais une
  * charge déjà liée. Périodicité MENSUELLE, prise d'effet = 1er du mois courant.
+ *
+ * Les récurrentes « salaires » (catégorie « Salaires » ou libellé contenant
+ * « salaire ») sont IGNORÉES : les salaires vivent dans la rubrique Salaires
+ * (admin seul) et une récurrente salaires ne doit pas recréer la charge fixe
+ * retirée par la migration (#417).
  */
 export async function syncFixedCostsFromRecurring(): Promise<SyncResult> {
   const [recurring, linked] = await Promise.all([
     prisma.recurringExpense.findMany({
       where: { active: true },
       orderBy: { label: 'asc' },
+      include: { category: { select: { name: true } } },
     }),
     prisma.fixedCost.findMany({
       where: { recurringExpenseId: { not: null } },
       select: { recurringExpenseId: true },
     }),
   ]);
-  const linkedIds = new Set(linked.map((l) => l.recurringExpenseId));
-  const todo = recurring.filter((r) => !linkedIds.has(r.id));
-  const withAmount = todo.filter(
-    (r) => r.expectedAmount && r.expectedAmount > 0
+  const plan = planRecurringImport(
+    recurring.map((r) => ({
+      id: r.id,
+      label: r.label,
+      categoryId: r.categoryId,
+      categoryName: r.category.name,
+      expectedAmount: r.expectedAmount,
+    })),
+    new Set(linked.map((l) => l.recurringExpenseId!))
   );
+
   const startDate = date(startOfMonthDateString(todayDateString()));
   const max = await prisma.fixedCost.aggregate({ _max: { sortOrder: true } });
   const base = (max._max.sortOrder ?? -1) + 1;
 
   const res = await prisma.fixedCost.createMany({
-    data: withAmount.map((r, i) => ({
+    data: plan.toImport.map((r, i) => ({
       label: r.label,
       amount: r.expectedAmount!,
       periodicity: 'MONTHLY' as const,
@@ -147,7 +165,8 @@ export async function syncFixedCostsFromRecurring(): Promise<SyncResult> {
   });
   return {
     created: res.count,
-    skippedNoAmount: todo.filter((r) => !r.expectedAmount).map((r) => r.label),
-    alreadyLinked: recurring.length - todo.length,
+    skippedNoAmount: plan.skippedNoAmount,
+    skippedSalary: plan.skippedSalary,
+    alreadyLinked: plan.alreadyLinked,
   };
 }
