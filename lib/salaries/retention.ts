@@ -11,7 +11,7 @@
 
 import { RETENTION } from '@/config/data-protection';
 import prisma from '@/lib/prisma';
-import { parseDateOnlyToUTC } from '@/lib/timezone';
+import { formatLocalDateOnly, parseDateOnlyToUTC } from '@/lib/timezone';
 
 /** Préfixe des noms anonymisés : rejoue sans effet (idempotence). */
 export const ANONYMIZED_EMPLOYEE_PREFIX = 'Anonyme ';
@@ -41,25 +41,33 @@ export function isSalaryRetentionExpired(
  * Anonymise nom / poste / note des employés sortis depuis plus de la durée de
  * conservation, et vide la note de leurs versements. Ne touche ni les dates, ni
  * les montants, ni les employés encore en poste. Idempotente.
+ *
+ * La coupure est TOUJOURS décidée par `isSalaryRetentionExpired` (une seule
+ * règle, appelée par le chemin exécuté) : une seule borne, testable aux bornes.
  * `now` et `years` injectables pour les tests.
  */
 export async function anonymizeExpiredSalaryData(
   now = new Date(),
   years: number = RETENTION.salaryYearsAfterContract
 ): Promise<number> {
-  const cutoff = new Date(now);
-  cutoff.setFullYear(cutoff.getFullYear() - years);
-
   const employees = await prisma.employee.findMany({
     where: {
-      endDate: { not: null, lt: cutoff },
+      endDate: { not: null },
       name: { not: { startsWith: ANONYMIZED_EMPLOYEE_PREFIX } },
     },
-    select: { id: true },
+    select: { id: true, endDate: true },
   });
 
+  const expired = employees.filter((e) =>
+    isSalaryRetentionExpired(
+      e.endDate ? formatLocalDateOnly(e.endDate) : null,
+      now,
+      years
+    )
+  );
+
   let done = 0;
-  for (const { id } of employees) {
+  for (const { id } of expired) {
     await prisma.$transaction([
       prisma.salaryPayment.updateMany({
         where: { employeeId: id },

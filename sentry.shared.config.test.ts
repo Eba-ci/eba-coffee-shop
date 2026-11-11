@@ -125,4 +125,25 @@ describe('scrubUrl / scrubPii', () => {
     expect(crumbData.employees).toBe('[masqué]');
     expect(crumbData.url).toBe('https://eba-coffee.com/dashboard/depenses');
   });
+
+  it('masque les montants sensibles dans les messages libres (message, exception, fil d’Ariane)', () => {
+    const event = scrubPii({
+      message: 'Échec enregistrement paie — montant: 123456 refusé',
+      exception: { values: [{ value: 'salaire: 987654 introuvable' }] },
+      breadcrumbs: [{ message: 'employee amount = 55555' }],
+    });
+    expect(event.message).not.toContain('123456');
+    expect(event.message).toContain('[masqué]');
+    expect(event.exception?.values?.[0].value).not.toContain('987654');
+    expect(event.exception?.values?.[0].value).toContain('[masqué]');
+    expect(event.breadcrumbs?.[0].message).not.toContain('55555');
+    expect(event.breadcrumbs?.[0].message).toContain('[masqué]');
+  });
+
+  it('le filet de texte ne prétend PAS masquer un nom d’employé libre', () => {
+    // Limite assumée : un nom sans mot-clé/montant détectable n'est pas masqué
+    // par le filet (c'est le rôle des messages d'erreur génériques côté source).
+    const event = scrubPii({ message: 'Employé Awa Traoré introuvable' });
+    expect(event.message).toBe('Employé Awa Traoré introuvable');
+  });
 });

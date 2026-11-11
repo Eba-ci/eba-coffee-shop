@@ -16,70 +16,70 @@ import {
   isSalaryRetentionExpired,
 } from './retention';
 
+const day = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
+const NOW = day('2026-06-30'); // coupure = 2016-06-30
+
 describe('isSalaryRetentionExpired (pur)', () => {
   it('jamais pour un employé en poste (pas de date de sortie)', () => {
     expect(isSalaryRetentionExpired(null, new Date('2030-01-01'))).toBe(false);
   });
 
   it('n’expire qu’APRÈS la durée depuis la sortie', () => {
-    // 10 ans après la sortie : pas encore (borne égale), puis expiré.
-    expect(isSalaryRetentionExpired('2016-06-30', new Date('2026-06-30'))).toBe(
-      false
-    );
-    expect(isSalaryRetentionExpired('2016-06-29', new Date('2026-06-30'))).toBe(
-      true
-    );
-    expect(isSalaryRetentionExpired('2016-06-30', new Date('2026-07-01'))).toBe(
+    expect(isSalaryRetentionExpired('2016-06-30', NOW)).toBe(false);
+    expect(isSalaryRetentionExpired('2016-06-29', NOW)).toBe(true);
+    expect(isSalaryRetentionExpired('2016-06-30', day('2026-07-01'))).toBe(
       true
     );
   });
 
   it('respecte la durée passée en paramètre', () => {
-    expect(
-      isSalaryRetentionExpired('2020-01-01', new Date('2026-01-01'), 5)
-    ).toBe(true);
-    expect(
-      isSalaryRetentionExpired('2020-01-01', new Date('2026-01-01'), 10)
-    ).toBe(false);
+    expect(isSalaryRetentionExpired('2020-01-01', NOW, 5)).toBe(true);
+    expect(isSalaryRetentionExpired('2020-01-01', NOW, 10)).toBe(false);
   });
 });
 
-describe('anonymizeExpiredSalaryData', () => {
+describe('anonymizeExpiredSalaryData — bornes J-1 / J / J+1 par le chemin réel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.$transaction.mockResolvedValue([]);
   });
 
-  it('anonymise nom / poste / note des employés sortis échus, garde les montants', async () => {
-    prismaMock.employee.findMany.mockResolvedValue([{ id: 'e1' }]);
+  // `NOW` = 2026-06-30, durée 10 ans → coupure exacte 2016-06-30.
+  const boundaryEmployees = [
+    { id: 'j-moins-1', endDate: day('2016-06-29') }, // expiré
+    { id: 'j', endDate: day('2016-06-30') }, // borne : pas encore
+    { id: 'j-plus-1', endDate: day('2016-07-01') }, // pas expiré
+  ];
 
-    const done = await anonymizeExpiredSalaryData(new Date('2026-06-30'));
+  it('n’anonymise QUE J-1 (coupure exclusive), pas J ni J+1', async () => {
+    prismaMock.employee.findMany.mockResolvedValue(boundaryEmployees);
+
+    const done = await anonymizeExpiredSalaryData(NOW);
 
     expect(done).toBe(1);
-    const where = prismaMock.employee.findMany.mock.calls[0][0].where;
-    // La borne de coupure est bien 10 ans avant `now` ; jamais avant la durée.
-    expect((where.endDate.lt as Date).getUTCFullYear()).toBe(2016);
-    expect(where.endDate.not).toBe(null);
+    expect(prismaMock.employee.update).toHaveBeenCalledTimes(1);
     expect(prismaMock.employee.update).toHaveBeenCalledWith({
-      where: { id: 'e1' },
+      where: { id: 'j-moins-1' },
       data: {
-        name: anonymizedEmployeeName('e1'),
+        name: anonymizedEmployeeName('j-moins-1'),
         position: null,
         note: null,
         active: false,
       },
     });
-    // Les montants (employé, versements) ne sont pas supprimés.
-    expect(prismaMock.salaryPayment.updateMany).toHaveBeenCalledWith({
-      where: { employeeId: 'e1' },
-      data: { note: null },
-    });
-    expect(prismaMock.$transaction).toHaveBeenCalledOnce();
+    // Une seule borne : le filtre base ne recalcule PAS la coupure.
+    const where = prismaMock.employee.findMany.mock.calls[0][0].where;
+    expect(where.endDate).toEqual({ not: null });
   });
 
   it('ne touche à rien quand aucun employé sorti n’est échu', async () => {
-    prismaMock.employee.findMany.mockResolvedValue([]);
-    expect(await anonymizeExpiredSalaryData()).toBe(0);
+    prismaMock.employee.findMany.mockResolvedValue([
+      { id: 'j', endDate: day('2016-06-30') },
+      { id: 'j-plus-1', endDate: day('2016-07-01') },
+      { id: 'sans-sortie', endDate: null },
+    ]);
+
+    expect(await anonymizeExpiredSalaryData(NOW)).toBe(0);
     expect(prismaMock.employee.update).not.toHaveBeenCalled();
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });

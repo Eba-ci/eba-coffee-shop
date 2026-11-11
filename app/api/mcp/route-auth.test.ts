@@ -41,6 +41,43 @@ describe('authentification — clé statique', () => {
     // La clé statique court-circuite OAuth : pas d'appel à getMcpSession.
     expect(getMcpSession).not.toHaveBeenCalled();
   });
+
+  it('la clé statique n’a PAS le scope admin (aucun détail salaires)', async () => {
+    const res = await POST(
+      makeRequest({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, authHeader)
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    const names = (json.result.tools as Array<{ name: string }>).map(
+      (t) => t.name
+    );
+    expect(names).toContain('get_menu');
+    // L'agrégat (finance) reste accessible ; le détail (admin) non.
+    expect(names).toContain('get_salary_month_total');
+    expect(names).not.toContain('get_salary_month_view');
+    expect(names).not.toContain('list_salary_employees');
+    expect(names).not.toContain('list_salary_advances');
+  });
+
+  it('la clé statique ne peut PAS appeler un outil de détail salaires', async () => {
+    const res = await POST(
+      makeRequest(
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'tools/call',
+          params: {
+            name: 'get_salary_month_view',
+            arguments: { month: '2026-06' },
+          },
+        },
+        authHeader
+      )
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect((json.result as { isError: boolean }).isError).toBe(true);
+  });
 });
 
 describe('authentification — OAuth', () => {
