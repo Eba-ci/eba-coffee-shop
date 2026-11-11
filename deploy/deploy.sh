@@ -106,7 +106,7 @@ if [ "$ACTION" = schema ]; then
   # Le relevé de départ du journal de stock suit db:push (la table doit exister) ;
   # idempotent : sans effet quand tout est déjà journalisé.
   # En production, le relevé de départ reste un geste volontaire (bouton ou pnpm à la main).
-  tasks="db:merge-duplicate-emails db:push db:trigger db:indexes"
+  tasks="db:merge-duplicate-emails db:pre-push db:push db:trigger db:indexes"
   [ "$ENV_NAME" != staging ] || tasks="$tasks db:backfill-stock-baseline"
   for task in $tasks; do
     docker run --rm --add-host="host.docker.internal:$HOST_ADDR" --env-file "$ENV_FILE" \
