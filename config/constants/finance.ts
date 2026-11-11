@@ -35,3 +35,10 @@ export const INVESTMENT_AMOUNT_MAX = 1_000_000_000;
 export const REVENUE_ADJUSTMENT_NOTE_MAX = 500;
 
 export const REVENUE_ADJUSTMENT_AMOUNT_MAX = 100_000_000;
+
+/** Charges fixes : échéances par charge, garde-fous de calcul. */
+export const FIXED_COST_MAX_INSTALLMENTS = 12;
+/** Une plage ne génère jamais plus de périodes que ça par charge. */
+export const FIXED_COST_MAX_PERIODS_PER_RANGE = 800;
+/** Les retards ne remontent pas plus loin que ça (jours). */
+export const FIXED_COST_LATE_LOOKBACK_DAYS = 731;

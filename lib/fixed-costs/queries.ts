@@ -4,6 +4,7 @@
 // périodes échues sans dépense saisie. La logique de calcul vit dans
 // `compute.ts` / `missing.ts` (pures).
 
+import { FIXED_COST_LATE_LOOKBACK_DAYS } from '@/config/constants';
 import prisma from '@/lib/prisma';
 import { getPickupSettings } from '@/lib/pickup-settings-db';
 import { getDailySeries } from '@/lib/stats';
@@ -22,8 +23,14 @@ import {
   type MarginRate,
 } from './compute';
 import { monthBounds } from './month';
-import { findMissingPeriods, type MissingPeriod } from './missing';
 import { openDayPredicate } from './open-days';
+import {
+  scheduleForRange,
+  toInstallmentLike,
+  type InstallmentLike,
+  type LinkedPayment,
+  type Occurrence,
+} from './schedule';
 
 /** Fenêtre (jours) sur laquelle on mesure le taux de marge. */
 export const MARGIN_WINDOW_DAYS = 30;
@@ -35,12 +42,19 @@ export type FixedCostRow = FixedCostLike & {
   categoryName: string;
   recurringExpenseId: string | null;
   note: string | null;
+  /** Vide = échéance par défaut déduite de la prise d'effet. */
+  installments: InstallmentLike[];
 };
 
 export async function listFixedCosts(): Promise<FixedCostRow[]> {
   const rows = await prisma.fixedCost.findMany({
     orderBy: [{ active: 'desc' }, { sortOrder: 'asc' }, { label: 'asc' }],
-    include: { category: { select: { name: true } } },
+    include: {
+      category: { select: { name: true } },
+      installments: {
+        orderBy: [{ monthOffset: 'asc' }, { day: 'asc' }],
+      },
+    },
   });
   return rows.map((r) => ({
     id: r.id,
@@ -54,6 +68,7 @@ export async function listFixedCosts(): Promise<FixedCostRow[]> {
     categoryName: r.category.name,
     recurringExpenseId: r.recurringExpenseId,
     note: r.note,
+    installments: r.installments.map(toInstallmentLike),
   }));
 }
 
@@ -149,28 +164,55 @@ export async function getMonthReport(month: string): Promise<BreakEvenReport> {
   return getBreakEvenReport(from, to);
 }
 
-/** Périodes échues d'une charge active sans aucune dépense de sa catégorie. */
-export async function getMissingFixedCostPeriods(): Promise<MissingPeriod[]> {
+/** Dépenses liées à une occurrence de charge fixe dont l'échéance est dans la plage. */
+async function listLinkedPayments(
+  from: string,
+  to: string
+): Promise<LinkedPayment[]> {
+  const rows = await prisma.expense.findMany({
+    where: {
+      fixedCostId: { not: null },
+      dueDate: { gte: parseDateOnlyToUTC(from)!, lte: parseDateOnlyToUTC(to)! },
+    },
+    select: { id: true, fixedCostId: true, dueDate: true, amount: true },
+  });
+  return rows.map((r) => ({
+    expenseId: r.id,
+    fixedCostId: r.fixedCostId!,
+    dueDate: formatLocalDateOnly(r.dueDate!),
+    amount: r.amount,
+  }));
+}
+
+/** Échéancier des charges fixes sur [from, to] : dû / payé / partiel / en retard. */
+export async function getFixedCostSchedule(
+  from: string,
+  to: string
+): Promise<Occurrence[]> {
   const costs = (await listFixedCosts()).filter(
     (c) => c.active && c.periodicity !== 'DAILY'
   );
   if (costs.length === 0) return [];
-  const earliest = costs.reduce(
-    (m, c) => (c.startDate < m ? c.startDate : m),
-    costs[0].startDate
+  const payments = await listLinkedPayments(from, to);
+  return scheduleForRange(costs, from, to, payments, todayDateString());
+}
+
+/** Échéancier d'un mois civil `YYYY-MM`. */
+export async function getMonthSchedule(month: string): Promise<Occurrence[]> {
+  const { from, to } = monthBounds(month);
+  return getFixedCostSchedule(from, to);
+}
+
+/**
+ * Échéances passées pas entièrement réglées, y compris partielles (remplace l'alerte « aucune dépense
+ * de la catégorie », fausse quand deux charges partagent une catégorie).
+ */
+export async function getLateFixedCostOccurrences(): Promise<Occurrence[]> {
+  const today = todayDateString();
+  const yesterday = shiftDateString(today, -1);
+  const schedule = await getFixedCostSchedule(
+    shiftDateString(today, -FIXED_COST_LATE_LOOKBACK_DAYS),
+    yesterday
   );
-  const expenses = await prisma.expense.findMany({
-    where: {
-      categoryId: { in: [...new Set(costs.map((c) => c.categoryId))] },
-      date: { gte: parseDateOnlyToUTC(`${earliest.slice(0, 7)}-01`)! },
-    },
-    select: { categoryId: true, date: true },
-  });
-  const byCategory = new Map<string, string[]>();
-  for (const e of expenses) {
-    const list = byCategory.get(e.categoryId) ?? [];
-    list.push(formatLocalDateOnly(e.date));
-    byCategory.set(e.categoryId, list);
-  }
-  return findMissingPeriods(costs, byCategory, todayDateString());
+  return schedule.filter((o) => o.overdue);
 }
