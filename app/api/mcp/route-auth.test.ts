@@ -143,6 +143,31 @@ describe('authentification — OAuth', () => {
     expect((json.result as { isError: boolean }).isError).toBe(true);
   });
 
+  it.each(['COMPTABLE', 'ANALYSTE'])(
+    '%s ne peut PAS appeler un outil de détail salaires',
+    async (role) => {
+      getMcpSession.mockResolvedValue({ userId: 'u8' });
+      userFindUnique.mockResolvedValue({ role });
+      const res = await POST(
+        makeRequest(
+          {
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'tools/call',
+            params: {
+              name: 'list_salary_employees',
+              arguments: {},
+            },
+          },
+          { authorization: `Bearer jeton-oauth-${role}` }
+        )
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect((json.result as { isError: boolean }).isError).toBe(true);
+    }
+  );
+
   it('accepte un jeton OAuth d’un ADMIN et lui montre le détail salaires', async () => {
     getMcpSession.mockResolvedValue({ userId: 'u6' });
     userFindUnique.mockResolvedValue({ role: 'ADMIN' });
