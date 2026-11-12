@@ -7,7 +7,6 @@ const TAB_VALUES = [
   'apercu',
   'historique',
   'articles',
-  'recurrentes',
   'pointmort',
   'paiements',
   'salaires',
@@ -29,7 +28,6 @@ export function DepensesTabs({
   apercu,
   historique,
   articles,
-  recurrentes,
   pointmort,
   paiements,
   salaires,
@@ -39,7 +37,6 @@ export function DepensesTabs({
   apercu: ReactNode;
   historique: ReactNode;
   articles: ReactNode;
-  recurrentes: ReactNode;
   pointmort: ReactNode;
   paiements: ReactNode;
   salaires: ReactNode;
@@ -64,7 +61,6 @@ export function DepensesTabs({
         <TabsTrigger value="apercu">Aperçu</TabsTrigger>
         <TabsTrigger value="historique">Historique</TabsTrigger>
         <TabsTrigger value="articles">Articles</TabsTrigger>
-        <TabsTrigger value="recurrentes">Récurrentes</TabsTrigger>
         <TabsTrigger value="pointmort">Point mort</TabsTrigger>
         <TabsTrigger value="paiements">Paiements</TabsTrigger>
         {showSalaires && <TabsTrigger value="salaires">Salaires</TabsTrigger>}
@@ -77,9 +73,6 @@ export function DepensesTabs({
       </TabsContent>
       <TabsContent value="articles" className="space-y-4">
         {articles}
-      </TabsContent>
-      <TabsContent value="recurrentes" className="space-y-4">
-        {recurrentes}
       </TabsContent>
       <TabsContent value="pointmort" className="space-y-4">
         {pointmort}

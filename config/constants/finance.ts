@@ -7,8 +7,8 @@ export const EXPENSE_NOTE_MAX = 500;
 
 export const EXPENSE_AMOUNT_MAX = 100_000_000;
 
-/** Longueur max du libellé d'un modèle de dépense récurrente. */
-export const EXPENSE_RECURRING_LABEL_MAX = 50;
+/** Longueur max du libellé d'une charge fixe. */
+export const FIXED_COST_LABEL_MAX = 50;
 
 /** Détail par article des dépenses (référentiel + lignes). */
 export const EXPENSE_ARTICLE_NAME_MAX = 60;

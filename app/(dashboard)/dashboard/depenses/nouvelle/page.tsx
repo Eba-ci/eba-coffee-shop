@@ -17,14 +17,12 @@ export default async function NouvelleDepensePage({
 }: {
   searchParams: Promise<{
     dupliquer?: string;
-    recurrent?: string;
     chargefixe?: string;
     echeance?: string;
     mois?: string;
   }>;
 }) {
-  const { dupliquer, recurrent, chargefixe, echeance, mois } =
-    await searchParams;
+  const { dupliquer, chargefixe, echeance, mois } = await searchParams;
   const [, categories, articles] = await Promise.all([
     requireFinance(),
     listExpenseCategories(),
@@ -45,21 +43,6 @@ export default async function NouvelleDepensePage({
     if (source && !source.salaryPaymentId) {
       initial = expenseToFormValues(source, 'duplicate');
       subtitle = 'Copie d’une dépense existante, à la date du jour.';
-    }
-  } else if (recurrent) {
-    const template = await prisma.recurringExpense.findUnique({
-      where: { id: recurrent },
-      select: { label: true, categoryId: true, expectedAmount: true },
-    });
-    if (template) {
-      initial = {
-        ...initial,
-        date: todayDateString(),
-        categoryId: template.categoryId,
-        amount: template.expectedAmount ? String(template.expectedAmount) : '',
-        note: template.label,
-      };
-      subtitle = `Dépense récurrente « ${template.label} », pré-remplie d’après le modèle.`;
     }
   } else if (chargefixe) {
     const fixed = await prisma.fixedCost.findUnique({

@@ -124,7 +124,7 @@ export async function PointMortSection({ month }: { month: string }) {
       {noCostThisMonth && report.costCount === 0 && (
         <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
           Aucune charge fixe active : ajoute-en une plus bas (ou importe tes
-          dépenses récurrentes) pour voir le point mort.
+          catégories fixes) pour voir le point mort.
         </p>
       )}
       {noCostThisMonth && report.costCount > 0 && (
@@ -174,7 +174,6 @@ export async function PointMortSection({ month }: { month: string }) {
               active: c.active,
               categoryId: c.categoryId,
               categoryName: c.categoryName,
-              linked: c.recurringExpenseId !== null,
               installments: c.installments,
             }))}
             categories={categories.map((c) => ({ id: c.id, name: c.name }))}

@@ -43,11 +43,3 @@ export type {
   ArticleMergeInput,
   RelinkExpenseItemInput,
 } from './expense/article';
-export {
-  recurringExpenseInputSchema,
-  recurringExpenseUpdateSchema,
-} from './expense/recurring';
-export type {
-  RecurringExpenseInput,
-  RecurringExpenseUpdateInput,
-} from './expense/recurring';

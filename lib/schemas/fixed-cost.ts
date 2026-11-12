@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   EXPENSE_AMOUNT_MAX,
   FIXED_COST_MAX_INSTALLMENTS,
-  EXPENSE_RECURRING_LABEL_MAX,
+  FIXED_COST_LABEL_MAX,
 } from '@/config/constants';
 
 export const FIXED_COST_PERIODICITIES = [
@@ -43,7 +43,7 @@ export const fixedCostObjectSchema = z.object({
     .string()
     .trim()
     .min(1, 'Libellé requis')
-    .max(EXPENSE_RECURRING_LABEL_MAX, 'Libellé trop long'),
+    .max(FIXED_COST_LABEL_MAX, 'Libellé trop long'),
   amount: z
     .number()
     .int('Montant entier (FCFA)')

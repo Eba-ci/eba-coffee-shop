@@ -31,7 +31,6 @@ import {
 export type FixedCostRow = FixedCostLike & {
   categoryId: string;
   categoryName: string;
-  recurringExpenseId: string | null;
   note: string | null;
   sortOrder: number;
   /** Vide = échéance par défaut déduite de la prise d'effet. */
@@ -58,7 +57,6 @@ export async function listFixedCosts(): Promise<FixedCostRow[]> {
     active: r.active,
     categoryId: r.categoryId,
     categoryName: r.category.name,
-    recurringExpenseId: r.recurringExpenseId,
     note: r.note,
     sortOrder: r.sortOrder,
     installments: r.installments.map(toInstallmentLike),

@@ -9,15 +9,13 @@
 // en employés + taux (ADMIN seul) et le point mort lit leur total mensuel global
 // (`getMonthlySalaryTotal`). Les charges « salaires » doivent donc disparaître
 // de la liste des charges fixes, sinon le total serait compté deux fois (ou pas
-// du tout une fois la rubrique utilisée). Le MÊME prédicat sert à l'import des
-// récurrentes (`syncFixedCostsFromRecurring`) pour qu'une récurrente salaires ne
-// recrée pas la charge supprimée.
+// du tout une fois la rubrique utilisée).
 
 import { SALARY_EXPENSE_CATEGORY_NAME } from '@/config/constants';
 import type { FixedCostPeriodicity } from '@/generated/prisma/enums';
 import type { InstallmentLike } from './schedule';
 
-/** Toute entité nommée + catégorie (charge fixe ou dépense récurrente). */
+/** Toute entité nommée + catégorie (charge fixe). */
 export type SalaryNamed = {
   label: string;
   categoryName: string;
@@ -41,8 +39,7 @@ const SALARY_KEYWORD = normalizeText('salaire');
 /**
  * Vrai si l'entité relève des salaires : sa catégorie est « Salaires »
  * (`SALARY_EXPENSE_CATEGORY_NAME`) OU son libellé contient « salaire » — casse
- * et accents ignorés. **Prédicat unique**, partagé par la migration et l'import
- * des récurrentes.
+ * et accents ignorés. **Prédicat unique** de la migration.
  */
 export function isSalaryNamed(named: SalaryNamed): boolean {
   return (
@@ -52,12 +49,7 @@ export function isSalaryNamed(named: SalaryNamed): boolean {
   );
 }
 
-/**
- * Charge fixe à restaurer (tous les champs de `FixedCost` + ses échéances).
- * `recurringSource` n'est pas un champ de la table : c'est la récurrente
- * d'origine, quand elle est connue, pour identifier une charge importée d'une
- * récurrente salaires même si son libellé/catégorie ont été modifiés.
- */
+/** Charge fixe à restaurer (tous les champs de `FixedCost` + ses échéances). */
 export type SalaryFixedCostRecord = {
   id: string;
   label: string;
@@ -67,24 +59,15 @@ export type SalaryFixedCostRecord = {
   endDate: string | null;
   categoryId: string;
   categoryName: string;
-  recurringExpenseId: string | null;
   active: boolean;
   note: string | null;
   sortOrder: number;
   installments: InstallmentLike[];
-  recurringSource?: SalaryNamed | null;
 };
 
-/**
- * Vrai si la charge relève des salaires : ses propres champs, OU ceux de sa
- * récurrente d'origine (une charge importée d'une récurrente salaires est
- * candidate, même renommée).
- */
+/** Vrai si la charge relève des salaires (ses propres champs). */
 export function isSalaryFixedCost(cost: SalaryFixedCostRecord): boolean {
-  return (
-    isSalaryNamed(cost) ||
-    (cost.recurringSource != null && isSalaryNamed(cost.recurringSource))
-  );
+  return isSalaryNamed(cost);
 }
 
 /** Total (et effectif) des charges à retirer pour une périodicité donnée. */
@@ -171,52 +154,5 @@ export function buildSalaryRestorePlan(
     toCreate,
     alreadyPresent: records.filter((r) => existingIds.has(r.id)),
     empty: toCreate.length === 0,
-  };
-}
-
-// ─── Import des récurrentes (exclusion des salaires) ─────────────────────────
-
-/** Dépense récurrente réduite aux champs utiles à l'import en charge fixe. */
-export type RecurringExpenseLike = {
-  id: string;
-  label: string;
-  categoryId: string;
-  categoryName: string;
-  expectedAmount: number | null;
-};
-
-export type RecurringImportPlan = {
-  /** Récurrentes à importer (non salaires, avec montant, non déjà liées). */
-  toImport: RecurringExpenseLike[];
-  /** Récurrentes non salaires sans montant attendu (à compléter à la main). */
-  skippedNoAmount: string[];
-  /** Récurrentes « salaires » ignorées (jamais recréées en charge fixe). */
-  skippedSalary: string[];
-  /** Récurrentes déjà liées à une charge fixe. */
-  alreadyLinked: number;
-};
-
-const hasAmount = (r: RecurringExpenseLike) =>
-  r.expectedAmount != null && r.expectedAmount > 0;
-
-/**
- * Décide ce qui est importé comme charge fixe. Les récurrentes « salaires »
- * sont EXCLUES (une récurrente salaires ne doit pas recréer la charge fixe
- * retirée par la migration) ; les récurrentes déjà liées et celles sans montant
- * sont laissées de côté. Purement déterministe (idempotence par `linkedIds`).
- */
-export function planRecurringImport(
-  recurring: readonly RecurringExpenseLike[],
-  linkedIds: ReadonlySet<string>
-): RecurringImportPlan {
-  const todo = recurring.filter((r) => !linkedIds.has(r.id));
-  const salary = todo.filter(isSalaryNamed);
-  const salaryIds = new Set(salary.map((r) => r.id));
-  const rest = todo.filter((r) => !salaryIds.has(r.id));
-  return {
-    toImport: rest.filter(hasAmount),
-    skippedNoAmount: rest.filter((r) => !hasAmount(r)).map((r) => r.label),
-    skippedSalary: salary.map((r) => r.label),
-    alreadyLinked: recurring.length - todo.length,
   };
 }
