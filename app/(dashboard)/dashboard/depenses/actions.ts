@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import { requireFinance } from '@/lib/auth-helpers';
 import * as expenses from '@/lib/expense-mutations';
-import * as recurring from '@/lib/recurring-expense-mutations';
 import * as fixedCosts from '@/lib/fixed-costs/mutations';
 import {
   syncFixedCostsFromCategories,
@@ -202,30 +201,6 @@ export async function updateExpenseSettingsAction(
   return run(() => updateExpenseSettings(input));
 }
 
-// ── Dépenses récurrentes (modèles) ──
-
-export async function createRecurringExpenseAction(
-  input: unknown
-): Promise<ActionResult> {
-  await requireAdminId();
-  return run(() => recurring.createRecurringExpense(input));
-}
-
-export async function updateRecurringExpenseAction(
-  id: string,
-  input: unknown
-): Promise<ActionResult> {
-  await requireAdminId();
-  return run(() => recurring.updateRecurringExpense(id, input));
-}
-
-export async function deleteRecurringExpenseAction(
-  id: string
-): Promise<ActionResult> {
-  await requireAdminId();
-  return run(() => recurring.deleteRecurringExpense(id));
-}
-
 // ── Charges fixes (point mort) ──
 
 export async function createFixedCostAction(
@@ -246,23 +221,6 @@ export async function updateFixedCostAction(
 export async function deleteFixedCostAction(id: string): Promise<ActionResult> {
   await requireAdminId();
   return run(() => fixedCosts.deleteFixedCost(id));
-}
-
-/** Importe les dépenses récurrentes actives comme charges fixes (idempotent). */
-export async function syncFixedCostsAction(): Promise<
-  ({ ok: true } & fixedCosts.SyncResult) | { ok: false; error: string }
-> {
-  await requireAdminId();
-  try {
-    const res = await fixedCosts.syncFixedCostsFromRecurring();
-    revalidate();
-    return { ok: true, ...res };
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : 'Erreur inattendue',
-    };
-  }
 }
 
 /**

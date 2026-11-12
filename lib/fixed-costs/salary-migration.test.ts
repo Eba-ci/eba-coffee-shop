@@ -5,8 +5,6 @@ import {
   isSalaryFixedCost,
   isSalaryNamed,
   normalizeText,
-  planRecurringImport,
-  type RecurringExpenseLike,
   type SalaryFixedCostRecord,
 } from './salary-migration';
 
@@ -21,23 +19,10 @@ const rec = (
   endDate: null,
   categoryId: 'cat1',
   categoryName: 'Loyer',
-  recurringExpenseId: null,
   active: true,
   note: null,
   sortOrder: 0,
   installments: [],
-  recurringSource: null,
-  ...over,
-});
-
-const recurring = (
-  over: Partial<RecurringExpenseLike> = {}
-): RecurringExpenseLike => ({
-  id: 'r1',
-  label: 'Loyer',
-  categoryId: 'cat1',
-  categoryName: 'Loyer',
-  expectedAmount: 50_000,
   ...over,
 });
 
@@ -77,27 +62,6 @@ describe('isSalaryFixedCost', () => {
     expect(isSalaryFixedCost(rec({ categoryName: 'Salaires' }))).toBe(true);
     expect(isSalaryFixedCost(rec({ label: 'Salaires serveurs' }))).toBe(true);
     expect(isSalaryFixedCost(rec())).toBe(false);
-  });
-
-  it('reconnaît une charge issue d’une récurrente salaires (recurringSource)', () => {
-    expect(
-      isSalaryFixedCost(
-        rec({
-          label: 'Paie',
-          categoryName: 'Divers',
-          recurringSource: { label: 'Salaires', categoryName: 'Divers' },
-        })
-      )
-    ).toBe(true);
-    expect(
-      isSalaryFixedCost(
-        rec({
-          label: 'Paie',
-          categoryName: 'Divers',
-          recurringSource: { label: 'Loyer', categoryName: 'Divers' },
-        })
-      )
-    ).toBe(false);
   });
 });
 
@@ -169,46 +133,5 @@ describe('buildSalaryRestorePlan — aller-retour de sauvegarde', () => {
     const again = buildSalaryRestorePlan(records, new Set(['fc1', 'fc2']));
     expect(again.empty).toBe(true);
     expect(again.toCreate).toEqual([]);
-  });
-});
-
-describe('planRecurringImport — les salaires ne sont jamais réimportés', () => {
-  it('ignore les récurrentes salaires, importe les autres', () => {
-    const plan = planRecurringImport(
-      [
-        recurring({
-          id: 's1',
-          label: 'Salaires',
-          categoryName: 'Salaires',
-          expectedAmount: 200_000,
-        }),
-        recurring({
-          id: 's2',
-          label: 'Salaire serveur',
-          categoryName: 'Divers',
-          expectedAmount: 90_000,
-        }),
-        recurring({ id: 'l1', label: 'Loyer', expectedAmount: 50_000 }),
-        recurring({ id: 'n1', label: 'Internet', expectedAmount: null }),
-      ],
-      new Set()
-    );
-    expect(plan.toImport.map((r) => r.id)).toEqual(['l1']);
-    expect(plan.skippedSalary).toEqual(['Salaires', 'Salaire serveur']);
-    expect(plan.skippedNoAmount).toEqual(['Internet']);
-    expect(plan.alreadyLinked).toBe(0);
-  });
-
-  it('est idempotent : une récurrente déjà liée n’est pas réimportée', () => {
-    const plan = planRecurringImport(
-      [
-        recurring({ id: 'l1', label: 'Loyer', expectedAmount: 50_000 }),
-        recurring({ id: 's1', label: 'Salaires', categoryName: 'Salaires' }),
-      ],
-      new Set(['l1'])
-    );
-    expect(plan.toImport).toEqual([]);
-    expect(plan.alreadyLinked).toBe(1);
-    expect(plan.skippedSalary).toEqual(['Salaires']);
   });
 });

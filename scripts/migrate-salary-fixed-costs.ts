@@ -66,24 +66,9 @@ function defaultBackupPath(): string {
   return path.join(homedir(), 'eba-backups', `charges-salaires-${stamp}.json`);
 }
 
-/**
- * Charge les charges fixes sous leur forme complète (tous les champs + leurs
- * échéances), avec la récurrente d'origine pour identifier une charge issue
- * d'une récurrente salaires.
- */
+/** Charge les charges fixes sous leur forme complète (champs + échéances). */
 async function loadRecords(): Promise<SalaryFixedCostRecord[]> {
-  const [rows, recurring] = await Promise.all([
-    listFixedCosts(),
-    prisma.recurringExpense.findMany({
-      select: { id: true, label: true, category: { select: { name: true } } },
-    }),
-  ]);
-  const recurringById = new Map(
-    recurring.map((r) => [
-      r.id,
-      { label: r.label, categoryName: r.category.name },
-    ])
-  );
+  const rows = await listFixedCosts();
   return rows.map((r) => ({
     id: r.id,
     label: r.label,
@@ -93,14 +78,10 @@ async function loadRecords(): Promise<SalaryFixedCostRecord[]> {
     endDate: r.endDate,
     categoryId: r.categoryId,
     categoryName: r.categoryName,
-    recurringExpenseId: r.recurringExpenseId,
     active: r.active,
     note: r.note,
     sortOrder: r.sortOrder,
     installments: r.installments.map((i) => ({ ...i })),
-    recurringSource: r.recurringExpenseId
-      ? (recurringById.get(r.recurringExpenseId) ?? null)
-      : null,
   }));
 }
 
@@ -109,9 +90,7 @@ function printPlan(plan: SalaryMigrationPlan) {
     `\nCharges fixes « salaires » détectées : ${plan.candidates.length}`
   );
   for (const c of plan.candidates) {
-    const flags =
-      (c.active ? '' : ' (inactive)') +
-      (c.recurringExpenseId ? ' [récurrente]' : '');
+    const flags = c.active ? '' : ' (inactive)';
     console.log(
       `  • ${c.label} — ${c.amount} F ${FIXED_COST_PERIODICITY_LABELS[c.periodicity]}${flags}`
     );
@@ -237,7 +216,6 @@ async function runRestore(file: string, apply: boolean, confirm: boolean) {
           startDate: parseDateOnlyToUTC(c.startDate)!,
           endDate: c.endDate ? parseDateOnlyToUTC(c.endDate)! : null,
           categoryId: c.categoryId,
-          recurringExpenseId: c.recurringExpenseId,
           active: c.active,
           note: c.note,
           sortOrder: c.sortOrder,

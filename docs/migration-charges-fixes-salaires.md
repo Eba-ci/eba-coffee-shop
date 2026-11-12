@@ -24,10 +24,9 @@ pnpm db:migrate-salary-fixed-costs --restore <sauvegarde.json> --apply --confirm
 
 - **Simulation par défaut** : le script liste les charges « salaires »
   concernées (libellé, montant, périodicité) et **ne modifie rien**.
-- **Un seul prédicat d'identification**, partagé par la migration et l'import
-  des récurrentes : catégorie « Salaires » (`SALARY_EXPENSE_CATEGORY_NAME`) **ou**
-  libellé contenant « salaire » — casse et accents ignorés. Une charge issue
-  d'une **récurrente salaires** (`recurringExpenseId`) est aussi candidate.
+- **Un seul prédicat d'identification** : catégorie « Salaires »
+  (`SALARY_EXPENSE_CATEGORY_NAME`) **ou** libellé contenant « salaire » — casse
+  et accents ignorés.
 - **Idempotent** : un second passage ne trouve plus rien à retirer.
 
 ## ⚠️ Danger — à lire avant `--apply`
@@ -40,7 +39,7 @@ l'onglet Salaires. Le script :
 2. **affiche les montants à ressaisir, regroupés par périodicité** (un montant
    hebdomadaire, mensuel et annuel ne s'additionnent pas) ;
 3. écrit une **sauvegarde JSON complète** de chaque charge retirée — **tous les
-   champs de `FixedCost`** (`categoryId`, `recurringExpenseId`, `note`,
+   champs de `FixedCost`** (`categoryId`, `note`,
    `sortOrder`…) **et ses échéances** (`FixedCostInstallment`) — **hors du
    dépôt** (par défaut
    `~/eba-backups/charges-salaires-<horodatage>.json`), dont le chemin est
@@ -58,28 +57,41 @@ pnpm db:migrate-salary-fixed-costs --restore ~/eba-backups/charges-salaires-XXXX
 pnpm db:migrate-salary-fixed-costs --restore ~/eba-backups/charges-salaires-XXXX.json --apply --confirm
 ```
 
-## Import des récurrentes
+## Suppression des récurrentes (#417)
 
-« Importer depuis les récurrentes » (`syncFixedCostsFromRecurring`, action du
-dashboard et MCP `sync_fixed_costs_from_recurring`) **ignore désormais les
-récurrentes « salaires »** (même prédicat) et les liste dans `skippedSalary` :
-une récurrente salaires ne peut plus **recréer** la charge fixe retirée par la
-migration. L'import reste idempotent (une récurrente déjà liée n'est pas
-reprise).
+L'onglet « Récurrentes », la table `RecurringExpense` et la colonne
+`FixedCost.recurringExpenseId` sont supprimés ; l'import des charges fixes se
+fait par catégories `FIXED` (« Importer les catégories fixes », #433).
+
+La migration `20261116090000_drop_recurring_expense` (SQL, idempotente) reprend
+d'abord les récurrentes **actives avec montant** comme charges fixes
+mensuelles (prise d'effet = 1er du mois courant), **sans doublon** :
+
+- les récurrentes « salaires » (même prédicat que ci-dessus) sont ignorées ;
+- une catégorie qui porte déjà une charge fixe (import #433, charge manuelle)
+  n'en reçoit pas une seconde ; une seule charge par catégorie ;
+- pour une catégorie `FIXED`, la charge reprend `importedCategoryId` : le bouton
+  d'import ne la recrée pas ;
+- les récurrentes sans montant sont perdues (rien à reprendre) : à recréer au
+  besoin depuis l'onglet Point mort.
+
+Puis elle supprime la colonne et la table. **Sauvegarder la base avant
+`db:push`** si les récurrentes comptent.
 
 ## Déploiement
 
 Sur **staging puis production** (voir `docs/deploiement.md`) :
 
 1. `pnpm db:push` — migrations `20261111090000_add_fixed_cost`,
-   `20261112090000_add_fixed_cost_schedule`, `20261113090000_add_salary_model`.
+   `20261112090000_add_fixed_cost_schedule`, `20261113090000_add_salary_model`,
+   `20261116090000_drop_recurring_expense` (reprise des récurrentes, voir ci-dessus).
 2. L'admin **saisit les employés et leurs taux** dans l'onglet Salaires (sinon
    « Salaires du mois » reste à 0 une fois les charges retirées).
 3. **Simuler** : `pnpm db:migrate-salary-fixed-costs`, puis relire le rapport
    (charges concernées, montants par périodicité).
 4. **Retirer** : `pnpm db:migrate-salary-fixed-costs --apply --confirm`.
-5. « Importer depuis les récurrentes » si besoin (idempotent ; les salaires sont
-   ignorés).
+5. « Importer les catégories fixes » si besoin (idempotent ; « Salaires » est
+   ignorée).
 
 En cas d'erreur, restaurer depuis la sauvegarde affichée à l'étape 4 :
 `pnpm db:migrate-salary-fixed-costs --restore <sauvegarde.json>` (simulation,

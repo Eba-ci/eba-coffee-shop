@@ -26,7 +26,6 @@ export type FixedCostManagerRow = {
   active: boolean;
   categoryId: string;
   categoryName: string;
-  linked: boolean;
   /** Vide = échéance par défaut déduite de la prise d'effet. */
   installments: { monthOffset: number; day: number; amount: number }[];
 };

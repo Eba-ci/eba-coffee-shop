@@ -11,7 +11,6 @@ vi.mock('@/lib/fixed-costs/category-sync', () => ({
 }));
 vi.mock('@/lib/fixed-costs/mutations', () => ({}));
 vi.mock('@/lib/expense-mutations', () => ({}));
-vi.mock('@/lib/recurring-expense-mutations', () => ({}));
 vi.mock('@/lib/inventory-mutations', () => ({}));
 vi.mock('@/lib/expense-settings-db', () => ({}));
 
