@@ -5,6 +5,9 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { BarChart3, ChefHat, ShoppingBag } from 'lucide-react';
 import { requireDashboardAccess } from '@/lib/auth-helpers';
+import { getPickupSettings } from '@/lib/pickup-settings-db';
+import { isClosedByOverride } from '@/lib/pickup-today-toggle';
+import { todayDateString } from '@/lib/timezone';
 import { maybeSendInventoryReminder } from '@/lib/inventory-mutations';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +17,7 @@ import {
 import { TodayKpisSection } from './_components/today-kpis-section';
 import { TrendSection } from './_components/trend-section';
 import { LowStockSection } from './_components/low-stock-section';
+import { ShopToggleButton } from './_components/shop-toggle-button';
 import { WeeklyReminderSection } from './_components/weekly-reminder-section';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +37,11 @@ export default async function DashboardPage() {
   void expirePendingOrders().catch(() => {});
   void refreshPendingRefunds().catch(() => {});
 
+  const shopClosed =
+    role === 'ADMIN'
+      ? isClosedByOverride(await getPickupSettings(), todayDateString())
+      : null;
+
   const todayLabel = new Intl.DateTimeFormat('fr-FR', {
     weekday: 'long',
     day: 'numeric',
@@ -46,7 +55,10 @@ export default async function DashboardPage() {
           <h1 className="text-2xl font-bold">Vue d&apos;ensemble</h1>
           <p className="text-sm text-muted-foreground">{todayLabel}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {shopClosed !== null && (
+            <ShopToggleButton initialClosed={shopClosed} />
+          )}
           <Button asChild size="sm" variant="outline">
             <Link href="/dashboard/statistiques">
               <BarChart3 className="mr-1.5 h-4 w-4" />
