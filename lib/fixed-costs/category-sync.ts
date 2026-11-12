@@ -41,12 +41,16 @@ export async function syncFixedCostsFromCategories(): Promise<CategorySyncResult
       prisma.expense.findFirst({
         where: { categoryId: c.id, salaryPaymentId: null },
         orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-        select: { amount: true },
+        select: { amount: true, note: true },
       })
     )
   );
   const plan = planCategoryImport(
-    categories.map((c, i) => ({ ...c, lastAmount: last[i]?.amount ?? null })),
+    categories.map((c, i) => ({
+      ...c,
+      lastAmount: last[i]?.amount ?? null,
+      lastNote: last[i]?.note ?? null,
+    })),
     new Set(linked.map((l) => l.importedCategoryId!))
   );
 

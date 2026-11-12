@@ -40,4 +40,20 @@ describe('planCategoryImport', () => {
     expect(p.toComplete).toEqual([]);
     expect(p.alreadyLinked).toBe(2);
   });
+
+  it('prend le commentaire de la dernière dépense comme libellé, sinon le nom', () => {
+    const p = planCategoryImport(
+      [
+        { ...cat('a', 'Fixe', 150000), lastNote: '  Loyer boutique  ' },
+        { ...cat('b', 'Eau', 8000), lastNote: '   ' },
+        cat('c', 'Internet', 20000),
+      ],
+      new Set()
+    );
+    expect(p.toImport.map((r) => r.label)).toEqual([
+      'Loyer boutique',
+      'Eau',
+      'Internet',
+    ]);
+  });
 });

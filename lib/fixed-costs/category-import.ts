@@ -11,6 +11,8 @@ export type CategoryImportInput = {
   name: string;
   /** Montant de la dépense la plus récente de la catégorie (null = aucune). */
   lastAmount: number | null;
+  /** Commentaire (`note`) de cette même dépense : devient le libellé de la charge. */
+  lastNote?: string | null;
 };
 
 export type CategoryImportPlan = {
@@ -42,7 +44,7 @@ export function planCategoryImport(
     } else if (c.lastAmount !== null && c.lastAmount > 0) {
       plan.toImport.push({
         categoryId: c.id,
-        label: c.name,
+        label: c.lastNote?.trim() || c.name,
         amount: c.lastAmount,
       });
     } else {
