@@ -7,11 +7,24 @@ import type { ExpenseFormState } from './use-expense-form';
 
 const priceFmt = new Intl.NumberFormat('fr-FR');
 
-export function ExpenseActionBar({ form }: { form: ExpenseFormState }) {
+export function ExpenseActionBar({
+  form,
+  embedded = false,
+  submitLabel,
+}: {
+  form: ExpenseFormState;
+  embedded?: boolean;
+  submitLabel?: string;
+}) {
   const { values, detailed, total, busy, pending, mode, router, cancelHref } =
     form;
   return (
-    <div className="sticky bottom-0 -mx-4 border-t bg-background px-4 py-3 sm:-mx-6 sm:px-6">
+    <div
+      className={cn(
+        'sticky bottom-0 border-t bg-background py-3',
+        !embedded && '-mx-4 px-4 sm:-mx-6 sm:px-6'
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {detailed
@@ -26,20 +39,24 @@ export function ExpenseActionBar({ form }: { form: ExpenseFormState }) {
           <Button
             type="button"
             variant="ghost"
+            className={cn(embedded && 'h-11')}
             disabled={busy}
-            onClick={() => router.push(cancelHref)}
+            onClick={() =>
+              form.onCancel ? form.onCancel() : router.push(cancelHref)
+            }
           >
             Annuler
           </Button>
           <Button
             onClick={form.submit}
             disabled={busy}
-            className={cn(busy && 'opacity-70')}
+            className={cn(embedded && 'h-11', busy && 'opacity-70')}
           >
             {pending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-            {mode === 'edit'
-              ? 'Enregistrer les modifications'
-              : 'Enregistrer la dépense'}
+            {submitLabel ??
+              (mode === 'edit'
+                ? 'Enregistrer les modifications'
+                : 'Enregistrer la dépense')}
           </Button>
         </div>
       </div>

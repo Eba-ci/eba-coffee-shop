@@ -3,8 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { requireFinance } from '@/lib/auth-helpers';
 import * as expenses from '@/lib/expense-mutations';
-import * as recurring from '@/lib/recurring-expense-mutations';
 import * as fixedCosts from '@/lib/fixed-costs/mutations';
+import {
+  syncFixedCostsFromCategories,
+  type CategorySyncResult,
+} from '@/lib/fixed-costs/category-sync';
 import { createInventoryItem } from '@/lib/inventory-mutations';
 import { updateExpenseSettings } from '@/lib/expense-settings-db';
 import type { InventoryUnitInput } from '@/lib/schemas/inventory';
@@ -63,10 +66,17 @@ export async function deleteExpenseCategoryAction(
 // ── Dépenses ──
 
 export async function createExpenseAction(
-  input: unknown
+  input: unknown,
+  idempotencyKey?: string
 ): Promise<ActionResult> {
   const userId = await requireAdminId();
-  return run(() => expenses.createExpense(input, userId));
+  return run(() =>
+    expenses.createExpense(
+      input,
+      userId,
+      idempotencyKey ? { idempotencyKey } : undefined
+    )
+  );
 }
 
 export async function updateExpenseAction(
@@ -198,30 +208,6 @@ export async function updateExpenseSettingsAction(
   return run(() => updateExpenseSettings(input));
 }
 
-// ── Dépenses récurrentes (modèles) ──
-
-export async function createRecurringExpenseAction(
-  input: unknown
-): Promise<ActionResult> {
-  await requireAdminId();
-  return run(() => recurring.createRecurringExpense(input));
-}
-
-export async function updateRecurringExpenseAction(
-  id: string,
-  input: unknown
-): Promise<ActionResult> {
-  await requireAdminId();
-  return run(() => recurring.updateRecurringExpense(id, input));
-}
-
-export async function deleteRecurringExpenseAction(
-  id: string
-): Promise<ActionResult> {
-  await requireAdminId();
-  return run(() => recurring.deleteRecurringExpense(id));
-}
-
 // ── Charges fixes (point mort) ──
 
 export async function createFixedCostAction(
@@ -244,13 +230,17 @@ export async function deleteFixedCostAction(id: string): Promise<ActionResult> {
   return run(() => fixedCosts.deleteFixedCost(id));
 }
 
-/** Importe les dépenses récurrentes actives comme charges fixes (idempotent). */
-export async function syncFixedCostsAction(): Promise<
-  ({ ok: true } & fixedCosts.SyncResult) | { ok: false; error: string }
+/**
+ * Importe les catégories de dépenses FIXED comme charges fixes (idempotent,
+ * « Salaires » ignorée). Écriture : ADMIN/MANAGER/COMPTABLE (`requireFinance`,
+ * l'ANALYSTE en lecture seule est refusé).
+ */
+export async function syncFixedCostsFromCategoriesAction(): Promise<
+  ({ ok: true } & CategorySyncResult) | { ok: false; error: string }
 > {
   await requireAdminId();
   try {
-    const res = await fixedCosts.syncFixedCostsFromRecurring();
+    const res = await syncFixedCostsFromCategories();
     revalidate();
     return { ok: true, ...res };
   } catch (err) {

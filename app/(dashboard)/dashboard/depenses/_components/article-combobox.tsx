@@ -21,7 +21,7 @@ import {
   type ExpenseArticleOption,
 } from '@/lib/expense-article-search';
 
-/** Classe du badge « Nouveau » — ambre, cohérent avec le bandeau récurrentes. */
+/** Classe du badge « Nouveau ». */
 export const NEW_ARTICLE_BADGE_CLASS =
   'border-amber-400 bg-amber-100 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200';
 

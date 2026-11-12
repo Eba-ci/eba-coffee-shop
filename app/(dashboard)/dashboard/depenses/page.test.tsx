@@ -33,18 +33,12 @@ vi.mock('./_components/hide-on-tab', () => ({
 vi.mock('./_components/receipt-backfill-alert-section', () => ({
   ReceiptBackfillAlertSection: () => null,
 }));
-vi.mock('./_components/recurring-alert-section', () => ({
-  RecurringAlertSection: () => null,
-}));
 vi.mock('./_components/apercu-section', () => ({ ApercuSection: () => null }));
 vi.mock('./_components/historique-section', () => ({
   HistoriqueSection: () => null,
 }));
 vi.mock('./_components/articles-section', () => ({
   ArticlesSection: () => null,
-}));
-vi.mock('./_components/recurrentes-section', () => ({
-  RecurrentesSection: () => null,
 }));
 vi.mock('./_components/point-mort-section', () => ({
   PointMortSection: () => null,

@@ -14,6 +14,7 @@ import {
 import { TodayKpisSection } from './_components/today-kpis-section';
 import { TrendSection } from './_components/trend-section';
 import { LowStockSection } from './_components/low-stock-section';
+import { WeeklyReminderSection } from './_components/weekly-reminder-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +67,10 @@ export default async function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      <Suspense fallback={null}>
+        <WeeklyReminderSection role={role} />
+      </Suspense>
 
       <Suspense
         fallback={

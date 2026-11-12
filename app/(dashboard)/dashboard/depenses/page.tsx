@@ -19,11 +19,9 @@ import { Button } from '@/components/ui/button';
 import { DepensesTabs } from './depenses-tabs';
 import { ExpenseSettingsButton } from './expense-settings-sheet';
 import { ReceiptBackfillAlertSection } from './_components/receipt-backfill-alert-section';
-import { RecurringAlertSection } from './_components/recurring-alert-section';
 import { ApercuSection } from './_components/apercu-section';
 import { HistoriqueSection } from './_components/historique-section';
 import { ArticlesSection } from './_components/articles-section';
-import { RecurrentesSection } from './_components/recurrentes-section';
 import { PointMortSection } from './_components/point-mort-section';
 import { PaymentsSection } from './_components/paiements/payments-section';
 import { SalairesSection } from './_components/salaires/salaires-section';
@@ -149,10 +147,6 @@ export default async function DepensesPage({
         <ReceiptBackfillAlertSection />
       </Suspense>
 
-      <Suspense fallback={null}>
-        <RecurringAlertSection />
-      </Suspense>
-
       <DepensesTabs
         defaultTab={params.tab}
         showSalaires={isAdmin}
@@ -201,11 +195,6 @@ export default async function DepensesPage({
               periodLabel={periodLabel}
               exportItemsHref={exportItemsHref}
             />
-          </Suspense>
-        }
-        recurrentes={
-          <Suspense fallback={<TableSkeleton rows={6} withToolbar={false} />}>
-            <RecurrentesSection />
           </Suspense>
         }
         pointmort={

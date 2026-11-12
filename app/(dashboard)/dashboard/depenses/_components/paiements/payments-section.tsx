@@ -16,7 +16,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/(dashboard)/kpi-card';
 import { MonthNav } from '../point-mort/month-nav';
 import { PaymentsCalendar } from './payments-calendar';
+import { listExpenseCategories } from '@/lib/expenses';
+import { loadArticleOptions } from '../article-options';
 import { OccurrenceList } from './occurrence-list';
+import { PayDrawerProvider } from './pay-drawer';
 
 export async function PaymentsSection({
   month,
@@ -27,12 +30,18 @@ export async function PaymentsSection({
 }) {
   const today = todayDateString();
   const currentMonth = today.slice(0, 7);
-  const { month: monthOcc, week, late } = await getPaymentsView(month);
+  const [{ month: monthOcc, week, late }, categories, articles] =
+    await Promise.all([
+      getPaymentsView(month),
+      // Le drawer de paiement n'existe pas en lecture seule : rien à charger.
+      readOnly ? Promise.resolve([]) : listExpenseCategories(),
+      readOnly ? Promise.resolve([]) : loadArticleOptions(),
+    ]);
   const weekToPay = unpaid(week);
   const summary = summarizeOccurrences(monthOcc);
   const bounds = weekBounds(today);
 
-  return (
+  const content = (
     <div className="space-y-4">
       <MonthNav month={month} currentMonth={currentMonth} />
 
@@ -75,6 +84,7 @@ export async function PaymentsSection({
               occurrences={late}
               month={month}
               readOnly={readOnly}
+              selectable
               emptyLabel="Aucun retard."
             />
           </CardContent>
@@ -109,10 +119,21 @@ export async function PaymentsSection({
             occurrences={weekToPay}
             month={month}
             readOnly={readOnly}
+            selectable
             emptyLabel="Rien à payer cette semaine."
           />
         </CardContent>
       </Card>
     </div>
+  );
+
+  if (readOnly) return content;
+  return (
+    <PayDrawerProvider
+      categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+      articles={articles}
+    >
+      {content}
+    </PayDrawerProvider>
   );
 }

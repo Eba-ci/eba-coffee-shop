@@ -3,11 +3,11 @@
 // Outils MCP — charges fixes et point mort. Aucune logique propre : tout vient
 // de lib/fixed-costs (calcul pur + requêtes).
 
+import { syncFixedCostsFromCategories } from '@/lib/fixed-costs/category-sync';
 import { z } from 'zod';
 import {
   createFixedCost,
   deleteFixedCost,
-  syncFixedCostsFromRecurring,
   updateFixedCost,
 } from '@/lib/fixed-costs/mutations';
 import {
@@ -88,20 +88,19 @@ export const fixedCostsTools: McpTool[] = [
     handler: (args) => deleteFixedCost((args as { id: string }).id),
   },
   {
-    name: 'sync_fixed_costs_from_recurring',
+    name: 'sync_fixed_costs_from_categories',
     toolset: 'finance',
     scope: 'finance',
-    title: 'Importer les récurrentes comme charges fixes',
+    title: 'Importer les catégories fixes comme charges fixes',
     description:
-      'Crée une charge fixe mensuelle pour chaque dépense récurrente ACTIVE qui ' +
-      'n’en a pas encore (idempotent, ne modifie jamais une charge déjà liée). ' +
-      'Les récurrentes sans montant attendu sont listées sans être créées ' +
-      '(`skippedNoAmount`). Les récurrentes « salaires » (catégorie « Salaires » ' +
-      'ou libellé contenant « salaire ») sont IGNORÉES et listées dans ' +
-      '`skippedSalary` : les salaires vivent dans la rubrique Salaires (ADMIN).',
+      'Crée une charge fixe mensuelle (prise d’effet : 1er du mois courant) pour ' +
+      'chaque catégorie de dépense de nature FIXED non supprimée qui n’en a pas ' +
+      'encore (idempotent). Montant = dernière dépense de la catégorie ; sans ' +
+      'montant connu, la catégorie est listée dans `toComplete` sans rien créer. ' +
+      'La catégorie « Salaires » est IGNORÉE (`skippedSalary`) : rubrique Salaires (ADMIN).',
     inputSchema: z.object({}),
     readOnly: false,
-    handler: () => syncFixedCostsFromRecurring(),
+    handler: () => syncFixedCostsFromCategories(),
   },
   {
     name: 'get_break_even',

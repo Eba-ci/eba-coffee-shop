@@ -12,7 +12,7 @@ import { FixedCostFields, emptyDraft, type Draft } from './fixed-cost-fields';
 import {
   createFixedCostAction,
   deleteFixedCostAction,
-  syncFixedCostsAction,
+  syncFixedCostsFromCategoriesAction,
   updateFixedCostAction,
 } from './actions';
 
@@ -26,7 +26,6 @@ export type FixedCostManagerRow = {
   active: boolean;
   categoryId: string;
   categoryName: string;
-  linked: boolean;
   /** Vide = échéance par défaut déduite de la prise d'effet. */
   installments: { monthOffset: number; day: number; amount: number }[];
 };
@@ -118,16 +117,19 @@ export function FixedCostManager({
   function sync() {
     setError(null);
     startTransition(async () => {
-      const r = await syncFixedCostsAction();
+      const r = await syncFixedCostsFromCategoriesAction();
       if (!r.ok) return setError(r.error);
-      const parts = [`${r.created} charge(s) importée(s)`];
-      if (r.skippedNoAmount.length > 0)
+      const parts = [
+        `${r.created} charge(s) créée(s)`,
+        `${r.alreadyLinked} déjà liée(s)`,
+      ];
+      if (r.toComplete.length > 0)
         parts.push(
-          `sans montant, à compléter dans « Récurrentes » : ${r.skippedNoAmount.join(', ')}`
+          `à compléter (aucun montant connu, à créer avec son montant et ses jours de paiement) : ${r.toComplete.join(', ')}`
         );
       if (r.skippedSalary.length > 0)
         parts.push(
-          `« salaires » ignorées (rubrique Salaires) : ${r.skippedSalary.join(', ')}`
+          `« Salaires » ignorée (rubrique Salaires) : ${r.skippedSalary.join(', ')}`
         );
       setInfo(parts.join(' — '));
     });
@@ -156,7 +158,7 @@ export function FixedCostManager({
         className="h-11 sm:h-9"
       >
         <Download className="mr-1.5 h-4 w-4" />
-        Importer depuis les récurrentes
+        Importer les catégories fixes
       </Button>
 
       <FixedCostFields draft={draft} set={set} categories={categories} />

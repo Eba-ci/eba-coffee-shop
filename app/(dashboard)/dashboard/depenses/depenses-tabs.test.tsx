@@ -13,7 +13,6 @@ function render(showSalaires: boolean, defaultTab?: string) {
       apercu: content('apercu-vu'),
       historique: content('historique-vu'),
       articles: content('articles-vu'),
-      recurrentes: content('recurrentes-vu'),
       pointmort: content('pointmort-vu'),
       paiements: content('paiements-vu'),
       salaires: content('salaires-vu'),
