@@ -1310,6 +1310,10 @@ model Expense {
   fixedCost   FixedCost? @relation("ExpenseFixedCost", fields: [fixedCostId], references: [id], onDelete: SetNull)
   dueDate     DateTime?  @db.Date
 
+  // Clé d'idempotence d'un règlement en lot (`<lot>:<charge>:<échéance>`) :
+  // rejouer le même lot renvoie la dépense déjà créée au lieu d'un doublon.
+  idempotencyKey String? @unique
+
   // Versement de salaire matérialisé par cette ligne (réservé à l'ADMIN). Le
   // lien explicite identifie les lignes de salaire pour les masquer aux autres
   // rôles ; il n'y a JAMAIS de dépense orpheline (supprimer le versement
