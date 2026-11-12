@@ -56,6 +56,27 @@ else
 fi
 docker info >/dev/null 2>&1 || die "Docker injoignable (DOCKER_HOST=$DOCKER_HOST)"
 
+# `docker pull` depuis le VPS peut couper en pleine copie de couche (GHCR en
+# IPv6, image -tools volumineuse). On retente : les couches déjà téléchargées
+# sont conservées, donc chaque tentative reprend là où la précédente s'est
+# arrêtée. Un vrai 401/404 échoue aussi vite, sans boucle inutile.
+pull_image() {
+  local ref="$1" attempt=1
+  local max="${EBA_PULL_ATTEMPTS:-8}"
+  # Déjà présent (rejeu d'un déploiement partiel) : rien à télécharger.
+  docker image inspect "$ref" >/dev/null 2>&1 && return 0
+  while [ "$attempt" -le "$max" ]; do
+    if docker pull "$ref"; then return 0; fi
+    log "pull de $ref échoué (tentative $attempt/$max)"
+    if [ "$attempt" -lt "$max" ]; then
+      sleep $((attempt * 5))
+    fi
+    attempt=$((attempt + 1))
+  done
+  log "ERREUR : impossible de récupérer $ref après $max tentatives" >&2
+  return 1
+}
+
 wait_healthy() {
   for _ in $(seq 1 60); do
     curl -fsS --max-time 4 "$HEALTH_URL" >/dev/null 2>&1 && return 0
@@ -83,7 +104,7 @@ previous="$(cat "$PREVIOUS_FILE" 2>/dev/null || true)"
 if [ "$ACTION" = rollback ]; then
   [ -n "$previous" ] || die "aucun tag précédent enregistré"
   log "rollback : ${current:-?} -> $previous"
-  docker image inspect "$IMAGE:$previous" >/dev/null 2>&1 || docker pull -q "$IMAGE:$previous" >/dev/null
+  docker image inspect "$IMAGE:$previous" >/dev/null 2>&1 || pull_image "$IMAGE:$previous" || die "image $previous indisponible"
   run_container "$previous"
   wait_healthy || { docker logs --tail 60 "$NAME" >&2 || true; die "$previous ne répond pas sur /api/health"; }
   echo "$previous" >"$CURRENT_FILE"
@@ -100,7 +121,7 @@ ghcr_login() {
 
 if [ "$ACTION" = schema ]; then
   ghcr_login
-  docker pull -q "$IMAGE-tools:$TAG" >/dev/null
+  pull_image "$IMAGE-tools:$TAG" || die "image -tools $TAG indisponible"
   docker logout ghcr.io >/dev/null 2>&1 || true
   log "schéma BDD"
   # Le relevé de départ du journal de stock suit db:push (la table doit exister) ;
@@ -117,7 +138,7 @@ fi
 
 ghcr_login
 log "pull $IMAGE:$TAG"
-docker pull -q "$IMAGE:$TAG" >/dev/null
+pull_image "$IMAGE:$TAG" || die "image $TAG indisponible"
 docker logout ghcr.io >/dev/null 2>&1 || true
 
 log "remplacement du conteneur par $TAG"
