@@ -20,7 +20,7 @@ export function toChartPoints(days: BreakEvenDay[]): BreakEvenChartPoint[] {
     .map((d) => ({
       date: d.date,
       revenue: d.revenue,
-      breakEven: d.breakEven,
+      breakEven: d.target,
       open: d.open,
     }));
 }

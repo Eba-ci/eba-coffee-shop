@@ -22,6 +22,7 @@ import {
   type BreakEvenDay,
   type MarginRate,
 } from './compute';
+import { applyCatchUp } from './catch-up';
 import { getVariableExpenseTotal } from './expense-margin-query';
 import { marginRateFromExpenses, type MarginSource } from './expense-margin';
 import { monthBounds } from './month';
@@ -111,13 +112,15 @@ export async function getBreakEvenReport(
     number
   >;
   const salaryTotal = salaryPairs.reduce((sum, [, v]) => sum + v, 0);
-  const days = buildBreakEvenSeries({
+  const baseDays = buildBreakEvenSeries({
     days: series.map((p) => ({ date: p.date, revenue: p.revenue })),
     costs,
     isOpen,
     marginRate: margin.rate,
     salariesByMonth,
   });
+  // Le manque d'un jour échu est reporté sur les jours ouvrés restants du mois.
+  const days = applyCatchUp(baseDays, today);
 
   const open = days.filter((d) => d.open);
   const sum = (f: (d: BreakEvenDay) => number) =>

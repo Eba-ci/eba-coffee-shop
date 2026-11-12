@@ -17,6 +17,8 @@ const day = (date: string, over: Partial<BreakEvenDay> = {}): BreakEvenDay => ({
   revenue: 0,
   fixedCost: 10_000,
   breakEven: 20_000,
+  catchUp: 0,
+  target: 20_000,
   remaining: 20_000,
   grossMargin: 0,
   result: -10_000,

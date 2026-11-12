@@ -78,7 +78,7 @@ function DayCell({
         onClick={() => onSelect(day.date)}
         aria-label={`${formatDayLong(day.date)} : ${meta.label}${
           showRevenue
-            ? `, CA ${money(day.revenue)} sur ${money(day.breakEven)}`
+            ? `, CA ${money(day.revenue)} sur ${money(day.target)}`
             : ''
         }`}
         className={cn(
@@ -99,7 +99,7 @@ function DayCell({
             {compactMoney(day.revenue)}
             <span className="text-muted-foreground">
               {' '}
-              / {compactMoney(day.breakEven ?? 0)}
+              / {compactMoney(day.target ?? 0)}
             </span>
           </span>
         )}

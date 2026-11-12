@@ -69,14 +69,16 @@ export async function PointMortSection({ month }: { month: string }) {
           />
           <KpiCard
             label="Point mort du jour"
-            value={todayRow.open ? f(todayRow.breakEven) : '0 F'}
+            value={todayRow.open ? f(todayRow.target) : '0 F'}
             Icon={Target}
             hint={
-              marginPct === null
-                ? 'Marge non calculable'
-                : report.margin.source === 'expenses'
-                  ? `Marge estimée ${marginPct} % (dépenses, ${MARGIN_ESTIMATE_WINDOW_DAYS} j)`
-                  : `Marge ${marginPct} % sur ${MARGIN_WINDOW_DAYS} j`
+              todayRow.open && todayRow.catchUp > 0
+                ? `dont ${f(todayRow.catchUp)} de rattrapage`
+                : marginPct === null
+                  ? 'Marge non calculable'
+                  : report.margin.source === 'expenses'
+                    ? `Marge estimée ${marginPct} % (dépenses, ${MARGIN_ESTIMATE_WINDOW_DAYS} j)`
+                    : `Marge ${marginPct} % sur ${MARGIN_WINDOW_DAYS} j`
             }
           />
           <KpiCard

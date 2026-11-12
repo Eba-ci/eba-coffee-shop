@@ -8,6 +8,8 @@ const day = (date: string, over: Partial<BreakEvenDay> = {}): BreakEvenDay => ({
   revenue: 1000,
   fixedCost: 500,
   breakEven: 800,
+  catchUp: 0,
+  target: 800,
   remaining: 0,
   grossMargin: 600,
   result: 100,
@@ -30,8 +32,8 @@ describe('toChartPoints', () => {
 
   it('garde le jour fermé à 0 et un seuil inconnu à null', () => {
     const [closed, unknown] = toChartPoints([
-      day('2026-11-02', { open: false, breakEven: 0 }),
-      day('2026-11-03', { breakEven: null }),
+      day('2026-11-02', { open: false, breakEven: 0, target: 0 }),
+      day('2026-11-03', { breakEven: null, target: null }),
     ]);
     expect(closed).toMatchObject({ open: false, breakEven: 0 });
     expect(unknown.breakEven).toBeNull();
@@ -40,11 +42,15 @@ describe('toChartPoints', () => {
 
 describe('hasNoThreshold', () => {
   it('vrai seulement si aucun seuil n’est calculable', () => {
-    expect(hasNoThreshold(toChartPoints([day('a', { breakEven: null })]))).toBe(
-      true
-    );
     expect(
-      hasNoThreshold(toChartPoints([day('a'), day('b', { breakEven: null })]))
+      hasNoThreshold(
+        toChartPoints([day('a', { breakEven: null, target: null })])
+      )
+    ).toBe(true);
+    expect(
+      hasNoThreshold(
+        toChartPoints([day('a'), day('b', { breakEven: null, target: null })])
+      )
     ).toBe(false);
     expect(hasNoThreshold([])).toBe(true);
   });
