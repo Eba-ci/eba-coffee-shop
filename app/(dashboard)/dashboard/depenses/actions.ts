@@ -5,6 +5,10 @@ import { requireFinance } from '@/lib/auth-helpers';
 import * as expenses from '@/lib/expense-mutations';
 import * as recurring from '@/lib/recurring-expense-mutations';
 import * as fixedCosts from '@/lib/fixed-costs/mutations';
+import {
+  syncFixedCostsFromCategories,
+  type CategorySyncResult,
+} from '@/lib/fixed-costs/category-sync';
 import { createInventoryItem } from '@/lib/inventory-mutations';
 import { updateExpenseSettings } from '@/lib/expense-settings-db';
 import type { InventoryUnitInput } from '@/lib/schemas/inventory';
@@ -251,6 +255,27 @@ export async function syncFixedCostsAction(): Promise<
   await requireAdminId();
   try {
     const res = await fixedCosts.syncFixedCostsFromRecurring();
+    revalidate();
+    return { ok: true, ...res };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : 'Erreur inattendue',
+    };
+  }
+}
+
+/**
+ * Importe les catégories de dépenses FIXED comme charges fixes (idempotent,
+ * « Salaires » ignorée). Écriture : ADMIN/MANAGER/COMPTABLE (`requireFinance`,
+ * l'ANALYSTE en lecture seule est refusé).
+ */
+export async function syncFixedCostsFromCategoriesAction(): Promise<
+  ({ ok: true } & CategorySyncResult) | { ok: false; error: string }
+> {
+  await requireAdminId();
+  try {
+    const res = await syncFixedCostsFromCategories();
     revalidate();
     return { ok: true, ...res };
   } catch (err) {

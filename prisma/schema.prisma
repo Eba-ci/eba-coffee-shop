@@ -1165,6 +1165,9 @@ model FixedCost {
   categoryId         String
   category           ExpenseCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   recurringExpenseId String?              @unique
+  // Clé d'idempotence de l'import par catégorie FIXED (#433) : une seule charge
+  // importée par catégorie.
+  importedCategoryId String?              @unique
   active             Boolean              @default(true)
   note               String?
   sortOrder          Int                  @default(0)
