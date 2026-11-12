@@ -52,7 +52,7 @@ export function DayDetailSheet({
 }) {
   const status = day ? dayStatus(day, today) : null;
   const meta = status ? STATUS_META[status] : null;
-  const target = day?.breakEven ?? 0;
+  const target = day?.target ?? 0;
   const pct =
     day && target > 0
       ? Math.min(100, Math.round((day.revenue / target) * 100))
@@ -112,7 +112,7 @@ export function DayDetailSheet({
                     />
                   </div>
                   <p className="text-sm tabular-nums">
-                    {money(day.revenue)} sur {money(day.breakEven)} ({pct} %)
+                    {money(day.revenue)} sur {money(day.target)} ({pct} %)
                   </p>
                 </div>
               )}
@@ -122,7 +122,7 @@ export function DayDetailSheet({
                   {status !== 'upcoming' && (
                     <Row label="CA net" value={money(day.revenue)} strong />
                   )}
-                  <Row label="Point mort" value={money(day.breakEven)} />
+                  <Row label="Point mort" value={money(day.target)} />
                   {status !== 'upcoming' && (
                     <Row label="Reste à faire" value={money(day.remaining)} />
                   )}

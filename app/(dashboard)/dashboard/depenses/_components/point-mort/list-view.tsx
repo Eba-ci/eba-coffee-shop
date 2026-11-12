@@ -71,7 +71,7 @@ export function ListView({
                     {weekdayShort(day.date)} {formatDay(day.date)}
                   </span>
                   <span className="tabular-nums text-muted-foreground">
-                    {day.open ? `seuil ${money(day.breakEven)}` : 'Fermé'}
+                    {day.open ? `seuil ${money(day.target)}` : 'Fermé'}
                   </span>
                 </button>
               </li>
@@ -116,7 +116,7 @@ function DayCard({
   onSelect: (date: string) => void;
 }) {
   const meta = STATUS_META[status];
-  const target = day.breakEven ?? 0;
+  const target = day.target ?? 0;
   const pct = target > 0 ? Math.round((day.revenue / target) * 100) : 100;
 
   return (
@@ -164,7 +164,7 @@ function DayCard({
 
       <span className="mt-2 flex items-center justify-between text-xs tabular-nums text-muted-foreground">
         <span>
-          {money(day.revenue)} / {money(day.breakEven)}
+          {money(day.revenue)} / {money(day.target)}
         </span>
         <span
           className={cn(

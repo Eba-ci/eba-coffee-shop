@@ -161,8 +161,12 @@ export type BreakEvenDay = {
   revenue: number; // CA net du jour
   fixedCost: number; // charges fixes + salaires du jour (arrondies)
   salaryCost: number; // part des salaires du jour (agrégat, sans employé)
-  breakEven: number | null; // CA minimal ; 0 si fermé ; null si marge inconnue
-  remaining: number | null; // reste à faire pour atteindre le seuil
+  breakEven: number | null; // CA minimal de BASE ; 0 si fermé ; null si marge inconnue
+  /** Rattrapage du jour : part des manques des jours échus (cf. catch-up.ts). */
+  catchUp: number;
+  /** Objectif du jour = `breakEven` + `catchUp` (identique hors rattrapage). */
+  target: number | null;
+  remaining: number | null; // reste à faire pour atteindre l'objectif du jour
   grossMargin: number | null; // marge estimée = CA × taux
   result: number | null; // marge − charges fixes
   reached: boolean | null; // seuil atteint ? null si indéterminé / fermé
@@ -201,6 +205,8 @@ export function buildBreakEvenSeries(args: {
       fixedCost,
       salaryCost,
       breakEven,
+      catchUp: 0,
+      target: breakEven,
       remaining: breakEven === null ? null : Math.max(0, breakEven - revenue),
       grossMargin,
       result: grossMargin === null ? null : grossMargin - fixedCost,
