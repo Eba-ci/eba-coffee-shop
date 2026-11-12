@@ -63,10 +63,17 @@ export async function deleteExpenseCategoryAction(
 // ── Dépenses ──
 
 export async function createExpenseAction(
-  input: unknown
+  input: unknown,
+  idempotencyKey?: string
 ): Promise<ActionResult> {
   const userId = await requireAdminId();
-  return run(() => expenses.createExpense(input, userId));
+  return run(() =>
+    expenses.createExpense(
+      input,
+      userId,
+      idempotencyKey ? { idempotencyKey } : undefined
+    )
+  );
 }
 
 export async function updateExpenseAction(

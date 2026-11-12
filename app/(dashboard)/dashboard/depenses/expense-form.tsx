@@ -23,6 +23,10 @@ export function ExpenseForm({
   mode,
   initial,
   cancelHref = '/dashboard/depenses',
+  onSuccess,
+  onCancel,
+  embedded = false,
+  submitLabel,
 }: {
   categories: Category[];
   /** Référentiel pour le choix d'article. */
@@ -31,8 +35,20 @@ export function ExpenseForm({
   initial: ExpenseFormValues;
   /** Destination du bouton Annuler et du retour après succès. */
   cancelHref?: string;
+  /** Dans un drawer : appelé après enregistrement au lieu de naviguer. */
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  /** Mise en page compacte (pas de largeur max ni de marge basse). */
+  embedded?: boolean;
+  submitLabel?: string;
 }) {
-  const form = useExpenseForm({ mode, initial, cancelHref });
+  const form = useExpenseForm({
+    mode,
+    initial,
+    cancelHref,
+    onSuccess,
+    onCancel,
+  });
 
   if (categories.length === 0) {
     return (
@@ -43,12 +59,16 @@ export function ExpenseForm({
   }
 
   return (
-    <div className="max-w-3xl space-y-4 pb-24">
+    <div className={embedded ? 'space-y-4' : 'max-w-3xl space-y-4 pb-24'}>
       <ExpenseFieldsSection form={form} categories={categories} />
       <ExpenseItemsSection form={form} articles={articles} />
       <ReceiptPicker form={form} />
       {form.error && <p className="text-sm text-destructive">{form.error}</p>}
-      <ExpenseActionBar form={form} />
+      <ExpenseActionBar
+        form={form}
+        embedded={embedded}
+        submitLabel={submitLabel}
+      />
     </div>
   );
 }

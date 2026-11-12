@@ -18,7 +18,12 @@ import {
   sumExpenseItems,
 } from './items';
 
-export async function createExpense(input: unknown, createdById?: string) {
+export async function createExpense(
+  input: unknown,
+  createdById?: string,
+  opts?: { idempotencyKey?: string }
+) {
+  const idempotencyKey = opts?.idempotencyKey;
   const data = expenseCreateSchema.parse(input);
   const date = parseDateOnlyToUTC(data.date)!;
   // Numéro de reçu : compteur du mois civil de la dépense. Figé à la création.
@@ -38,6 +43,13 @@ export async function createExpense(input: unknown, createdById?: string) {
   for (let attempt = 0; attempt < RECEIPT_NUMBER_MAX_RETRIES; attempt++) {
     try {
       return await prisma.$transaction(async (tx) => {
+        // Rejeu d'un lot : la dépense déjà créée sous cette clé fait foi.
+        if (idempotencyKey) {
+          const done = await tx.expense.findUnique({
+            where: { idempotencyKey },
+          });
+          if (done) return done;
+        }
         // Paiement lié à une échéance de charge fixe : la charge doit exister,
         // l'échéance doit être réelle, et le cumul ne peut pas la dépasser.
         if (data.fixedCostId && data.dueDate) {
@@ -63,6 +75,7 @@ export async function createExpense(input: unknown, createdById?: string) {
             // paiements) : la dépense porte l'occurrence qu'elle solde.
             fixedCostId: data.fixedCostId ?? null,
             dueDate: data.dueDate ? parseDateOnlyToUTC(data.dueDate) : null,
+            idempotencyKey: idempotencyKey ?? null,
             receiptPeriod,
             receiptSeq,
             receiptNo: formatReceiptNo(receiptPeriod, receiptSeq),
