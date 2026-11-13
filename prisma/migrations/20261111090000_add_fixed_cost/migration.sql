@@ -25,7 +25,21 @@ CREATE TABLE IF NOT EXISTS "fixed_cost" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "fixed_cost_recurringExpenseId_key" ON "fixed_cost"("recurringExpenseId");
+-- L'index sur `recurringExpenseId` ne doit être posé QUE si la colonne existe :
+-- sur une BDD où `fixed_cost` préexiste (rejeu pre-push), le CREATE TABLE
+-- IF NOT EXISTS est sauté et la colonne n'existe pas — un CREATE INDEX
+-- inconditionnel échouait alors (« column does not exist ») et cassait le déploiement.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'fixed_cost'
+      AND column_name = 'recurringExpenseId'
+  ) THEN
+    CREATE UNIQUE INDEX IF NOT EXISTS "fixed_cost_recurringExpenseId_key" ON "fixed_cost"("recurringExpenseId");
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS "fixed_cost_categoryId_idx" ON "fixed_cost"("categoryId");
 CREATE INDEX IF NOT EXISTS "fixed_cost_active_idx" ON "fixed_cost"("active");
 
