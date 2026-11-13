@@ -1,8 +1,12 @@
+-- Idempotent (rejouée par scripts/db-pre-push.sh avant db push).
+
 -- CreateEnum
-CREATE TYPE "FixedCostPeriodicity" AS ENUM ('DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY');
+DO $$ BEGIN
+  CREATE TYPE "FixedCostPeriodicity" AS ENUM ('DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- CreateTable
-CREATE TABLE "fixed_cost" (
+CREATE TABLE IF NOT EXISTS "fixed_cost" (
     "id" TEXT NOT NULL,
     "label" TEXT NOT NULL,
     "amount" INTEGER NOT NULL,
@@ -21,13 +25,11 @@ CREATE TABLE "fixed_cost" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "fixed_cost_recurringExpenseId_key" ON "fixed_cost"("recurringExpenseId");
-
--- CreateIndex
-CREATE INDEX "fixed_cost_categoryId_idx" ON "fixed_cost"("categoryId");
-
--- CreateIndex
-CREATE INDEX "fixed_cost_active_idx" ON "fixed_cost"("active");
+CREATE UNIQUE INDEX IF NOT EXISTS "fixed_cost_recurringExpenseId_key" ON "fixed_cost"("recurringExpenseId");
+CREATE INDEX IF NOT EXISTS "fixed_cost_categoryId_idx" ON "fixed_cost"("categoryId");
+CREATE INDEX IF NOT EXISTS "fixed_cost_active_idx" ON "fixed_cost"("active");
 
 -- AddForeignKey
-ALTER TABLE "fixed_cost" ADD CONSTRAINT "fixed_cost_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "expense_category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+DO $$ BEGIN
+  ALTER TABLE "fixed_cost" ADD CONSTRAINT "fixed_cost_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "expense_category"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
