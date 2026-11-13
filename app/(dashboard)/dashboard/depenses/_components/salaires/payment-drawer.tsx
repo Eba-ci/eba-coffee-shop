@@ -7,9 +7,13 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  SALARY_SHEET_CLASS,
+  SalarySheetBody,
+  SalarySheetHeader,
+} from './salary-sheet';
 import { SalaryPaymentForm } from './payment-form';
 
 /**
@@ -34,23 +38,26 @@ export function SalaryPaymentDrawer({
         Nouveau versement
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
-          <SheetHeader>
+        <SheetContent
+          side="right"
+          className={`${SALARY_SHEET_CLASS} sm:max-w-lg`}
+        >
+          <SalarySheetHeader>
             <SheetTitle>Nouveau versement</SheetTitle>
             <SheetDescription>
               Salaire, acompte ou avance. Le mode de paiement par défaut est
               Wave.
             </SheetDescription>
-          </SheetHeader>
+          </SalarySheetHeader>
           {open && (
-            <div className="px-4 pb-4">
+            <SalarySheetBody>
               <SalaryPaymentForm
                 employees={employees}
                 defaultMonth={defaultMonth}
                 today={today}
                 onSaved={() => setOpen(false)}
               />
-            </div>
+            </SalarySheetBody>
           )}
         </SheetContent>
       </Sheet>

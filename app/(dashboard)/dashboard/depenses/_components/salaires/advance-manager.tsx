@@ -2,15 +2,25 @@
 
 import { useState, useTransition } from 'react';
 import { Check, Loader2, Pencil, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+  SALARY_SHEET_CLASS,
+  SalarySheetBody,
+  SalarySheetHeader,
+} from './salary-sheet';
 import { money } from '@/lib/fixed-costs/format';
 import type { SalaryAdvanceRow } from '@/lib/salaries/admin-queries';
 import {
@@ -25,6 +35,7 @@ function AdvanceRow({ advance }: { advance: SalaryAdvanceRow }) {
   const [amount, setAmount] = useState(String(advance.amount));
   const [month, setMonth] = useState(advance.month);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function saveRecovery() {
@@ -54,8 +65,6 @@ function AdvanceRow({ advance }: { advance: SalaryAdvanceRow }) {
   }
 
   function cancel() {
-    if (!window.confirm(`Annuler l’avance de ${money(advance.amount)} ?`))
-      return;
     setError(null);
     startTransition(async () => {
       const r = await cancelSalaryAdvanceAction({ paymentId: advance.id });
@@ -89,7 +98,7 @@ function AdvanceRow({ advance }: { advance: SalaryAdvanceRow }) {
             size="icon"
             variant="ghost"
             className="h-11 w-11"
-            onClick={cancel}
+            onClick={() => setConfirmOpen(true)}
             disabled={pending}
             aria-label="Annuler l’avance"
           >
@@ -98,14 +107,32 @@ function AdvanceRow({ advance }: { advance: SalaryAdvanceRow }) {
         </div>
       </div>
 
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Annuler cette avance ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              L’avance de {money(advance.amount)} pour {advance.employeeName}{' '}
+              sera annulée.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Garder</AlertDialogCancel>
+            <AlertDialogAction onClick={cancel}>
+              Annuler l’avance
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Sheet open={editing} onOpenChange={setEditing}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm">
-          <SheetHeader>
+        <SheetContent side="right" className={SALARY_SHEET_CLASS}>
+          <SalarySheetHeader>
             <SheetTitle>
               Avance de {advance.employeeName} · {money(advance.amount)}
             </SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 px-4 pb-4">
+          </SalarySheetHeader>
+          <SalarySheetBody>
             <div className="space-y-1.5">
               <Label htmlFor={`amt-${advance.id}`}>Montant</Label>
               <Input
@@ -164,7 +191,7 @@ function AdvanceRow({ advance }: { advance: SalaryAdvanceRow }) {
               </Button>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-          </div>
+          </SalarySheetBody>
         </SheetContent>
       </Sheet>
 
