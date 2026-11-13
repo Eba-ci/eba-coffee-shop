@@ -62,7 +62,7 @@ export function RateHistorySheet({
 
   return (
     <Sheet open={employee !== null} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="overflow-y-auto">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm">
         <SheetHeader>
           <SheetTitle>
             {employee ? `Taux de ${employee.name}` : 'Taux'}

@@ -99,7 +99,7 @@ function AdvanceRow({ advance }: { advance: SalaryAdvanceRow }) {
       </div>
 
       <Sheet open={editing} onOpenChange={setEditing}>
-        <SheetContent side="right" className="overflow-y-auto">
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm">
           <SheetHeader>
             <SheetTitle>
               Avance de {advance.employeeName} · {money(advance.amount)}

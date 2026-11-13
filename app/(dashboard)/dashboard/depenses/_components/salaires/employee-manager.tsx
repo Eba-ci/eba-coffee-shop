@@ -146,7 +146,8 @@ export function EmployeeManager({
       )}
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="overflow-y-auto">
+        {/* Pleine largeur sur mobile (le clavier masquait les champs), max-w sur desktop. */}
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm">
           <SheetHeader>
             <SheetTitle>
               {editing ? 'Modifier l’employé' : 'Nouvel employé'}

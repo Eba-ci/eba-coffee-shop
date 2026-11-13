@@ -34,7 +34,7 @@ export function SalaryPaymentDrawer({
         Nouveau versement
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="overflow-y-auto sm:max-w-lg">
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader>
             <SheetTitle>Nouveau versement</SheetTitle>
             <SheetDescription>
