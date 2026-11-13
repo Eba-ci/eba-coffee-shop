@@ -124,10 +124,13 @@ if [ "$ACTION" = schema ]; then
   pull_image "$IMAGE-tools:$TAG" || die "image -tools $TAG indisponible"
   docker logout ghcr.io >/dev/null 2>&1 || true
   log "schéma BDD"
-  # Le relevé de départ du journal de stock suit db:push (la table doit exister) ;
+  # Le relevé de départ du journal de stock suit db:migrate (la table doit exister) ;
   # idempotent : sans effet quand tout est déjà journalisé.
   # En production, le relevé de départ reste un geste volontaire (bouton ou pnpm à la main).
-  tasks="db:merge-duplicate-emails db:pre-push db:push db:trigger db:indexes"
+  # Schéma : prisma migrate deploy (journal _prisma_migrations ; les migrations
+  # historiques sont consolidées dans 20261113060000_baseline, marquée appliquée
+  # une fois par environnement — cf. docs/migration-prisma-migrate.md).
+  tasks="db:merge-duplicate-emails db:migrate db:trigger db:indexes"
   [ "$ENV_NAME" != staging ] || tasks="$tasks db:backfill-stock-baseline"
   for task in $tasks; do
     docker run --rm --add-host="host.docker.internal:$HOST_ADDR" --env-file "$ENV_FILE" \
