@@ -12,6 +12,7 @@
 set -eu
 
 for dir in \
+  20261111090000_add_fixed_cost \
   20261112090000_add_fixed_cost_schedule \
   20261113090000_add_salary_model \
   20261114090000_add_salary_payment_expense_link \
