@@ -7,15 +7,24 @@ import {
   formatReceiptNo,
   RECEIPT_NUMBER_MAX_RETRIES,
 } from '@/lib/expense-numbering';
-import { expenseInputSchema, expenseUpdateSchema } from '@/lib/schemas/expense';
+import { assertLinkedPaymentAllowed } from '@/lib/fixed-costs/queries';
+import {
+  expenseCreateSchema,
+  expenseUpdateSchema,
+} from '@/lib/schemas/expense';
 import {
   expenseItemsInclude,
   createExpenseItems,
   sumExpenseItems,
 } from './items';
 
-export async function createExpense(input: unknown, createdById?: string) {
-  const data = expenseInputSchema.parse(input);
+export async function createExpense(
+  input: unknown,
+  createdById?: string,
+  opts?: { idempotencyKey?: string }
+) {
+  const idempotencyKey = opts?.idempotencyKey;
+  const data = expenseCreateSchema.parse(input);
   const date = parseDateOnlyToUTC(data.date)!;
   // Numéro de reçu : compteur du mois civil de la dépense. Figé à la création.
   const receiptPeriod = receiptPeriodFromDate(date);
@@ -34,6 +43,23 @@ export async function createExpense(input: unknown, createdById?: string) {
   for (let attempt = 0; attempt < RECEIPT_NUMBER_MAX_RETRIES; attempt++) {
     try {
       return await prisma.$transaction(async (tx) => {
+        // Rejeu d'un lot : la dépense déjà créée sous cette clé fait foi.
+        if (idempotencyKey) {
+          const done = await tx.expense.findUnique({
+            where: { idempotencyKey },
+          });
+          if (done) return done;
+        }
+        // Paiement lié à une échéance de charge fixe : la charge doit exister,
+        // l'échéance doit être réelle, et le cumul ne peut pas la dépasser.
+        if (data.fixedCostId && data.dueDate) {
+          await assertLinkedPaymentAllowed(
+            tx,
+            data.fixedCostId,
+            data.dueDate,
+            data.amount
+          );
+        }
         const receiptSeq = await getNextReceiptSeq(tx, receiptPeriod);
         const expense = await tx.expense.create({
           data: {
@@ -45,6 +71,11 @@ export async function createExpense(input: unknown, createdById?: string) {
             note: data.note ?? null,
             receiptUrl: data.receiptUrl ?? null,
             createdById: createdById ?? null,
+            // Règlement d'une occurrence de charge fixe (calendrier des
+            // paiements) : la dépense porte l'occurrence qu'elle solde.
+            fixedCostId: data.fixedCostId ?? null,
+            dueDate: data.dueDate ? parseDateOnlyToUTC(data.dueDate) : null,
+            idempotencyKey: idempotencyKey ?? null,
             receiptPeriod,
             receiptSeq,
             receiptNo: formatReceiptNo(receiptPeriod, receiptSeq),
@@ -79,9 +110,20 @@ export async function updateExpense(id: string, input: unknown) {
   return prisma.$transaction(async (tx) => {
     const existing = await tx.expense.findUnique({
       where: { id },
-      select: { amount: true, _count: { select: { items: true } } },
+      select: {
+        amount: true,
+        salaryPaymentId: true,
+        _count: { select: { items: true } },
+      },
     });
     if (!existing) throw new Error('Dépense introuvable.');
+    // Une ligne de salaire est pilotée par le module salaires : la modifier ici
+    // désynchroniserait le versement lié. On refuse.
+    if (existing.salaryPaymentId) {
+      throw new Error(
+        'Cette dépense est liée à un versement de salaire : modifie le versement.'
+      );
+    }
 
     const itemsProvided = data.items !== undefined;
     if (
@@ -141,5 +183,14 @@ export async function updateExpense(id: string, input: unknown) {
 }
 
 export async function deleteExpense(id: string) {
+  const existing = await prisma.expense.findUnique({
+    where: { id },
+    select: { salaryPaymentId: true },
+  });
+  if (existing?.salaryPaymentId) {
+    throw new Error(
+      'Cette dépense est liée à un versement de salaire : supprime le versement.'
+    );
+  }
   return prisma.expense.delete({ where: { id } });
 }

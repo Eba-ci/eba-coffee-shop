@@ -31,6 +31,8 @@ import { pollsTools } from './polls';
 import { pollOptionsTools } from './poll-options';
 import { tiktokTools } from './tiktok';
 import { refundsTools } from './refunds';
+import { fixedCostsTools } from './fixed-costs';
+import { salariesTools } from './salaries';
 
 export const tools: McpTool[] = [
   ...menuReadTools,
@@ -42,6 +44,8 @@ export const tools: McpTool[] = [
   ...expenseMaintenanceTools,
   ...investmentsTools,
   ...revenueAdjustmentsTools,
+  ...fixedCostsTools,
+  ...salariesTools,
   ...refundsTools,
   ...cashClosingTools,
   ...ordersTools,
@@ -89,10 +93,31 @@ export const FINANCE_TOOL_NAMES = new Set(
 );
 
 /**
- * Noms des outils accessibles au rôle ANALYSTE (lecture seule, tous
- * domaines). Utilisé par `withRoleGuard` dans `app/api/mcp/route.ts` pour
- * restreindre `tools/list`/`tools/call` aux outils annotés `readOnly: true`.
+ * Noms des outils réservés à l'ADMIN (`scope: 'admin'`). Le MANAGER
+ * (cf. `NON_ADMIN_TOOL_NAMES`) et l'ANALYSTE (`READ_ONLY_TOOL_NAMES`, qui les
+ * exclut) ne les voient ni ne les appellent. C'est le garde de confidentialité
+ * de la paie : le détail des salaires (employés, versements, avances) est
+ * `scope: 'admin'` ; seul l'agrégat mensuel reste `scope: 'finance'`.
+ */
+export const ADMIN_ONLY_TOOL_NAMES = new Set(
+  tools.filter((t) => t.scope === 'admin').map((t) => t.name)
+);
+
+/**
+ * Noms des outils accessibles au rôle MANAGER : tout SAUF les outils
+ * `scope: 'admin'`. Utilisé par `withRoleGuard` (le MANAGER « voit tout » hors
+ * paie). ADMIN = aucune restriction (ensemble `undefined`).
+ */
+export const NON_ADMIN_TOOL_NAMES = new Set(
+  tools.filter((t) => t.scope !== 'admin').map((t) => t.name)
+);
+
+/**
+ * Noms des outils accessibles au rôle ANALYSTE (lecture seule, tous domaines).
+ * Un outil `scope: 'admin'` en lecture seule en est EXCLU : l'ANALYSTE ne voit
+ * jamais la paie. Utilisé par `withRoleGuard` dans `app/api/mcp/route.ts` pour
+ * restreindre `tools/list`/`tools/call`.
  */
 export const READ_ONLY_TOOL_NAMES = new Set(
-  tools.filter((t) => t.readOnly).map((t) => t.name)
+  tools.filter((t) => t.readOnly && t.scope !== 'admin').map((t) => t.name)
 );

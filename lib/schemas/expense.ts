@@ -19,12 +19,14 @@ export {
 export type { ExpenseItemInput } from './expense/item';
 export {
   expenseInputSchema,
+  expenseCreateSchema,
   expenseUpdateSchema,
   expenseFiltersSchema,
   expenseFrequencyFiltersSchema,
 } from './expense/expense';
 export type {
   ExpenseInput,
+  ExpenseCreateInput,
   ExpenseUpdateInput,
   ExpenseFiltersInput,
   ExpenseFrequencyFiltersInput,
@@ -41,11 +43,3 @@ export type {
   ArticleMergeInput,
   RelinkExpenseItemInput,
 } from './expense/article';
-export {
-  recurringExpenseInputSchema,
-  recurringExpenseUpdateSchema,
-} from './expense/recurring';
-export type {
-  RecurringExpenseInput,
-  RecurringExpenseUpdateInput,
-} from './expense/recurring';

@@ -2,9 +2,11 @@ import { cache } from 'react';
 import prisma from '@/lib/prisma';
 import { type ExpenseFilters, buildExpenseWhere } from './filters';
 
-/** Nombre de dépenses sans numéro de reçu (toutes périodes confondues). */
+/** Nombre de dépenses sans numéro de reçu (hors lignes de salaire, non numérotées). */
 export function countUnnumberedExpenses() {
-  return prisma.expense.count({ where: { receiptNo: null } });
+  return prisma.expense.count({
+    where: { receiptNo: null, salaryPaymentId: null },
+  });
 }
 
 /** Catégories triées, avec le nombre de dépenses rattachées. */
@@ -13,7 +15,13 @@ export const listExpenseCategories = cache(
     return prisma.expenseCategory.findMany({
       where: { deletedAt: null },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-      include: { _count: { select: { expenses: true } } },
+      // Le compteur ignore les lignes de salaire : leur nombre n'est pas exposé
+      // hors écran ADMIN (le lien `salaryPaymentId` fait foi).
+      include: {
+        _count: {
+          select: { expenses: { where: { salaryPaymentId: null } } },
+        },
+      },
     });
   }
 );
@@ -57,6 +65,8 @@ export type ExpenseForEdit = {
   supplier: string | null;
   note: string | null;
   receiptUrl: string | null;
+  /** Non nul = ligne de salaire (réservée à l'ADMIN, non éditable ici). */
+  salaryPaymentId: string | null;
   items: {
     articleId: string | null;
     rawLabel: string;
@@ -89,6 +99,7 @@ export async function getExpenseForEdit(
     supplier: expense.supplier,
     note: expense.note,
     receiptUrl: expense.receiptUrl,
+    salaryPaymentId: expense.salaryPaymentId,
     items: expense.items.map((item) => ({
       articleId: item.articleId,
       rawLabel: item.rawLabel,

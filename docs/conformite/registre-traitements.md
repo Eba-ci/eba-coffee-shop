@@ -68,6 +68,15 @@ Base du dossier de déclaration ou d'autorisation à l'ARTCI (loi n°2013-450 du
 - **Destinataires** : Resend (code de connexion par e-mail) ; Sentry (journaux d’erreurs).
 - **Durée de conservation** : Sessions et codes expirés supprimés ; compte supprimé à la demande.
 
+## Gestion des salaires
+
+- **Finalité** : Calculer la paie due, enregistrer les versements (salaires, acomptes, avances) et suivre les avances des employés.
+- **Base** : Exécution du contrat de travail ; obligation légale de tenue de la paie.
+- **Données** : Nom, poste, date d’entrée et de sortie, taux mensuel et historique des montants, versements (date, montant, type, mode de paiement, note).
+- **Personnes concernées** : Employés et anciens employés.
+- **Destinataires** : Personnel autorisé (ADMIN) ; aucun sous-traitant externe.
+- **Durée de conservation** : 10 ans après la fin du contrat (sortie de l’employé), puis anonymisation du nom, du poste et de la note ; les montants agrégés sont conservés. Durée fixée par le responsable du traitement, à faire valider par un avis juridique — aucun numéro d’article de loi n’est cité.
+
 ## Assistant IA du dashboard
 
 - **Finalité** : Aider le personnel à lire les chiffres et saisir des écritures.

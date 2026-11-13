@@ -24,10 +24,16 @@ export function useExpenseForm({
   mode,
   initial,
   cancelHref,
+  onSuccess,
+  onCancel,
 }: {
   mode: 'create' | 'edit';
   initial: ExpenseFormValues;
   cancelHref: string;
+  /** Intégré (drawer) : remplace la navigation après enregistrement. */
+  onSuccess?: () => void;
+  /** Intégré (drawer) : remplace le retour vers `cancelHref`. */
+  onCancel?: () => void;
 }) {
   const router = useRouter();
   const [values, setValues] = useState<ExpenseFormValues>(initial);
@@ -35,6 +41,8 @@ export function useExpenseForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
+  // Un double envoi du même règlement de charge fixe ne crée qu'une dépense.
+  const idempotencyKey = useRef<string | null>(null);
   // En édition, retirer toutes les lignes doit envoyer `items: null`.
   const initialHadItems = useRef(initial.items.length > 0);
   // Ligne fraîchement ajoutée : focus sur la quantité.
@@ -176,18 +184,28 @@ export function useExpenseForm({
       note: values.note.trim() || null,
       receiptUrl: values.receiptUrl,
       ...(items !== undefined ? { items } : {}),
+      // Règlement d'une occurrence de charge fixe : lien posé à la création.
+      ...(mode === 'create' && values.fixedCostId
+        ? { fixedCostId: values.fixedCostId, dueDate: values.dueDate ?? null }
+        : {}),
     };
 
     startTransition(async () => {
       const result =
         mode === 'edit' && values.id
           ? await updateExpenseAction(values.id, payload)
-          : await createExpenseAction(payload);
+          : await createExpenseAction(
+              payload,
+              values.fixedCostId
+                ? (idempotencyKey.current ??= crypto.randomUUID())
+                : undefined
+            );
       if (!result.ok) {
         setError(result.error);
         return;
       }
-      router.push(cancelHref);
+      if (onSuccess) onSuccess();
+      else router.push(cancelHref);
       router.refresh();
     });
   }
@@ -196,6 +214,7 @@ export function useExpenseForm({
     mode,
     cancelHref,
     router,
+    onCancel,
     values,
     set,
     uploading,

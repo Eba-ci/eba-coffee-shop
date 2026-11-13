@@ -22,8 +22,7 @@ export default async function ReapproPage({
   ]);
 
   // Le pré-remplissage est résolu ICI, pas transporté par l'URL : le lien
-  // depuis l'alerte « stock bas » ne dit que son intention (même patron que
-  // `depenses/nouvelle?recurrent=`).
+  // depuis l'alerte « stock bas » ne dit que son intention.
   const prefillLowStock = prefill === 'bas';
 
   const lastCosts: Record<string, LastCost> = {};

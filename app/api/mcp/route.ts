@@ -3,6 +3,8 @@
 //
 // Auth, dans l'ordre :
 //   1. Jeton statique `MCP_API_KEY` en Bearer (optionnel, clients « machine »).
+//      La clé statique n'a PAS le scope `admin` : le détail des salaires est
+//      réservé à un compte ADMIN identifié (OAuth).
 //   2. OAuth 2.0 (plugin MCP de Better Auth) : comptes ADMIN, MANAGER,
 //      COMPTABLE (outils finance, `FINANCE_TOOL_NAMES`) ou ANALYSTE (lecture
 //      seule, `READ_ONLY_TOOL_NAMES`).
@@ -16,7 +18,11 @@ import { processRpc } from '@/lib/mcp/http/rpc';
 import { withRoleGuard } from '@/lib/mcp/http/role-guard';
 import { sseStream } from '@/lib/mcp/http/sse';
 import { matchesStaticKey } from '@/lib/mcp/http/static-key';
-import { resolveToolsetParam } from '@/lib/mcp/http/toolset';
+import {
+  resolveToolsetParam,
+  intersectAllowedTools,
+} from '@/lib/mcp/http/toolset';
+import { NON_ADMIN_TOOL_NAMES } from '@/lib/mcp/tools';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,11 +31,16 @@ const oauthPostHandler = withRoleGuard(processRpc);
 const oauthGetHandler = withRoleGuard(() => sseStream());
 
 export async function POST(req: Request): Promise<Response> {
-  // 1. Clé statique (propriétaire / clients « machine »).
+  // 1. Clé statique (propriétaire / clients « machine »). Pas de scope `admin` :
+  // le détail des salaires exige un compte ADMIN identifié (OAuth).
   if (matchesStaticKey(req)) {
     const toolset = resolveToolsetParam(req);
     if (toolset instanceof Response) return withCors(toolset, req);
-    return withCors(await processRpc(req, toolset.allowedTools), req);
+    const allowedTools = intersectAllowedTools(
+      NON_ADMIN_TOOL_NAMES,
+      toolset.allowedTools
+    );
+    return withCors(await processRpc(req, allowedTools), req);
   }
   // 2. OAuth (administrateurs via Claude web/mobile/desktop).
   return withCors(await oauthPostHandler(req), req);

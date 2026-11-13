@@ -54,6 +54,7 @@ model User {
   refundsRequested          Refund[]                @relation("RefundRequestedBy")
   refundsApproved           Refund[]                @relation("RefundApprovedBy")
   refundEvents              RefundEvent[]           @relation("RefundEventActor")
+  salaryPaymentsCreated     SalaryPayment[]         @relation("SalaryPaymentCreatedBy")
 
   @@map("user")
 }
@@ -355,14 +356,14 @@ model Order {
   // Part d'avoir (FCFA) comprise dans `paymentAmountDue`, figée avec lui : Jèko
   // encaisse `total − avoir + frais`. Reste renseignée si l'avoir est rendu à
   // l'expiration, pour reconnaître un paiement tardif d'une commande à avoir.
-  paymentCreditPart    Int                @default(0)
+  paymentCreditPart    Int       @default(0)
   // Transaction Jèko qui a réglé la commande. Un second webhook portant une autre
   // transaction sur une commande déjà payée est un DOUBLE paiement (deux demandes
   // payées après une relance) : le staff est alerté pour rembourser.
   paymentTransactionId String?
   // Compte Jèko ('A' | 'B', lib/jeko/accounts.ts) qui porte la demande de paiement :
   // toute relecture ou remboursement ultérieur utilise CE compte, jamais l'actif.
-  jekoAccount          String   @default("A")
+  jekoAccount          String    @default("A")
   // Remboursement d'un paiement tardif (commande expirée ET stock insuffisant, ou
   // récompense fidélité déjà restituée) : transfert Jèko vers le numéro de la
   // commande. `refundAmount` = produits seuls (les frais en ligne restent acquis),
@@ -388,8 +389,8 @@ model Order {
   // `total` une fois la commande payée. `paymentMode` ci-dessus reste
   // renseigné pour le cas courant (1 seule ligne) ; null pour un paiement
   // fractionné (2+ modes distincts) — cf. lib/order-mutations.ts::setOrderPayment.
-  payments OrderPayment[]
-  refunds  Refund[]
+  payments   OrderPayment[]
+  refunds    Refund[]
   // Parts de stock déjà réservées pour cette commande avant son lancement en cuisine
   // (cf. lib/orders/stock-holds). Vide pour toute commande ordinaire.
   stockHolds OrderStockHold[]
@@ -563,15 +564,15 @@ model CustomerCreditEntry {
 // garde toujours au moins `minRemaining` F à payer et l'avoir ne couvre jamais
 // plus de `maxPercent` % de la commande.
 model CreditSettings {
-  id           String   @id @default("singleton")
-  enabled      Boolean  @default(true)
-  minRemaining Int      @default(1500)
-  maxPercent   Int      @default(70)
+  id             String   @id @default("singleton")
+  enabled        Boolean  @default(true)
+  minRemaining   Int      @default(1500)
+  maxPercent     Int      @default(70)
   // Usage en ligne : désactivé par défaut (numéro seul = aucune preuve), avec un
   // plafond journalier par client quand il est activé.
-  onlineEnabled  Boolean @default(false)
-  onlineDailyCap Int     @default(5000)
-  updatedAt    DateTime @updatedAt
+  onlineEnabled  Boolean  @default(false)
+  onlineDailyCap Int      @default(5000)
+  updatedAt      DateTime @updatedAt
 
   @@map("credit_settings")
 }
@@ -1088,43 +1089,171 @@ model ExpenseSettings {
 }
 
 model ExpenseCategory {
-  id        String             @id @default(cuid())
-  name      String             @unique
-  sortOrder Int                @default(0)
+  id         String             @id @default(cuid())
+  name       String             @unique
+  sortOrder  Int                @default(0)
   // Soft delete : `deletedAt` non nul = catégorie « supprimée » (retirée des
   // listes/sélecteurs) mais conservée — les dépenses rattachées gardent leur
   // libellé. Recréer une catégorie du même nom « ressuscite » la version
   // supprimée (le nom reste unique).
-  deletedAt DateTime?
+  deletedAt  DateTime?
   // Nature comptable : FIXED (loyer, salaires, abonnements…) ou VARIABLE
   // (achats courants). Défaut VARIABLE — l'admin reclasse les catégories fixes
   // dans l'UI. Alimente les statistiques de fréquence/récurrence des dépenses.
-  nature    ExpenseNature      @default(VARIABLE)
-  expenses  Expense[]
-  recurring RecurringExpense[]
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
+  nature     ExpenseNature      @default(VARIABLE)
+  expenses   Expense[]
+  fixedCosts FixedCost[]
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
 
   @@index([deletedAt])
   @@map("expense_category")
 }
 
-// Modèle (template) de dépense récurrente : sert d'aide-mémoire. On alerte si
-// aucune dépense de la même catégorie n'a été saisie dans le mois civil courant
-// (loyer, abonnements, salaires…). Ne crée pas de dépense automatiquement.
-model RecurringExpense {
-  id             String          @id @default(cuid())
-  label          String // ex. « Loyer », « Internet »
-  categoryId     String
-  category       ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  expectedAmount Int? // montant indicatif (FCFA)
-  dayOfMonth     Int? // jour du mois indicatif (1-31)
-  active         Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+// Périodicité d'une charge fixe : le montant couvre une période, répartie sur
+// les JOURS OUVRÉS (horaires de la boutique) de cette période.
+enum FixedCostPeriodicity {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+// Nature d'un versement de salaire :
+// - SALAIRE : paie (partielle ou totale) d'un mois ;
+// - ACOMPTE : avance sur le salaire du MOIS EN COURS (déduite du dû du mois) ;
+// - AVANCE : prêt daté, récupéré automatiquement sur les paies SUIVANTES.
+enum SalaryPaymentType {
+  SALAIRE
+  ACOMPTE
+  AVANCE
+}
+
+// Charge fixe suivie pour le point mort (loyer, salaires, abonnements…).
+// On y porte un montant, une périodicité et une date de prise d'effet pour
+// ramener la charge à un coût par jour ouvré. `categoryId` = catégorie de dépense
+// attendue : sert à alerter quand une période échue n'a aucune dépense saisie.
+model FixedCost {
+  id                 String               @id @default(cuid())
+  label              String
+  amount             Int // montant par période (FCFA)
+  periodicity        FixedCostPeriodicity @default(MONTHLY)
+  startDate          DateTime             @db.Date // prise d'effet
+  endDate            DateTime?            @db.Date // dernière date (incluse)
+  categoryId         String
+  category           ExpenseCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  // Clé d'idempotence de l'import par catégorie FIXED (#433) : une seule charge
+  // importée par catégorie.
+  importedCategoryId String?              @unique
+  active             Boolean              @default(true)
+  note               String?
+  sortOrder          Int                  @default(0)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  // Échéances de paiement dans la période. Aucune ligne = une échéance par
+  // défaut déduite de `startDate` (cf. lib/fixed-costs/schedule.ts).
+  installments FixedCostInstallment[]
+  // Dépenses réelles qui règlent une occurrence de cette charge.
+  expenses     Expense[]              @relation("ExpenseFixedCost")
 
   @@index([categoryId])
-  @@map("recurring_expense")
+  @@index([active])
+  @@map("fixed_cost")
+}
+
+// Une échéance : « le `day` du mois (décalé de `monthOffset` mois dans la
+// période) on paie `amount` ». Hebdo : `day` = jour de semaine 1 (lun) … 7
+// (dim). Mensuel : `day` 1..31, clampé au dernier jour du mois. Trimestriel :
+// `monthOffset` 0..2 ; annuel : 0..11.
+model FixedCostInstallment {
+  id          String    @id @default(cuid())
+  fixedCostId String
+  fixedCost   FixedCost @relation(fields: [fixedCostId], references: [id], onDelete: Cascade)
+  monthOffset Int       @default(0)
+  day         Int
+  amount      Int // FCFA
+
+  @@unique([fixedCostId, monthOffset, day])
+  @@map("fixed_cost_installment")
+}
+
+// ─── Salaires (admin seul) ────────────────────────────────────────────────────
+//
+// Modèle séparé des charges fixes et des dépenses : aucune jointure dans les
+// requêtes génériques de dépenses. Trois tables — `Employee` (le salarié,
+// indépendant des comptes de connexion), `SalaryRate` (le montant mensuel à
+// partir d'une date : l'historique rend les changements de salaire possibles
+// sans écraser le passé) et `SalaryPayment` (les versements datés).
+// Les règles de calcul (dû du mois, prorata au jour, avances) vivent dans
+// `lib/salaries/` (pures, testées) et ne sont pas dupliquées ici.
+
+// Employé. `startDate` = date d'entrée, `endDate` = date de sortie (incluse,
+// null = en poste). `active` sert au filtrage des listes ; le calcul du dû
+// s'appuie sur la fenêtre `startDate` … `endDate`, pas sur ce drapeau.
+model Employee {
+  id        String    @id @default(cuid())
+  name      String
+  position  String?
+  startDate DateTime  @db.Date
+  endDate   DateTime? @db.Date
+  active    Boolean   @default(true)
+  note      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  rates    SalaryRate[]
+  payments SalaryPayment[]
+
+  @@index([active])
+  @@map("employee")
+}
+
+// Taux mensuel d'un employé PRENANT EFFET à `startDate` (incluse) et valant
+// jusqu'au taux suivant. Un changement en cours de mois est proratisé au jour
+// calendaire (cf. lib/salaries/compute.ts).
+model SalaryRate {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  monthlyAmount Int // FCFA
+  startDate     DateTime @db.Date // prise d'effet (incluse)
+  createdAt     DateTime @default(now())
+
+  @@unique([employeeId, startDate])
+  @@map("salary_rate")
+}
+
+// Versement de salaire daté. `month` = mois concerné « YYYY-MM » (un salaire de
+// juin peut être payé en juillet). `recoveryMonths` ne sert qu'aux AVANCE :
+// nombre de mois sur lesquels étaler la récupération (1 = tout sur le mois
+// suivant). `idempotencyKey` rend l'enregistrement rejouable (double clic).
+model SalaryPayment {
+  id             String               @id @default(cuid())
+  employeeId     String
+  employee       Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  date           DateTime             @db.Date // jour du versement
+  month          String // mois concerné "YYYY-MM"
+  amount         Int // FCFA
+  type           SalaryPaymentType
+  paymentMethod  ExpensePaymentMethod @default(WAVE)
+  recoveryMonths Int                  @default(1)
+  note           String?
+  idempotencyKey String?              @unique
+  createdById    String?
+  createdBy      User?                @relation("SalaryPaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime             @default(now())
+
+  // Dépense miroir du versement (catégorie « Salaires », sans numéro de reçu).
+  // Relation 1:1 : la dépense porte `Expense.salaryPaymentId` et tombe avec le
+  // versement (ON DELETE CASCADE) — jamais de dépense orpheline.
+  expense        Expense?             @relation("SalaryPaymentExpense")
+
+  @@index([employeeId, month])
+  @@index([month])
+  @@index([date])
+  @@map("salary_payment")
 }
 
 model Expense {
@@ -1152,6 +1281,25 @@ model Expense {
   receiptPeriod String? // mois d'attribution "YYYY-MM"
   receiptSeq    Int? // séquence dans le mois (1-based)
 
+  // Occurrence de charge fixe réglée par cette dépense : la charge + la date
+  // d'échéance (jour calculé, pas la date de paiement). Nullable : la plupart
+  // des dépenses ne règlent aucune charge fixe.
+  fixedCostId String?
+  fixedCost   FixedCost? @relation("ExpenseFixedCost", fields: [fixedCostId], references: [id], onDelete: SetNull)
+  dueDate     DateTime?  @db.Date
+
+  // Clé d'idempotence d'un règlement en lot (`<lot>:<charge>:<échéance>`) :
+  // rejouer le même lot renvoie la dépense déjà créée au lieu d'un doublon.
+  idempotencyKey String? @unique
+
+  // Versement de salaire matérialisé par cette ligne (réservé à l'ADMIN). Le
+  // lien explicite identifie les lignes de salaire pour les masquer aux autres
+  // rôles ; il n'y a JAMAIS de dépense orpheline (supprimer le versement
+  // supprime la ligne, ON DELETE CASCADE). Ces lignes n'ont pas de numéro de
+  // reçu : la séquence DEP n'est pas consommée par les salaires.
+  salaryPaymentId String?        @unique
+  salaryPayment   SalaryPayment? @relation("SalaryPaymentExpense", fields: [salaryPaymentId], references: [id], onDelete: Cascade)
+
   categoryId String
   category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
@@ -1173,6 +1321,7 @@ model Expense {
   @@unique([receiptPeriod, receiptSeq])
   @@index([date(sort: Desc)])
   @@index([categoryId])
+  @@index([fixedCostId, dueDate])
   @@map("expense")
 }
 
@@ -1625,13 +1774,13 @@ model RevenueAdjustment {
 // Retrait du solde Jèko vers le compte réel. `amount` = ce qui arrive, `fee` =
 // frais de retrait ; le compte Jèko est débité de amount + fee.
 model JekoWithdrawal {
-  id        String   @id @default(cuid())
-  amount    Int // FCFA retirés
-  fee       Int // FCFA de frais de retrait
-  note      String?
+  id          String   @id @default(cuid())
+  amount      Int // FCFA retirés
+  fee         Int // FCFA de frais de retrait
+  note        String?
   // Compte Jèko débité ('A' | 'B').
-  jekoAccount String @default("A")
-  createdAt DateTime @default(now())
+  jekoAccount String   @default("A")
+  createdAt   DateTime @default(now())
 
   @@index([createdAt(sort: Desc)])
   @@map("jeko_withdrawal")
