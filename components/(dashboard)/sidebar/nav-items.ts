@@ -2,6 +2,7 @@ import type * as React from 'react';
 import {
   BarChart3,
   Boxes,
+  Briefcase,
   Calculator,
   ChefHat,
   ClipboardList,
@@ -20,7 +21,11 @@ import {
   Vote,
   Wallet,
 } from 'lucide-react';
-import { ORDERS_VIEW_ROLES, REFUND_VIEW_ROLES } from '@/config/constants';
+import {
+  ORDERS_VIEW_ROLES,
+  PAYROLL_ROLES,
+  REFUND_VIEW_ROLES,
+} from '@/config/constants';
 import type { UserRole } from '@/generated/prisma/client';
 
 export type NavItem = {
@@ -55,6 +60,14 @@ export const navItems: NavItem[] = [
     href: '/dashboard/depenses',
     icon: Wallet,
     roles: ['ADMIN', 'MANAGER', 'COMPTABLE', 'ANALYSTE'],
+  },
+  {
+    label: 'Employés',
+    href: '/dashboard/employes',
+    icon: Briefcase,
+    // Même liste que la garde serveur (`requirePayroll`) : une seule source,
+    // pour que l'entrée affichée et l'accès réellement autorisé ne divergent pas.
+    roles: PAYROLL_ROLES,
   },
   {
     label: 'Investissements',

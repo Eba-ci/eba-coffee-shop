@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import {
   DASHBOARD_ROLES,
   ORDERS_VIEW_ROLES,
+  PAYROLL_ROLES,
   REFUND_VIEW_ROLES,
 } from '@/config/constants';
 import type { UserRole } from '@/generated/prisma/client';
@@ -211,6 +212,15 @@ export async function requireFinance(): Promise<AuthorizedSession> {
   return requireRole(FINANCE_ROLES);
 }
 
+/**
+ * Paie nominative (#440) : ADMIN + COMPTABLE. Couvre la page Employés et
+ * CHAQUE lecture server-side qu'elle appelle (`lib/employees/queries.ts`) :
+ * MANAGER et ANALYSTE n'obtiennent ni entrée de menu, ni page, ni donnée.
+ */
+export async function requirePayroll(): Promise<AuthorizedSession> {
+  return requireRole(PAYROLL_ROLES);
+}
+
 /** ADMIN, MANAGER, ASSISTANT_MANAGER ou COMPTABLE (lecture des statistiques). */
 export async function requireStats(): Promise<AuthorizedSession> {
   return requireRole(STATS_ROLES);
@@ -268,6 +278,7 @@ export const ROLE_GROUPS = {
   MANAGER_PLUS: MANAGER_ROLES,
   MENU: MENU_ROLES,
   FINANCE: FINANCE_ROLES,
+  PAYROLL: PAYROLL_ROLES,
   STATS: STATS_ROLES,
   CASHIER_PLUS: CASHIER_ROLES,
   KITCHEN_PLUS: KITCHEN_ROLES,

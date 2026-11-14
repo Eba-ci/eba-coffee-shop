@@ -80,8 +80,12 @@ const EMPTY_TOTALS: SalaryMonthTotals = {
   arrearsTotal: 0,
 };
 
-/** Journal complet d'un employé jusqu'à `month`, plus son arriéré à cette date. */
-function employeeLedger(
+/**
+ * Journal complet d'un employé jusqu'à `month`, plus son arriéré à cette date.
+ * Exporté pour la fiche 360° (`lib/employees/queries.ts`) : une seule source
+ * pour rejouer le ledger, jamais de recalcul parallèle.
+ */
+export function salaryStateThrough(
   employee: { startDate: Date; endDate: Date | null },
   rates: { monthlyAmount: number; startDate: Date }[],
   payments: SalaryPaymentLike[],
@@ -143,7 +147,7 @@ export async function getSalaryMonthView(
   });
 
   const rows: SalaryEmployeeMonthRow[] = employees.map((e) => {
-    const { summary, arrears } = employeeLedger(
+    const { summary, arrears } = salaryStateThrough(
       e,
       e.rates,
       e.payments,
@@ -241,7 +245,7 @@ export async function listSalaryEmployees(
     },
   });
   return employees.map((e) => {
-    const { arrears } = employeeLedger(
+    const { arrears } = salaryStateThrough(
       e,
       e.rates,
       e.payments,
