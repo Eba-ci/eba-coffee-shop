@@ -28,6 +28,12 @@ export async function getMonthlySalaryTotal(month: string): Promise<number> {
       startDate: true,
       endDate: true,
       rates: { select: { monthlyAmount: true, startDate: true } },
+      // Seuls les ajustements ACTIFS du mois entrent dans le dû : une prime
+      // augmente le total, une retenue le diminue ; un ajustement annulé sort.
+      adjustments: {
+        where: { month, canceledAt: null },
+        select: { month: true, nature: true, amount: true, canceledAt: true },
+      },
     },
   });
 
@@ -35,7 +41,7 @@ export async function getMonthlySalaryTotal(month: string): Promise<number> {
   for (const e of employees) {
     const employee = toEmployeeLike(e);
     const rates = e.rates.map(toSalaryRateLike);
-    total += salaryDueForMonth(employee, rates, month).due;
+    total += salaryDueForMonth(employee, rates, month, e.adjustments).due;
   }
   return total;
 }

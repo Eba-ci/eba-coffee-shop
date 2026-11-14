@@ -24,5 +24,6 @@ export { employmentWindow, salaryDueForMonth } from './due';
 export {
   advanceRecoverySchedule,
   salaryLedger,
+  salaryLedgerThrough,
   summarizeSalaryMonth,
 } from './ledger';

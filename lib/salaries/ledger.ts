@@ -17,6 +17,7 @@ import type {
   AdvanceLike,
   AdvanceRecovery,
   EmployeeLike,
+  SalaryAdjustmentLike,
   SalaryMonthSummary,
   SalaryPaymentLike,
   SalaryRateLike,
@@ -72,9 +73,11 @@ export function salaryLedger(input: {
   employee: EmployeeLike;
   rates: SalaryRateLike[];
   payments: SalaryPaymentLike[];
+  adjustments?: SalaryAdjustmentLike[];
   months: string[];
 }): SalaryMonthSummary[] {
-  const { employee, rates, payments } = input;
+  const { employee, rates, adjustments = [] } = input;
+  const { payments } = input;
   const advances: AdvanceState[] = payments
     .filter((p) => p.type === 'AVANCE')
     .map((p) => ({
@@ -87,7 +90,12 @@ export function salaryLedger(input: {
 
   const out: SalaryMonthSummary[] = [];
   for (const month of input.months) {
-    const { due } = salaryDueForMonth(employee, rates, month);
+    const { due, baseDue, primes, retenues } = salaryDueForMonth(
+      employee,
+      rates,
+      month,
+      adjustments
+    );
     const ofMonth = payments.filter((p) => p.month === month);
     const salariesPaid = sumOf(ofMonth, 'SALAIRE');
     const advancesPaid = sumOf(ofMonth, 'ACOMPTE');
@@ -116,6 +124,9 @@ export function salaryLedger(input: {
     out.push({
       month,
       due,
+      baseDue,
+      primes,
+      retenues,
       salariesPaid,
       advancesPaid,
       advanceGiven,
@@ -129,6 +140,45 @@ export function salaryLedger(input: {
 }
 
 /**
+ * Journal depuis les débuts de l'employé JUSQU'À `month` inclus (le solde
+ * d'avance dépend des mois antérieurs). Une seule source pour la vue du mois et
+ * l'analyse de l'arriéré : aucun composant ne rejoue la règle.
+ */
+export function salaryLedgerThrough(input: {
+  employee: EmployeeLike;
+  rates: SalaryRateLike[];
+  payments: SalaryPaymentLike[];
+  adjustments?: SalaryAdjustmentLike[];
+  month: string;
+}): SalaryMonthSummary[] {
+  const firstPayment = input.payments
+    .map((p) => p.month)
+    .sort(compareStrings)[0];
+  const firstRate = input.rates
+    .map((r) => monthOf(r.startDate))
+    .sort(compareStrings)[0];
+  const firstAdjustment = (input.adjustments ?? [])
+    .map((a) => a.month)
+    .sort(compareStrings)[0];
+  // Le mois d'entrée est un candidat : un mois sans taux ni versement reste
+  // un mois d'emploi (dû 0), utile au détail de l'arriéré.
+  const firstEmployee = monthOf(input.employee.startDate);
+  const first = [
+    input.month,
+    firstPayment,
+    firstRate,
+    firstAdjustment,
+    firstEmployee,
+  ]
+    .filter((m): m is string => Boolean(m))
+    .sort(compareStrings)[0];
+  return salaryLedger({
+    ...input,
+    months: monthRange(first, input.month),
+  });
+}
+
+/**
  * Résumé d'un mois isolé, en rejouant le journal depuis les débuts de
  * l'employé (le solde d'avance dépend des mois antérieurs).
  */
@@ -136,20 +186,9 @@ export function summarizeSalaryMonth(input: {
   employee: EmployeeLike;
   rates: SalaryRateLike[];
   payments: SalaryPaymentLike[];
+  adjustments?: SalaryAdjustmentLike[];
   month: string;
 }): SalaryMonthSummary {
-  const firstPayment = input.payments
-    .map((p) => p.month)
-    .sort(compareStrings)[0];
-  const firstRate = input.rates
-    .map((r) => monthOf(r.startDate))
-    .sort(compareStrings)[0];
-  const first = [input.month, firstPayment, firstRate]
-    .filter((m): m is string => Boolean(m))
-    .sort(compareStrings)[0];
-  const ledger = salaryLedger({
-    ...input,
-    months: monthRange(first, input.month),
-  });
+  const ledger = salaryLedgerThrough(input);
   return ledger[ledger.length - 1];
 }

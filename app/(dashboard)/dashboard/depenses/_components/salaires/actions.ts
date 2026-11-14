@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth-helpers';
 import * as salaries from '@/lib/salaries/mutations';
 import * as advances from '@/lib/salaries/advance-mutations';
+import * as adjustments from '@/lib/salaries/adjustment-mutations';
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -81,4 +82,20 @@ export async function cancelSalaryAdvanceAction(
 ): Promise<ActionResult> {
   await requireAdmin();
   return run(() => advances.cancelSalaryAdvance(input));
+}
+
+// ── Primes et retenues (#443) ──
+
+export async function createSalaryAdjustmentAction(
+  input: unknown
+): Promise<ActionResult> {
+  await requireAdmin();
+  return run(() => adjustments.createSalaryAdjustment(input));
+}
+
+export async function cancelSalaryAdjustmentAction(
+  input: unknown
+): Promise<ActionResult> {
+  await requireAdmin();
+  return run(() => adjustments.cancelSalaryAdjustment(input));
 }

@@ -38,6 +38,16 @@ describe('confidentialité des salaires (MCP + assistant)', () => {
     expect(total!.readOnly).toBe(true);
   });
 
+  it('la vue détaillée expose primes et retenues, jamais l’agrégat', () => {
+    const view = tools.find((t) => t.name === 'get_salary_month_view');
+    expect(view).toBeDefined();
+    expect(view!.scope).toBe('admin');
+    expect(view!.description).toMatch(/primes/i);
+    expect(view!.description).toMatch(/retenues/i);
+    const total = tools.find((t) => t.name === TOTAL_TOOL);
+    expect(total!.description).toMatch(/UNIQUEMENT le total/i);
+  });
+
   it('MANAGER n’obtient aucun outil de détail salaires', () => {
     for (const t of salaryDetailTools) {
       expect(NON_ADMIN_TOOL_NAMES.has(t.name)).toBe(false);

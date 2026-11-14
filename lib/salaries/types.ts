@@ -5,7 +5,10 @@
 // pures reçoivent ces formes minimales, ce qui les rend testables et
 // isomorphes.
 
-import type { SalaryPaymentType } from '@/generated/prisma/enums';
+import type {
+  SalaryAdjustmentNature,
+  SalaryPaymentType,
+} from '@/generated/prisma/enums';
 
 export type SalaryRateLike = {
   monthlyAmount: number; // FCFA/mois
@@ -24,6 +27,14 @@ export type SalaryPaymentLike = {
   recoveryMonths?: number; // AVANCE : étalement (défaut 1)
 };
 
+/** Prime (gagne) ou retenue (diminue) rattachée à un mois de paie. */
+export type SalaryAdjustmentLike = {
+  month: string; // mois concerné "YYYY-MM"
+  nature: SalaryAdjustmentNature;
+  amount: number; // FCFA, positif (la nature porte le signe)
+  canceledAt?: Date | string | null; // annulé : sort des calculs, reste listé
+};
+
 export type SalarySegment = {
   rateStartDate: string;
   monthlyAmount: number;
@@ -33,10 +44,13 @@ export type SalarySegment = {
 
 export type SalaryDue = {
   month: string;
-  due: number; // salaire dû du mois, FCFA entiers
+  due: number; // dû NET du mois (prorata + primes − retenues), FCFA entiers
+  baseDue: number; // prorata des taux, AVANT primes / retenues
+  primes: number; // primes actives rattachées au mois
+  retenues: number; // retenues actives rattachées au mois
   daysEmployed: number; // jours d'emploi dans le mois (0 = pas employé)
   daysWithoutRate: number; // jours d'emploi sans AUCUN taux défini (dû 0)
-  segments: SalarySegment[]; // un segment par taux appliqué
+  segments: SalarySegment[]; // un segment par taux appliqué (somme = baseDue)
 };
 
 export type AdvanceLike = {
@@ -49,7 +63,10 @@ export type AdvanceRecovery = { month: string; amount: number };
 
 export type SalaryMonthSummary = {
   month: string;
-  due: number; // salaire dû du mois
+  due: number; // salaire dû du mois (prorata + primes − retenues)
+  baseDue: number; // prorata des taux seul
+  primes: number; // primes actives du mois
+  retenues: number; // retenues actives du mois
   salariesPaid: number; // SALAIRE versés pour ce mois
   advancesPaid: number; // ACOMPTE versés pour ce mois (avance sur le mois)
   advanceGiven: number; // AVANCE versées pendant ce mois
