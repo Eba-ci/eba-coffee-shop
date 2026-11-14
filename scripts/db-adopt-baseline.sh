@@ -13,8 +13,11 @@ set -eu
 BASELINE="20261113060000_baseline"
 PRISMA="pnpm exec prisma"
 
-status="$($PRISMA migrate status 2>&1 || true)"
-if ! printf '%s' "$status" | grep -q "$BASELINE"; then
+# `prisma migrate status` n'est pas fiable ici : sur une base construite par
+# l'ancien pipeline, l'historique diverge et cite la baseline comme « dernier
+# point commun » même quand elle est déjà appliquée (cf. P3008). On interroge
+# donc directement le journal `_prisma_migrations`.
+if pnpm exec tsx --env-file=.env scripts/db-baseline-state.ts; then
   echo "[adopt-baseline] baseline déjà au journal, rien à faire"
   exit 0
 fi
