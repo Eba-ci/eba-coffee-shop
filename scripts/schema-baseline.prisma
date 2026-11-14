@@ -1,0 +1,2003 @@
+// Instantané FIGÉ du schéma au moment de la baseline `20261113060000_baseline`.
+//
+// Sert uniquement à `scripts/db-adopt-baseline.sh` : il vérifie qu'une base
+// construite par l'ancien pipeline (`db push`) correspond bien à la BASELINE,
+// et non au schéma courant — sinon l'arrivée d'une nouvelle migration ferait
+// échouer l'adoption (la base diffère forcément du schéma courant, qui
+// contient les migrations pas encore appliquées).
+//
+// Ne pas modifier. Ce fichier n'est pas la source de vérité du schéma :
+// c'est une photo du passé, utilisée par le garde-fou de bascule.
+
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [citext, pg_trgm, unaccent]
+}
+
+model User {
+  id    String   @id @default(uuid())
+  // citext : comparaisons et contrainte unique insensibles à la casse au
+  // niveau base de données — nécessaire pour couvrir aussi les recherches
+  // internes de Better Auth (connexion par OTP) qu'on ne peut pas intercepter
+  // côté application.
+  email String   @unique @db.Citext
+  name  String?
+  role  UserRole @default(USER)
+
+  // Désactivation (soft) : non null = compte bloqué à la connexion, mais
+  // conservé avec tout son historique (cf. `getSession` dans lib/auth-helpers.ts
+  // et le contrôle du serveur MCP dans app/api/mcp/route.ts).
+  disabledAt DateTime?
+
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  emailVerified             Boolean                 @default(false)
+  image                     String?
+  sessions                  Session[]
+  accounts                  Account[]
+  createdOrders             Order[]                 @relation("OrderCreatedBy")
+  createdExpenses           Expense[]               @relation("ExpenseCreatedBy")
+  createdInvestments        Investment[]            @relation("InvestmentCreatedBy")
+  revenueAdjustments        RevenueAdjustment[]     @relation("RevenueAdjustmentCreatedBy")
+  cashClosings              CashClosing[]           @relation("CashClosingClosedBy")
+  inventoryPurchasesCreated InventoryPurchase[]     @relation("InventoryPurchaseCreatedBy")
+  inventoryCountsCreated    InventoryCount[]        @relation("InventoryCountCreatedBy")
+  restockBatchesCreated     InventoryRestockBatch[] @relation("RestockBatchCreatedBy")
+  pushSubscriptions         PushSubscription[]
+  assistantConversations    AssistantConversation[]
+  createdPolls              Poll[]                  @relation("PollCreatedBy")
+  createdTiktokVideos       TiktokVideo[]           @relation("TiktokVideoCreatedBy")
+  moderatedPollSuggestions  PollSuggestion[]        @relation("PollSuggestionModeratedBy")
+  purchaseDrafts            PurchaseDraft[]         @relation("PurchaseDraftCreatedBy")
+  orderPaymentsCreated      OrderPayment[]          @relation("OrderPaymentCreatedBy")
+  refundsRequested          Refund[]                @relation("RefundRequestedBy")
+  refundsApproved           Refund[]                @relation("RefundApprovedBy")
+  refundEvents              RefundEvent[]           @relation("RefundEventActor")
+  salaryPaymentsCreated     SalaryPayment[]         @relation("SalaryPaymentCreatedBy")
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+// ─── OAuth (serveur MCP distant) ─────────────────────────────────────────────
+//
+// Tables du plugin MCP/OIDC de Better Auth (`lib/auth.ts`). Elles permettent à
+// un client comme Claude (web/mobile) de se connecter au serveur `/api/mcp` via
+// OAuth 2.0 : un administrateur s'authentifie avec SON compte, plutôt qu'avec un
+// jeton statique partagé. Gérées par l'adaptateur Better Auth — ne pas écrire
+// dessus à la main.
+
+model OauthApplication {
+  id           String   @id @default(cuid())
+  name         String
+  icon         String?
+  metadata     String?
+  clientId     String   @unique
+  clientSecret String?
+  redirectUrls String
+  type         String
+  disabled     Boolean  @default(false)
+  userId       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@map("oauth_application")
+}
+
+model OauthAccessToken {
+  id                    String   @id @default(cuid())
+  accessToken           String   @unique
+  refreshToken          String   @unique
+  accessTokenExpiresAt  DateTime
+  refreshTokenExpiresAt DateTime
+  clientId              String
+  userId                String?
+  scopes                String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("oauth_access_token")
+}
+
+model OauthConsent {
+  id           String   @id @default(cuid())
+  clientId     String
+  userId       String
+  scopes       String
+  consentGiven Boolean
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([userId])
+  @@map("oauth_consent")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  CASHIER
+  KITCHEN
+  MANAGER
+  COMPTABLE
+  ASSISTANT_MANAGER
+  ANALYSTE
+}
+
+enum OrderStatus {
+  NEW
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderType {
+  DELIVERY
+  DINE_IN
+  TAKEAWAY
+}
+
+// Miroir côté code : lib/payment-modes.ts (test de dérive dans
+// lib/payment-modes.test.ts). MTN_MONEY / MOOV_MONEY / DJAMO viennent du
+// paiement en ligne Jèko ; OTHER reste le fourre-tout (dont `bank` et `jeko`).
+enum PaymentMode {
+  CASH
+  WAVE
+  ORANGE_MONEY
+  MTN_MONEY
+  MOOV_MONEY
+  DJAMO
+  OTHER
+  // Avoir client (lib/credits) : aucun argent n'entre, le solde du client baisse.
+  AVOIR
+}
+
+// Origine de création d'une commande — distingue le panier public (client),
+// l'écran caisse (staff connecté) et l'outil MCP `create_order` (saisie
+// rétroactive par un agent). `createdById` seul ne suffit pas : il est null
+// à la fois pour ONLINE et MCP.
+enum OrderSource {
+  ONLINE
+  CASHIER
+  MCP
+}
+
+// Verdict de la pré-analyse IA d'une capture de paiement Wave/Orange Money
+// (lib/ai/payment-proof.ts). Un verdict `MATCH` (avec confiance suffisante)
+// déclenche un encaissement AUTOMATIQUE (cf. `Order.paymentAutoValidatedByAi`)
+// — réversible en un clic côté caisse, jamais définitif sans recours.
+enum PaymentProofVerdict {
+  MATCH
+  MISMATCH
+  UNREADABLE
+  PENDING
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  reference     String      @unique
+  dailyDate     DateTime    @db.Date
+  dailyNumber   Int
+  customerName  String?
+  customerPhone String?
+  pickupTime    DateTime?
+  orderType     OrderType   @default(TAKEAWAY)
+  items         Json
+  total         Int
+  status        OrderStatus @default(NEW)
+  note          String?
+
+  isPaid      Boolean      @default(false)
+  paymentMode PaymentMode?
+  paidAt      DateTime?
+
+  // Acompte (commande spéciale à l'avance, ex. gâteau grand format — cf.
+  // Product.requiresDeposit). `depositRequired` = montant minimum (FCFA)
+  // calculé à la création depuis le panier (MIN_DEPOSIT_PERCENT % du total,
+  // config/constants.ts) ; `null` = commande ordinaire, aucune règle
+  // d'acompte. Jamais recalculé après coup (une commande créée est figée).
+  // `depositPaid` = montant déjà versé au titre de l'acompte, enregistré via
+  // des `OrderPayment` normales (cf. lib/order-mutations.ts::recordDeposit) —
+  // distinct de `isPaid`, qui continue de signifier "commande SOLDÉE en
+  // totalité" et n'est jamais posé par un acompte partiel. Tant que
+  // `depositPaid < depositRequired`, la commande ne peut pas entrer en
+  // cuisine (cf. `sendOrderToKitchen`).
+  depositRequired Int?
+  depositPaid     Int?      @default(0)
+  depositPaidAt   DateTime?
+
+  // Vrai si CET encaissement (isPaid=true courant) a été posé automatiquement
+  // par la pré-analyse IA (verdict MATCH, cf. lib/ai/payment-proof.ts) plutôt
+  // que par un geste caisse. Remis à `false` dès que `isPaid` repasse à
+  // `false` (setOrderPayment) — un dépaiement, qu'il vienne de l'annulation
+  // caisse dédiée ou d'un dépaiement générique, efface le statut « auto ».
+  // Pilote un bouton caisse dédié (« Annuler l'encaissement automatique »)
+  // tant que ce drapeau est vrai, pour un retour en arrière sans ambiguïté.
+  paymentAutoValidatedByAi Boolean @default(false)
+
+  // Horodatages du cycle cuisine, servant les minuteurs des écrans staff
+  // (cuisine + caisse). `preparingStartedAt` : entrée en cuisine (NEW →
+  // PREPARING, par encaissement ou envoi manuel) — origine du chrono « en
+  // cuisine depuis X ». `readyAt` : passage READY — origine du minuteur « prête
+  // depuis X » (le client tarde à récupérer). Null tant que l'étape n'a pas eu
+  // lieu. Distincts de `updatedAt` (bougé par toute écriture) et de `paidAt`.
+  preparingStartedAt DateTime?
+  readyAt            DateTime?
+
+  // Instant où le stock de cette commande a été RÉSERVÉ (décrémenté). Sert de
+  // verrou d'idempotence : la décrémentation n'a lieu QUE tant que ce champ est
+  // null, et il est posé dans la MÊME transaction (le verrou de ligne sérialise
+  // les appels concurrents). Verrou à sens unique : jamais remis à null, même à
+  // l'annulation. Remplace l'ancienne règle « le stock est décrémenté à
+  // l'encaissement » : plusieurs chemins mènent désormais en cuisine
+  // (encaissement, envoi manuel, ardoise), et seul ce champ dit si la
+  // réservation a déjà eu lieu.
+  stockReservedAt DateTime?
+
+  // « Ardoise » : commande envoyée en cuisine SANS encaissement (client de
+  // confiance ou dérogation caissier). Ce n'est PAS un paiement : `isPaid`
+  // reste false et le CA n'est pas impacté (cf. lib/stats.ts, qui filtre sur
+  // `isPaid`). Le règlement ultérieur suit le flux d'encaissement normal.
+  isOnAccount Boolean @default(false)
+
+  driverRequested   Boolean   @default(false)
+  driverRequestedAt DateTime?
+
+  // Livreur envoyé par le client (renseigné/modifiable depuis la page de suivi).
+  driverName  String?
+  driverPhone String?
+
+  // Preuve de paiement (capture Wave) uploadée par le client
+  // (/uploads/payment-proofs/…). Validée manuellement en caisse.
+  paymentProofUrl String?
+
+  // Pré-analyse IA de `paymentProofUrl` (lib/ai/payment-proof.ts, déclenchée
+  // en arrière-plan après l'upload). `paymentProofVerdict` null = pas encore
+  // analysée (ou OPENROUTER_API_KEY absente — fonctionnalité inerte).
+  // `paymentProofAnalysis` conserve le détail structuré (montant/opérateur/
+  // référence/raisonnement/modèle) pour affichage caisse. Un signal, jamais
+  // une validation automatique : `isPaid` reste un geste caisse manuel.
+  paymentProofVerdict    PaymentProofVerdict?
+  paymentProofAnalysis   Json?
+  paymentProofAnalyzedAt DateTime?
+
+  // Origine de création (cf. enum OrderSource ci-dessus). Défaut CASHIER pour
+  // les lignes existantes (hypothèse la plus sûre en l'absence d'historique
+  // fiable) — les nouvelles commandes fixent explicitement leur source à la
+  // création (lib/orders.ts, lib/order-mutations.ts, lib/mcp/tools.ts).
+  source OrderSource @default(CASHIER)
+
+  // Récompense fidélité appliquée à cette commande (réduction déjà déduite de
+  // `total`). `loyaltyRewardId` référence `LoyaltyReward.id` (pas de relation
+  // Prisma, cf. `LoyaltyReward.usedOrderId` — même convention côté inverse).
+  // Null = aucune récompense utilisée sur cette commande.
+  loyaltyRewardId String?
+  loyaltyDiscount Int?
+
+  // Avoir (lib/credits) actuellement débité du solde du client pour CETTE commande
+  // (retenu pendant la fenêtre de paiement en ligne, ou dépensé à l'encaissement).
+  // Revient à 0 quand l'avoir est rendu (expiration, annulation, dépaiement). Le
+  // total de la commande n'est PAS réduit : l'avoir est un paiement `AVOIR`.
+  creditApplied Int @default(0)
+
+  // Paiement en ligne Jèko (Checkout) — tous nullables : une commande caisse ou
+  // MCP n'en porte aucun. Montants en FCFA entiers (cf. lib/online-fee.ts).
+  //   onlineFee         frais facturés au client, EN PLUS de `total` (jamais du CA)
+  //   gatewayFee        frais réellement prélevés par Jèko (lus à la réconciliation),
+  //                     arrondis au FCFA ; onlineFee − gatewayFee = marge par commande
+  //   paymentRequestId  DERNIÈRE demande Jèko créée (une relance en crée une
+  //                     nouvelle) ; le webhook retrouve la commande par la
+  //                     référence `<référence commande>-<n>`, pas par cet id
+  //   paymentExpiresAt  fin du délai de paiement de la tentative en cours.
+  //                     « En attente de paiement » = source ONLINE ∧ isPaid false
+  //                     ∧ paymentExpiresAt non nul (pas d'enum de statut)
+  onlineFee            Int?
+  gatewayFee           Int?
+  paymentRequestId     String?
+  paymentExpiresAt     DateTime?
+  // Nombre de tentatives de paiement lancées (incrémenté de façon atomique à
+  // chaque demande Jèko) : numérote la référence `<commande>-<n>`, unique par
+  // tentative puisque Jèko refuse une référence déjà utilisée (409).
+  paymentAttempts      Int       @default(0)
+  // Montant (FCFA) demandé à Jèko = total + onlineFee, FIGÉ à la tentative. `total`
+  // peut changer ensuite (l'annulation par le client le remet au prix brut) alors
+  // que le paiement déjà demandé, lui, ne change plus : le règlement compare à
+  // CETTE valeur, pas à `total + onlineFee` recalculé.
+  paymentAmountDue     Int?
+  // Part d'avoir (FCFA) comprise dans `paymentAmountDue`, figée avec lui : Jèko
+  // encaisse `total − avoir + frais`. Reste renseignée si l'avoir est rendu à
+  // l'expiration, pour reconnaître un paiement tardif d'une commande à avoir.
+  paymentCreditPart    Int       @default(0)
+  // Transaction Jèko qui a réglé la commande. Un second webhook portant une autre
+  // transaction sur une commande déjà payée est un DOUBLE paiement (deux demandes
+  // payées après une relance) : le staff est alerté pour rembourser.
+  paymentTransactionId String?
+  // Compte Jèko ('A' | 'B', lib/jeko/accounts.ts) qui porte la demande de paiement :
+  // toute relecture ou remboursement ultérieur utilise CE compte, jamais l'actif.
+  jekoAccount          String    @default("A")
+  // Remboursement d'un paiement tardif (commande expirée ET stock insuffisant, ou
+  // récompense fidélité déjà restituée) : transfert Jèko vers le numéro de la
+  // commande. `refundAmount` = produits seuls (les frais en ligne restent acquis),
+  // `refundFee` = frais du transfert. `refundedAt` posé = déjà remboursé ou en
+  // cours : plus aucun règlement ni remboursement automatique. Null + commande
+  // annulée avec `paymentTransactionId` = remboursement manuel à faire.
+  refundTransferId     String?
+  refundedAt           DateTime?
+  refundAmount         Int?
+  refundFee            Int?
+
+  createdById String?
+  createdBy   User?   @relation("OrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Client identifié par téléphone (CRM / fidélité). Null = commande anonyme.
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Appareils clients abonnés aux changements de statut (page de suivi).
+  pushSubscriptions PushSubscription[]
+
+  // Paiement fractionné : 1..N lignes (mode + montant) dont la somme égale
+  // `total` une fois la commande payée. `paymentMode` ci-dessus reste
+  // renseigné pour le cas courant (1 seule ligne) ; null pour un paiement
+  // fractionné (2+ modes distincts) — cf. lib/order-mutations.ts::setOrderPayment.
+  payments   OrderPayment[]
+  refunds    Refund[]
+  // Parts de stock déjà réservées pour cette commande avant son lancement en cuisine
+  // (cf. lib/orders/stock-holds). Vide pour toute commande ordinaire.
+  stockHolds OrderStockHold[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dailyDate, dailyNumber])
+  @@index([status, isPaid])
+  // Ardoise : impayés tous jours confondus (`isPaid: false` + statut ≠
+  // CANCELLED). L'égalité porte ici sur `isPaid`, d'où l'ordre de colonnes
+  // inverse de l'index ci-dessus (qui sert les requêtes filtrées par statut).
+  @@index([isPaid, status])
+  @@index([createdAt(sort: Desc)])
+  @@index([customerId])
+  @@index([source])
+  @@map("order")
+}
+
+// ─── Lignes de paiement (paiement fractionné) ──────────────────────────────────
+// Une commande payée peut être réglée via 1..N lignes de modes différents, à
+// condition que leur somme égale EXACTEMENT `Order.total` (pas de paiement
+// partiel/layaway — cf. `setOrderPayment` dans lib/order-mutations.ts).
+// EXCEPTION : une commande à acompte (`Order.depositRequired` non nul) peut
+// accumuler des lignes dont la somme est INFÉRIEURE à `total` tant que
+// l'acompte n'est pas intégralement versé — cf. `recordDeposit`, qui écrit
+// ces lignes AVANT le règlement final (`setOrderPayment` ne réclame alors
+// que le solde restant, `total - depositPaid`).
+model OrderPayment {
+  id      String      @id @default(cuid())
+  orderId String
+  order   Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  mode    PaymentMode
+  amount  Int // FCFA
+
+  createdById String?
+  createdBy   User?   @relation("OrderPaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([mode])
+  @@map("order_payment")
+}
+
+model Customer {
+  // Identité client (CRM). Clé = téléphone normalisé (forme canonique E.164
+  // quand reconnu, sinon chiffres). Pas de compte/login : on identifie au numéro.
+  id    String  @id @default(cuid())
+  phone String  @unique
+  name  String?
+
+  // Date de naissance (facultative, saisie manuelle par le staff). Aucune
+  // logique automatisée pour l'instant (pas de promo/email anniversaire).
+  dateOfBirth DateTime? @db.Date
+
+  // Fidélité (carte à tampons). `stampCount` = avancement de la carte en cours.
+  // `lastStampDate` sert à la règle « 1 tampon / jour / numéro ».
+  stampCount    Int       @default(0)
+  lastStampDate DateTime? @db.Date
+
+  // Avoir (solde en FCFA, ≥ 0) : alimenté par un remboursement « avoir »,
+  // consommé à l'encaissement (mode AVOIR). Historique : `CustomerCreditEntry`.
+  creditBalance Int                   @default(0)
+  creditEntries CustomerCreditEntry[]
+
+  // Client de confiance : ses commandes saisies en caisse partent en cuisine
+  // sans encaissement préalable (ardoise, cf. `Order.isOnAccount`).
+  // `trustedSince` = date d'octroi du statut, `trustedNote` = motif/plafond
+  // convenu, saisi librement par le staff.
+  isTrusted    Boolean   @default(false)
+  trustedSince DateTime?
+  trustedNote  String?
+
+  // Droit à l'effacement / fin de durée de conservation : renseigné quand la
+  // fiche a été anonymisée (lib/customer-privacy.ts). Le téléphone est alors
+  // remplacé par un marqueur `anon-<id>` pour respecter l'unicité.
+  anonymizedAt DateTime?
+
+  orders    Order[]
+  refunds   Refund[]
+  rewards   LoyaltyReward[]
+  ledger    LoyaltyLedger[]
+  pollVotes PollVote[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("customer")
+}
+
+enum LoyaltyRewardStatus {
+  AVAILABLE
+  USED
+}
+
+model LoyaltyReward {
+  id         String              @id @default(cuid())
+  customerId String
+  customer   Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tier       Int // palier atteint (nb de tampons), ex. 5 ou 10
+  capAmount  Int // plafond de la récompense (FCFA)
+  status     LoyaltyRewardStatus @default(AVAILABLE)
+
+  earnedOrderId String?
+  usedOrderId   String?
+  earnedAt      DateTime  @default(now())
+  usedAt        DateTime?
+
+  // Vrai si la récompense a été retirée sous forme de cadeau (produit/geste
+  // offert au comptoir) plutôt que déduite en numéraire du total de la
+  // commande — l'usage reste tracé (statut USED) mais `Order.loyaltyDiscount`
+  // n'est jamais impacté dans ce mode (cf. `setOrderLoyaltyReward`).
+  redeemedAsGift Boolean @default(false)
+
+  @@index([customerId, status])
+  @@map("loyalty_reward")
+}
+
+enum LoyaltyEventType {
+  STAMP_EARNED
+  REWARD_EARNED
+  REWARD_USED
+  ADJUSTMENT
+}
+
+model LoyaltyLedger {
+  id         String           @id @default(cuid())
+  customerId String
+  customer   Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type       LoyaltyEventType
+  stamps     Int              @default(0) // delta de tampons (ex. +1, ou ajustement)
+  orderId    String?
+  actorId    String? // utilisateur à l'origine (null = automatique / en ligne)
+  note       String?
+  createdAt  DateTime         @default(now())
+
+  @@index([customerId])
+  @@map("loyalty_ledger")
+}
+
+// Journal du solde d'avoir d'un client : une ligne par mouvement (`delta` signé),
+// `balanceAfter` fige le solde obtenu. Source de vérité pour auditer `creditBalance`.
+enum CreditEntryKind {
+  ISSUED // avoir émis par un remboursement
+  SPENT // consommé sur une commande
+  RESTORED // rendu (commande annulée, dépayée ou expirée)
+  CONVERTED // converti en remboursement d'argent
+  ADJUSTED // correction manuelle
+}
+
+model CustomerCreditEntry {
+  id           String          @id @default(cuid())
+  customerId   String
+  customer     Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  kind         CreditEntryKind
+  delta        Int // FCFA, signé
+  balanceAfter Int
+  orderId      String?
+  refundId     String?
+  note         String?
+  actorId      String?
+  createdAt    DateTime        @default(now())
+
+  @@index([customerId, createdAt])
+  @@index([orderId])
+  @@index([refundId])
+  @@map("customer_credit_entry")
+}
+
+// Règles d'usage de l'avoir (singleton, éditable dans Paramètres) : le client
+// garde toujours au moins `minRemaining` F à payer et l'avoir ne couvre jamais
+// plus de `maxPercent` % de la commande.
+model CreditSettings {
+  id             String   @id @default("singleton")
+  enabled        Boolean  @default(true)
+  minRemaining   Int      @default(1500)
+  maxPercent     Int      @default(70)
+  // Usage en ligne : désactivé par défaut (numéro seul = aucune preuve), avec un
+  // plafond journalier par client quand il est activé.
+  onlineEnabled  Boolean  @default(false)
+  onlineDailyCap Int      @default(5000)
+  updatedAt      DateTime @updatedAt
+
+  @@map("credit_settings")
+}
+
+model LoyaltySettings {
+  id             String   @id @default("singleton")
+  enabled        Boolean  @default(true)
+  minOrderAmount Int      @default(1000) // montant min (FCFA) pour gagner 1 tampon
+  stampsPerCard  Int      @default(10) // taille de la carte (palier final)
+  tier1Stamps    Int      @default(5) // palier intermédiaire
+  tier1RewardCap Int      @default(1000) // plafond récompense palier intermédiaire
+  tier2RewardCap Int      @default(2500) // plafond récompense palier final
+  oneStampPerDay Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+
+  @@map("loyalty_settings")
+}
+
+// Coordonnées publiques du commerce (adresse, téléphone, WhatsApp, email,
+// liens Maps, réseaux sociaux). Éditables dans /dashboard/parametres —
+// remplace les valeurs codées en dur de config/brand.config.ts. Les
+// horaires ne sont PAS dupliqués ici : ce sont ceux de `PickupSettings`
+// (déjà en base, déjà éditables sur cette même page), résumés à l'affichage
+// via `summarizeWeeklyHours` (lib/pickup-settings.ts).
+model ContactSettings {
+  id                       String   @id @default("singleton")
+  address                  String
+  district                 String
+  landmark                 String
+  phone                    String
+  whatsapp                 String
+  email                    String
+  mapsDirectionsUrl        String
+  mapsEmbedUrl             String
+  yangoLandmark            String   @default("Odyssée du vin")
+  wavePaymentNumber        String   @default("+225 07 00 00 00 00")
+  orangeMoneyPaymentNumber String   @default("+225 07 00 00 00 00")
+  instagramHandle          String
+  instagramUrl             String
+  tiktokHandle             String
+  tiktokUrl                String
+  // Réseaux facultatifs : "" = compte inexistant (le lien disparaît du pied de
+  // page et du `sameAs` JSON-LD). Cf. lib/contact-settings.ts.
+  facebookUrl              String   @default("")
+  xUrl                     String   @default("")
+  linkedinUrl              String   @default("")
+  youtubeUrl               String   @default("")
+  hashtagLabel             String
+  hashtagUrl               String
+  // Identité légale — "" = non renseigné (affiché « à compléter »). Cf.
+  // lib/contact-settings.ts et les pages /mentions-legales, /confidentialite.
+  legalName                String   @default("")
+  legalForm                String   @default("")
+  rccm                     String   @default("")
+  ncc                      String   @default("")
+  publicationDirector      String   @default("")
+  hostName                 String   @default("")
+  artciReference           String   @default("")
+  privacyEmail             String   @default("")
+  updatedAt                DateTime @updatedAt
+
+  @@map("contact_settings")
+}
+
+// ─── Sondages (moteur générique de vote) ───────────────────────────────────────
+// Permet de sonder les clients sur n'importe quel sujet. Premier cas d'usage :
+// choisir la pâtisserie de la semaine parmi des suggestions de la communauté,
+// modérées par un admin avant de devenir des options de vote. Le site public
+// n'a pas de compte client : le votant est identifié soit par téléphone
+// (clé normalisée, comme Customer.phone), soit par un token anonyme
+// (cookie/localStorage) si aucun téléphone n'est fourni — voir PollVote.
+// Indépendant de la fidélité (lib/loyalty*) dans cette version.
+
+enum PollStatus {
+  DRAFT // en préparation (peut déjà collecter des suggestions), pas encore public
+  OPEN // vote ouvert
+  CLOSED // clôturé, résultats figés
+}
+
+enum PollResultsVisibility {
+  LIVE // résultats visibles publiquement pendant le vote
+  AFTER_CLOSE // résultats visibles seulement une fois le sondage CLOSED
+}
+
+enum PollSuggestionStatus {
+  PENDING
+  APPROVED // promue en PollOption
+  REJECTED
+}
+
+model Poll {
+  id                String                @id @default(cuid())
+  title             String
+  description       String?
+  imageUrl          String?
+  status            PollStatus            @default(DRAFT)
+  // Si vrai, la page publique du sondage propose « proposer une pâtisserie »
+  // (ou tout autre type d'option) — indépendant du statut : on peut collecter
+  // des suggestions pendant que le sondage est encore en préparation (DRAFT).
+  allowSuggestions  Boolean               @default(false)
+  resultsVisibility PollResultsVisibility @default(AFTER_CLOSE)
+  // Fenêtre indicative (pas de tâche planifiée dans ce repo pour clôturer
+  // automatiquement) : à vérifier côté lecture/vote (`closesAt < now()`), le
+  // passage réel en CLOSED reste une action explicite (dashboard/MCP).
+  opensAt           DateTime?
+  closesAt          DateTime?
+
+  createdById String?
+  createdBy   User?   @relation("PollCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  options     PollOption[]
+  votes       PollVote[]
+  suggestions PollSuggestion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("poll")
+}
+
+model PollOption {
+  id          String    @id @default(cuid())
+  pollId      String
+  poll        Poll      @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  label       String
+  description String?
+  imageUrl    String?
+  sortOrder   Int       @default(0)
+  // Soft delete : les votes déjà enregistrés référencent l'option, on ne peut
+  // pas la supprimer physiquement une fois le sondage ouvert.
+  deletedAt   DateTime?
+
+  // Traçabilité : option créée par promotion d'une suggestion approuvée.
+  sourceSuggestionId String?         @unique
+  sourceSuggestion   PollSuggestion? @relation("SuggestionPromotedTo", fields: [sourceSuggestionId], references: [id], onDelete: SetNull)
+
+  votes PollVote[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pollId, deletedAt])
+  @@map("poll_option")
+}
+
+model TiktokVideo {
+  id        String  @id @default(cuid())
+  url       String
+  videoId   String
+  caption   String?
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  // Enrichissement automatique best-effort via l'oEmbed public de TikTok
+  // (lib/tiktok-oembed.ts), déclenché à la création/au changement d'URL.
+  // `thumbnailUrl` est rapatriée localement (lib/uploads.ts) pour rester
+  // affichable sous la CSP `img-src 'self'` sans whitelister le CDN TikTok.
+  oembedTitle  String?
+  authorName   String?
+  thumbnailUrl String?
+
+  createdById String?
+  createdBy   User?   @relation("TiktokVideoCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  // Soft delete pour rester cohérent avec PollOption.
+  deletedAt DateTime?
+
+  @@index([isActive, sortOrder])
+  @@map("tiktok_video")
+}
+
+model PollVote {
+  id       String     @id @default(cuid())
+  pollId   String
+  poll     Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  optionId String
+  option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  // Dédup « forte » : téléphone normalisé (même clé que Customer.phone).
+  // Null si vote anonyme par token.
+  voterPhone String?
+  // Lien CRM optionnel si le téléphone correspond/est promu à un Customer
+  // (miroir de Order.customerId — jamais requis).
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Dédup « faible » : token anonyme (uuid généré côté client, stocké en
+  // localStorage). Null si vote identifié par téléphone.
+  voterToken String?
+
+  ipAddress String? // best-effort, aide à la modération anti-abus
+  userAgent String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Un bulletin par (sondage, téléphone) ET indépendamment un par (sondage,
+  // token) : Postgres traite NULL comme distinct dans un index unique, donc
+  // chaque contrainte ne s'applique qu'aux lignes où la colonne est
+  // renseignée (un vote « téléphone » et un vote « anonyme » ne se gênent
+  // jamais). Revote autorisé tant que le sondage est OPEN via upsert sur
+  // cette clé plutôt qu'un insert bloquant.
+  @@unique([pollId, voterPhone])
+  @@unique([pollId, voterToken])
+  @@index([pollId, optionId])
+  @@index([customerId])
+  @@map("poll_vote")
+}
+
+model PollSuggestion {
+  id          String               @id @default(cuid())
+  pollId      String
+  poll        Poll                 @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  label       String
+  description String?
+  imageUrl    String?
+  status      PollSuggestionStatus @default(PENDING)
+
+  submitterPhone String? // normalisé, comme Customer.phone
+  submitterName  String?
+
+  moderatedById   String?
+  moderatedBy     User?     @relation("PollSuggestionModeratedBy", fields: [moderatedById], references: [id], onDelete: SetNull)
+  moderatedAt     DateTime?
+  rejectionReason String?
+
+  promotedOption PollOption? @relation("SuggestionPromotedTo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pollId, status])
+  @@map("poll_suggestion")
+}
+
+model MenuCategory {
+  id               String           @id @default(cuid())
+  name             String
+  slug             String           @unique
+  sortOrder        Int              @default(0)
+  available        Boolean          @default(true)
+  // Soft delete : `deletedAt` non nul = catégorie « supprimée » (masquée partout
+  // mais conservée en base, ainsi que ses produits). Le `slug` est dé-collisionné
+  // à la suppression pour pouvoir réutiliser le même nom ensuite.
+  deletedAt        DateTime?
+  products         Product[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  // Planning récurrent (ex. « menu brunch » uniquement le week-end). `null` =
+  // pas de planning, disponible tous les jours (comportement historique). Se
+  // combine par intersection avec le planning propre à chaque produit — voir
+  // `intersectAvailableDays` (lib/menu.ts).
+  scheduleId       String?
+  schedule         ProductSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  // Commande à l'avance obligatoire : délai MINIMUM (jours civils) entre la
+  // commande et la date de retrait pour tout produit de cette catégorie.
+  // `null` = pas de contrainte. Se combine avec celle du produit par MAXIMUM
+  // (le plus restrictif gagne) — voir `effectiveAdvanceOrderDays` (lib/menu.ts).
+  advanceOrderDays Int?
+
+  @@index([deletedAt])
+  @@map("menu_category")
+}
+
+model Product {
+  id               String                 @id @default(cuid())
+  name             String
+  description      String
+  price            Int
+  coutMatiere      Int                    @default(0)
+  coutEmballage    Int                    @default(0)
+  imageUrl         String?
+  available        Boolean                @default(true)
+  sortOrder        Int                    @default(0)
+  featured         Boolean                @default(false)
+  featuredOrder    Int                    @default(0)
+  featuredBadge    String?
+  // Stock vendable courant. `null` = illimité (comportement historique,
+  // jamais suivi ni bloqué) ; entier = quantité restante suivie ; `0` = épuisé
+  // (le produit reste visible côté public mais non commandable).
+  stockQuantity    Int?
+  // Pause programmée : produit non commandable jusqu'à cette date-heure (mais
+  // toujours visible, avec un tag de statut). `null` = pas de pause. La reprise
+  // est calculée à la lecture (comparaison à `now`), sans job cron.
+  unavailableUntil DateTime?
+  // Soft delete : `deletedAt` non nul = produit « supprimé » (masqué partout mais
+  // conservé). Posé aussi en cascade quand sa catégorie est supprimée.
+  deletedAt        DateTime?
+  categoryId       String
+  category         MenuCategory           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  supplementGroups SupplementGroup[]
+  // Planning récurrent (ex. « jour du chocolat » = mercredi uniquement). `null`
+  // = pas de planning, disponible tous les jours. Se combine par intersection
+  // avec le planning éventuel de la catégorie — voir `intersectAvailableDays`
+  // (lib/menu.ts). Supprimer le planning désassigne juste le produit (`SetNull`).
+  scheduleId       String?
+  schedule         ProductSchedule?       @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  // Historique structuré des passages « spécialité de la semaine » : le produit
+  // n'est commandable QUE dans une fenêtre active (voir `isWithinAnyPeriod`,
+  // lib/supplements.ts) dès qu'au moins une ligne existe. Peut être reconduit
+  // (plusieurs lignes dans le temps) — chaque passage reste enregistré.
+  weeklySpecials   ProductWeeklySpecial[]
+  // Commande à l'avance obligatoire : délai MINIMUM (jours civils) entre la
+  // commande et la date de retrait choisie. `null` = pas de contrainte.
+  // Combiné avec celui de la catégorie par MAXIMUM (le plus restrictif
+  // gagne) — voir `effectiveAdvanceOrderDays` (lib/menu.ts). N'empêche PAS
+  // l'ajout au panier : seule la date de retrait choisie au checkout est
+  // contrainte (voir `isPickupDateAllowed`, lib/supplements.ts).
+  advanceOrderDays Int?
+  // Commande spéciale sur mesure (ex. gâteau grand format) : exige un acompte
+  // minimum (MIN_DEPOSIT_PERCENT, config/constants.ts) avant d'entrer en
+  // cuisine. Se combine avec `advanceOrderDays` (délai de commande) plutôt que
+  // de dupliquer un second mécanisme — voir `Order.depositRequired` et
+  // `sendOrderToKitchen` (lib/order-mutations.ts).
+  requiresDeposit  Boolean                @default(false)
+  // Précommande (retrait un jour civil ultérieur) autorisée pour ce produit.
+  // Défaut `false` : un produit n'est précommandable que si on l'a activé.
+  // `false` = commandable uniquement pour le jour même côté public ; la caisse
+  // n'est pas bloquée. Sans effet si le produit (ou sa catégorie) exige déjà un
+  // délai `advanceOrderDays` : il ne se commande alors qu'à l'avance. Voir
+  // `isPreorderable` (lib/supplements.ts).
+  preorderable     Boolean                @default(false)
+  restockAlerts    RestockAlert[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([featured, featuredOrder])
+  @@index([deletedAt])
+  @@map("product")
+}
+
+// Planning récurrent nommé et réutilisable (à la cal.com) : un ensemble de
+// jours de la semaine assignable à plusieurs produits ET catégories à la fois.
+// Modifier le planning met à jour tout ce qui l'utilise. `days` est vide côté
+// UI seulement au moment de la création (validation Zod : au moins un jour) —
+// un planning sans jour n'aurait pas de sens.
+model ProductSchedule {
+  id         String         @id @default(cuid())
+  name       String
+  // 0=dimanche…6=samedi, même convention que WEEKDAY_LABELS/weeklyHoursSchema
+  // (lib/pickup-settings.ts).
+  days       Int[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  products   Product[]
+  categories MenuCategory[]
+
+  @@map("product_schedule")
+}
+
+// Historique des fenêtres « spécialité de la semaine » d'un produit. Chaque
+// ligne est un passage (programmé, en cours ou passé) ; la présence d'AU MOINS
+// UNE ligne rend le produit non commandable en dehors de toute fenêtre active
+// (voir `isWithinAnyPeriod`). Pas de soft delete : une ligne supprimée est un
+// passage annulé, pas juste masqué.
+model ProductWeeklySpecial {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@map("product_weekly_special")
+}
+
+// Alerte « Préviens-moi quand c'est de retour » (carte publique) : un
+// appareil (abonnement Web Push, sans compte) attend le retour en stock d'un
+// produit épuisé, ou d'un goût précis (`groupName` + `optionName` : le client
+// ne connaît que les noms, comme le panier). À usage unique : supprimée dès
+// l'envoi, et purgée après `RESTOCK_ALERT_TTL_DAYS` (lib/restock-alerts.ts).
+// Table distincte de `PushSubscription`, dont l'`endpoint` est unique et
+// dédié à UN usage (staff ou suivi d'une commande).
+model RestockAlert {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  groupName  String?
+  optionName String?
+  // `productId` ou `productId|groupe|option` : clé d'unicité par appareil
+  // (les NULL de `groupName`/`optionName` ne seraient pas dédoublonnés).
+  targetKey  String
+  endpoint   String
+  p256dh     String
+  auth       String
+  createdAt  DateTime @default(now())
+
+  @@unique([endpoint, targetKey])
+  @@index([productId])
+  @@index([createdAt])
+  @@map("restock_alert")
+}
+
+model SupplementGroup {
+  id        String             @id @default(cuid())
+  name      String
+  // 'single' (un choix), 'multiple' (cases à cocher) ou 'quantity' (répartition
+  // d'une quantité totale entre les options, ex. 3 parts à répartir sur 3 goûts).
+  type      String
+  // Nature du groupe : 'flavor' (goût / parfum : ce qu'on met DANS le produit,
+  // ex. Chocolat, Vanille) ou 'extra' (supplément : ce qu'on AJOUTE par-dessus,
+  // ex. sauce chocolat, chantilly). Sans lui, un goût « Chocolat » et un
+  // supplément « Chocolat » étaient indiscernables sur le ticket de cuisine.
+  // Recopié sur la ligne de commande à la création (`kind`, lib/schemas/order/cart.ts).
+  kind      String             @default("extra")
+  required  Boolean            @default(false)
+  sortOrder Int                @default(0)
+  // Disponibilité : un groupe désactivé reste configuré mais n'est plus proposé
+  // côté client (ni en caisse). Permet de masquer temporairement tout un groupe.
+  available Boolean            @default(true)
+  // Bornes sur le nombre de sélections (type 'multiple' : nombre d'options
+  // cochées) ou sur la quantité totale répartie (type 'quantity'). `null` =
+  // pas de borne. Ignorées pour le type 'single' (toujours 0 ou 1, régi par
+  // `required`).
+  minSelect Int?
+  maxSelect Int?
+  // `null` = groupe global (« Extras »), proposé sur TOUS les produits sans
+  // être configuré individuellement sur chacun. Sinon, groupe propre à un
+  // produit précis. Voir `isGlobal` (booléen explicite, ne pas déduire la
+  // nullabilité seule — plus lisible dans les requêtes/le code).
+  productId String?
+  product   Product?           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  isGlobal  Boolean            @default(false)
+  options   SupplementOption[]
+
+  @@index([isGlobal])
+  @@map("supplement_group")
+}
+
+model SupplementOption {
+  id            String          @id @default(cuid())
+  name          String
+  price         Int
+  // Disponibilité d'un « goût » : désactivé = conservé mais non sélectionnable.
+  available     Boolean         @default(true)
+  // Stock vendable courant de cette option. `null` = illimité ; entier = suivi ;
+  // `0` = épuisé (grisé côté public, mais l'option reste listée). Même sémantique
+  // que `Product.stockQuantity`.
+  stockQuantity Int?
+  // Ordre d'affichage dans le groupe, tel que saisi dans l'éditeur. Sans lui,
+  // les options remontaient dans l'ordre rendu par Postgres — arbitraire, et
+  // instable dès qu'une ligne était modifiée : le client ne voyait pas deux
+  // fois la même carte dans le même ordre.
+  sortOrder     Int             @default(0)
+  groupId       String
+  group         SupplementGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("supplement_option")
+}
+
+model PickupSettings {
+  id              String   @id @default("singleton")
+  slotIntervalMin Int      @default(15)
+  leadTimeMin     Int      @default(30)
+  // Aligné sur `DEFAULT_SETTINGS.visibleDays` (lib/pickup-settings.ts) et sur
+  // `PICKUP_MIN_VISIBLE_DAYS` (config/constants.ts), qui plancher déjà la
+  // valeur à la lecture : un défaut à 2 laissait croire à un horizon de 2 jours
+  // alors que le code en sert 7.
+  visibleDays     Int      @default(7)
+  capacityPerSlot Int?
+  weeklyHours     Json     @default("{}")
+  dateOverrides   Json     @default("[]")
+  pickupAddress   String?
+  pickupMapsUrl   String?
+  updatedAt       DateTime @updatedAt
+
+  @@map("pickup_settings")
+}
+
+// Carte du menu au format PDF (téléchargeable), gérée depuis /dashboard/menu.
+// Ligne singleton comme `PickupSettings`/`LoyaltySettings` — un seul PDF actif
+// à la fois, uploadé vers Cloudinary (`resource_type: 'raw'`, dossier `menu-pdf`).
+model MenuSettings {
+  id         String   @id @default("singleton")
+  menuPdfUrl String?
+  updatedAt  DateTime @updatedAt
+
+  @@map("menu_settings")
+}
+
+enum ExpensePaymentMethod {
+  CASH
+  WAVE
+  BANK
+  OTHER
+}
+
+// Nature comptable d'une catégorie de dépense (cf. ExpenseCategory.nature).
+enum ExpenseNature {
+  FIXED
+  VARIABLE
+}
+
+// Réglages du module dépenses (singleton) : seuils utilisés par les
+// statistiques de fréquence/récurrence et de cumul, facteur de détection des
+// prix aberrants, durée de vie d'un brouillon de saisie, seuil de suggestion
+// de récurrence.
+model ExpenseSettings {
+  id                       String   @id @default("singleton")
+  freqWindowDays           Int      @default(30)
+  freqMinCount             Int      @default(3)
+  cumulativeMinAmount      Int      @default(20000)
+  priceAberrantFactor      Int      @default(3)
+  draftTtlMinutes          Int      @default(10)
+  recurrenceSuggestMinHits Int      @default(3)
+  updatedAt                DateTime @updatedAt
+
+  @@map("expense_settings")
+}
+
+model ExpenseCategory {
+  id         String             @id @default(cuid())
+  name       String             @unique
+  sortOrder  Int                @default(0)
+  // Soft delete : `deletedAt` non nul = catégorie « supprimée » (retirée des
+  // listes/sélecteurs) mais conservée — les dépenses rattachées gardent leur
+  // libellé. Recréer une catégorie du même nom « ressuscite » la version
+  // supprimée (le nom reste unique).
+  deletedAt  DateTime?
+  // Nature comptable : FIXED (loyer, salaires, abonnements…) ou VARIABLE
+  // (achats courants). Défaut VARIABLE — l'admin reclasse les catégories fixes
+  // dans l'UI. Alimente les statistiques de fréquence/récurrence des dépenses.
+  nature     ExpenseNature      @default(VARIABLE)
+  expenses   Expense[]
+  fixedCosts FixedCost[]
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  @@index([deletedAt])
+  @@map("expense_category")
+}
+
+// Périodicité d'une charge fixe : le montant couvre une période, répartie sur
+// les JOURS OUVRÉS (horaires de la boutique) de cette période.
+enum FixedCostPeriodicity {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+// Nature d'un versement de salaire :
+// - SALAIRE : paie (partielle ou totale) d'un mois ;
+// - ACOMPTE : avance sur le salaire du MOIS EN COURS (déduite du dû du mois) ;
+// - AVANCE : prêt daté, récupéré automatiquement sur les paies SUIVANTES.
+enum SalaryPaymentType {
+  SALAIRE
+  ACOMPTE
+  AVANCE
+}
+
+// Charge fixe suivie pour le point mort (loyer, salaires, abonnements…).
+// On y porte un montant, une périodicité et une date de prise d'effet pour
+// ramener la charge à un coût par jour ouvré. `categoryId` = catégorie de dépense
+// attendue : sert à alerter quand une période échue n'a aucune dépense saisie.
+model FixedCost {
+  id                 String               @id @default(cuid())
+  label              String
+  amount             Int // montant par période (FCFA)
+  periodicity        FixedCostPeriodicity @default(MONTHLY)
+  startDate          DateTime             @db.Date // prise d'effet
+  endDate            DateTime?            @db.Date // dernière date (incluse)
+  categoryId         String
+  category           ExpenseCategory      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  // Clé d'idempotence de l'import par catégorie FIXED (#433) : une seule charge
+  // importée par catégorie.
+  importedCategoryId String?              @unique
+  active             Boolean              @default(true)
+  note               String?
+  sortOrder          Int                  @default(0)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  // Échéances de paiement dans la période. Aucune ligne = une échéance par
+  // défaut déduite de `startDate` (cf. lib/fixed-costs/schedule.ts).
+  installments FixedCostInstallment[]
+  // Dépenses réelles qui règlent une occurrence de cette charge.
+  expenses     Expense[]              @relation("ExpenseFixedCost")
+
+  @@index([categoryId])
+  @@index([active])
+  @@map("fixed_cost")
+}
+
+// Une échéance : « le `day` du mois (décalé de `monthOffset` mois dans la
+// période) on paie `amount` ». Hebdo : `day` = jour de semaine 1 (lun) … 7
+// (dim). Mensuel : `day` 1..31, clampé au dernier jour du mois. Trimestriel :
+// `monthOffset` 0..2 ; annuel : 0..11.
+model FixedCostInstallment {
+  id          String    @id @default(cuid())
+  fixedCostId String
+  fixedCost   FixedCost @relation(fields: [fixedCostId], references: [id], onDelete: Cascade)
+  monthOffset Int       @default(0)
+  day         Int
+  amount      Int // FCFA
+
+  @@unique([fixedCostId, monthOffset, day])
+  @@map("fixed_cost_installment")
+}
+
+// ─── Salaires (admin seul) ────────────────────────────────────────────────────
+//
+// Modèle séparé des charges fixes et des dépenses : aucune jointure dans les
+// requêtes génériques de dépenses. Trois tables — `Employee` (le salarié,
+// indépendant des comptes de connexion), `SalaryRate` (le montant mensuel à
+// partir d'une date : l'historique rend les changements de salaire possibles
+// sans écraser le passé) et `SalaryPayment` (les versements datés).
+// Les règles de calcul (dû du mois, prorata au jour, avances) vivent dans
+// `lib/salaries/` (pures, testées) et ne sont pas dupliquées ici.
+
+// Employé. `startDate` = date d'entrée, `endDate` = date de sortie (incluse,
+// null = en poste). `active` sert au filtrage des listes ; le calcul du dû
+// s'appuie sur la fenêtre `startDate` … `endDate`, pas sur ce drapeau.
+model Employee {
+  id        String    @id @default(cuid())
+  name      String
+  position  String?
+  startDate DateTime  @db.Date
+  endDate   DateTime? @db.Date
+  active    Boolean   @default(true)
+  note      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  rates    SalaryRate[]
+  payments SalaryPayment[]
+
+  @@index([active])
+  @@map("employee")
+}
+
+// Taux mensuel d'un employé PRENANT EFFET à `startDate` (incluse) et valant
+// jusqu'au taux suivant. Un changement en cours de mois est proratisé au jour
+// calendaire (cf. lib/salaries/compute.ts).
+model SalaryRate {
+  id            String   @id @default(cuid())
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  monthlyAmount Int // FCFA
+  startDate     DateTime @db.Date // prise d'effet (incluse)
+  createdAt     DateTime @default(now())
+
+  @@unique([employeeId, startDate])
+  @@map("salary_rate")
+}
+
+// Versement de salaire daté. `month` = mois concerné « YYYY-MM » (un salaire de
+// juin peut être payé en juillet). `recoveryMonths` ne sert qu'aux AVANCE :
+// nombre de mois sur lesquels étaler la récupération (1 = tout sur le mois
+// suivant). `idempotencyKey` rend l'enregistrement rejouable (double clic).
+model SalaryPayment {
+  id             String               @id @default(cuid())
+  employeeId     String
+  employee       Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  date           DateTime             @db.Date // jour du versement
+  month          String // mois concerné "YYYY-MM"
+  amount         Int // FCFA
+  type           SalaryPaymentType
+  paymentMethod  ExpensePaymentMethod @default(WAVE)
+  recoveryMonths Int                  @default(1)
+  note           String?
+  idempotencyKey String?              @unique
+  createdById    String?
+  createdBy      User?                @relation("SalaryPaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime             @default(now())
+
+  // Dépense miroir du versement (catégorie « Salaires », sans numéro de reçu).
+  // Relation 1:1 : la dépense porte `Expense.salaryPaymentId` et tombe avec le
+  // versement (ON DELETE CASCADE) — jamais de dépense orpheline.
+  expense        Expense?             @relation("SalaryPaymentExpense")
+
+  @@index([employeeId, month])
+  @@index([month])
+  @@index([date])
+  @@map("salary_payment")
+}
+
+model Expense {
+  id            String               @id @default(cuid())
+  // Jour civil de la dépense (cohérent avec Order.dailyDate pour les requêtes
+  // de plage dans les stats).
+  date          DateTime             @db.Date
+  amount        Int // montant en francs CFA
+  paymentMethod ExpensePaymentMethod @default(CASH)
+  supplier      String?
+  note          String?
+  // Justificatif (photo) optionnel : chemin /uploads/receipts/... ou URL http(s).
+  receiptUrl    String?
+
+  // Numéro de reçu séquentiel, attribué à la création et IMMUABLE (principe
+  // comptable : un document numéroté ne change pas, même si on modifie sa date).
+  // Le compteur (receiptSeq) est remis à zéro chaque mois civil, scopé par
+  // receiptPeriod ("YYYY-MM" du mois d'attribution). receiptNo est le libellé
+  // formaté affiché/exporté : DEP-YYYY-MM-NNNN (ex. DEP-2026-06-0001).
+  // Nullable pour permettre un `db push` sans valeur par défaut sur les lignes
+  // existantes ; les dépenses déjà en base sont numérotées via le script de
+  // backfill (`pnpm db:backfill-expense-receipts`). Toute dépense créée par
+  // l'app reçoit toujours son numéro.
+  receiptNo     String? @unique
+  receiptPeriod String? // mois d'attribution "YYYY-MM"
+  receiptSeq    Int? // séquence dans le mois (1-based)
+
+  // Occurrence de charge fixe réglée par cette dépense : la charge + la date
+  // d'échéance (jour calculé, pas la date de paiement). Nullable : la plupart
+  // des dépenses ne règlent aucune charge fixe.
+  fixedCostId String?
+  fixedCost   FixedCost? @relation("ExpenseFixedCost", fields: [fixedCostId], references: [id], onDelete: SetNull)
+  dueDate     DateTime?  @db.Date
+
+  // Clé d'idempotence d'un règlement en lot (`<lot>:<charge>:<échéance>`) :
+  // rejouer le même lot renvoie la dépense déjà créée au lieu d'un doublon.
+  idempotencyKey String? @unique
+
+  // Versement de salaire matérialisé par cette ligne (réservé à l'ADMIN). Le
+  // lien explicite identifie les lignes de salaire pour les masquer aux autres
+  // rôles ; il n'y a JAMAIS de dépense orpheline (supprimer le versement
+  // supprime la ligne, ON DELETE CASCADE). Ces lignes n'ont pas de numéro de
+  // reçu : la séquence DEP n'est pas consommée par les salaires.
+  salaryPaymentId String?        @unique
+  salaryPayment   SalaryPayment? @relation("SalaryPaymentExpense", fields: [salaryPaymentId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  createdById String?
+  createdBy   User?   @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Liens depuis l'inventaire : une dépense peut matérialiser un réappro
+  // (achats de matières premières). Relation inverse, posée par le module stock.
+  inventoryPurchases InventoryPurchase[]     @relation("ExpenseInventoryPurchases")
+  restockBatches     InventoryRestockBatch[] @relation("ExpenseRestockBatch")
+
+  // Détail par article (ligne à ligne). Optionnel : une dépense peut rester
+  // « globale » (un seul montant, sans détail) — voir ExpenseItem.
+  items ExpenseItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([receiptPeriod, receiptSeq])
+  @@index([date(sort: Desc)])
+  @@index([categoryId])
+  @@index([fixedCostId, dueDate])
+  @@map("expense")
+}
+
+// ─── Articles de dépense (détail par article) ──────────────────────────────────
+// Référentiel d'articles (« Farine T45 », « Sucre », « Gaz »…) permettant de
+// détailler une dépense ligne à ligne (ExpenseItem) au lieu d'un seul montant
+// global. Optionnellement lié à une référence d'inventaire (InventoryItem) —
+// achats de stock et dépenses partagent alors le même article. Fusion
+// possible (mergedIntoId) pour dédoublonner deux libellés du même article.
+
+model ExpenseArticle {
+  id                String           @id @default(cuid())
+  name              String
+  normalizedName    String           @unique
+  baseUnit          String?
+  // Suivi de stock : article rattaché à une référence d'inventaire.
+  trackInventory    Boolean          @default(false)
+  inventoryItemId   String?          @unique
+  inventoryItem     InventoryItem?   @relation(fields: [inventoryItemId], references: [id], onDelete: SetNull)
+  location          String?
+  // Achat en gros (ex. carton de gobelets) : indicatif, pas de logique métier
+  // conditionnée dessus dans ce step.
+  bulkPurchase      Boolean          @default(false)
+  bulkPurchaseAt    DateTime?
+  wholesaleRefPrice Int?
+  // Soft delete : voir ExpenseCategory. Retiré des sélecteurs mais conservé ;
+  // les lignes de dépense existantes gardent leur référence.
+  archivedAt        DateTime?
+  // Fusion : cet article a été absorbé par `mergedInto` (dédoublonnage de deux
+  // libellés désignant le même article). `mergedFrom` = relation inverse.
+  mergedIntoId      String?
+  mergedInto        ExpenseArticle?  @relation("ArticleMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom        ExpenseArticle[] @relation("ArticleMerge")
+  aliases           ArticleAlias[]
+  items             ExpenseItem[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([archivedAt])
+  @@index([bulkPurchase])
+  @@map("expense_article")
+}
+
+// Alias de saisie (libellé fournisseur, orthographe alternative…) pointant
+// vers un article existant — alimente l'auto-complétion/rapprochement à la
+// saisie. `supplierKey` optionnel : un même alias peut désigner un article
+// différent selon le fournisseur.
+model ArticleAlias {
+  id          String         @id @default(cuid())
+  alias       String
+  supplierKey String?
+  articleId   String
+  article     ExpenseArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+
+  @@unique([alias, supplierKey])
+  @@index([articleId])
+  @@map("article_alias")
+}
+
+// Ligne de détail d'une dépense. `rawLabel` = libellé brut saisi (toujours
+// renseigné) ; `article`/`label` = rapprochement effectué (peut rester null,
+// saisie libre non rapprochée). `qtyBase` = quantité normalisée dans l'unité
+// de base de l'article ; `formatQty`/`formatSize` = saisie « format d'achat »
+// (ex. 2 cartons de 24) avant conversion. `pendingQuantity` = montant connu
+// mais quantité pas encore renseignée (à compléter plus tard).
+model ExpenseItem {
+  id              String          @id @default(cuid())
+  expenseId       String
+  expense         Expense         @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  articleId       String?
+  article         ExpenseArticle? @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  rawLabel        String
+  label           String?
+  qtyBase         Decimal?        @db.Decimal(12, 3)
+  formatQty       Decimal?        @db.Decimal(12, 3)
+  formatSize      Decimal?        @db.Decimal(12, 3)
+  unit            String?
+  unitPrice       Int?
+  amount          Int
+  pendingQuantity Boolean         @default(false)
+  sortOrder       Int             @default(0)
+  createdAt       DateTime        @default(now())
+
+  @@index([expenseId])
+  @@index([articleId])
+  @@map("expense_item")
+}
+
+// ─── Brouillon d'achat/dépense (flux MCP prepare → confirm) ────────────────────
+// Toute écriture sensible d'achat/dépense côté MCP passe par un brouillon
+// PERSISTÉ (payload JSON libre — voir `lib/purchase-drafts.ts`) plutôt qu'une
+// création directe : `kind` distingue 'purchase' (achat détaillé, lignes
+// rapprochées au référentiel d'articles) de 'other_expense' (dépense simple,
+// pas de lignes). `expiresAt` borne la durée de vie du brouillon (réglage
+// `ExpenseSettings.draftTtlMinutes`) ; `confirmedAt` marque la confirmation
+// (claim atomique — un brouillon ne peut être confirmé qu'une seule fois, cf.
+// `confirmPurchase`/`confirmOtherExpense`). Purge des brouillons expirés non
+// confirmés via `purgeExpiredDrafts` (cron, hors périmètre de ce step).
+model PurchaseDraft {
+  id          String    @id @default(cuid())
+  kind        String // 'purchase' | 'other_expense'
+  payload     Json
+  expiresAt   DateTime
+  confirmedAt DateTime?
+  createdById String?
+  createdBy   User?     @relation("PurchaseDraftCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+
+  @@index([expiresAt])
+  @@map("purchase_draft")
+}
+
+model CashClosing {
+  id           String   @id @default(cuid())
+  // Un jour civil = une clôture (cohérent avec Order.dailyDate / Expense.date).
+  date         DateTime @unique @db.Date
+  openingFloat Int      @default(0) // fond de caisse (FCFA)
+  countedCash  Int      @default(0) // espèces comptées en fin de journée
+
+  // Instantané calculé au moment de la clôture (les commandes/dépenses peuvent
+  // évoluer ensuite — on fige ce que le système indiquait).
+  cashSales    Int @default(0) // ventes encaissées en espèces ce jour
+  cashExpenses Int @default(0) // dépenses payées en espèces ce jour
+  cashRefunds  Int @default(0) // remboursements rendus en espèces ce jour
+  expectedCash Int @default(0) // openingFloat + cashSales - cashExpenses - cashRefunds
+  difference   Int @default(0) // countedCash - expectedCash
+
+  note String?
+
+  closedById String?
+  closedBy   User?   @relation("CashClosingClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date(sort: Desc)])
+  @@map("cash_closing")
+}
+
+// ─── Remboursements ───────────────────────────────────────────────────────────
+// Un remboursement est une ligne NÉGATIVE datée du jour où l'argent part
+// (`payoutDate`) : la commande et ses `OrderPayment` ne sont jamais modifiés.
+// Demandé par la caisse, validé par un admin, puis envoyé (transfert Jèko) ou
+// remis à la main. Les frais en ligne (`Order.onlineFee`) ne sont jamais rendus.
+// Actifs (comptent dans le plafond) : tous les statuts sauf REJECTED/CANCELLED.
+enum RefundStatus {
+  REQUESTED // demandé, attend la validation d'un admin
+  APPROVED // validé, prêt à partir
+  PROCESSING // transfert Jèko créé, résultat final pas encore connu
+  UNCERTAIN // timeout / référence déjà vue : on ignore si Jèko a envoyé
+  FAILED // échec constaté : à corriger (numéro, mode, solde…) puis revalider
+  PAID // argent parti (ou remis) : effet comptable à `payoutDate`
+  REJECTED
+  CANCELLED
+}
+
+enum RefundDelivery {
+  JEKO_TRANSFER
+  MANUAL
+  // Aucun argent ne sort : la somme est créditée au solde du client (lib/credits).
+  STORE_CREDIT
+}
+
+enum RefundReason {
+  PRODUCT_UNAVAILABLE
+  QUALITY
+  PRICE_ERROR
+  DOUBLE_PAYMENT
+  CUSTOMER_CHANGED_MIND
+  LATE_PAYMENT
+  COMMERCIAL_GESTURE
+  OTHER
+}
+
+enum RefundSource {
+  STAFF
+  AUTO_LATE
+}
+
+enum RefundLineKind {
+  PRODUCT
+  SUPPLEMENT
+}
+
+// Réservation de stock PAR RESSOURCE d'une commande programmée du jour, payée et pas
+// encore lancée (`status NEW`, `stockReservedAt` nul) : le stock est décrémenté dès
+// qu'il arrive, mais la commande n'entre pas en cuisine. Au lancement,
+// `reserveStockOnce` ne décompte que `besoin − réservé` puis supprime les lignes ;
+// toute sortie du dispositif (annulation, dépaiement, remboursement, édition,
+// report) les restitue (`releaseHolds`). Cf. lib/orders/stock-holds.
+model OrderStockHold {
+  id         String        @id @default(cuid())
+  orderId    String
+  order      Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind       StockHoldKind
+  // `Product.id` ou `SupplementOption.id` selon `kind` (pas de relation : la cible peut disparaître).
+  resourceId String
+  quantity   Int
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([orderId, kind, resourceId])
+  @@index([resourceId])
+  @@map("order_stock_hold")
+}
+
+enum StockHoldKind {
+  PRODUCT
+  OPTION
+}
+
+// Journal du stock : une ligne par mouvement de `Product.stockQuantity` ou de
+// `SupplementOption.stockQuantity` (vente, réservation, restitution, réappro,
+// réglage manuel…). Append-only, écrit dans la même transaction que le mouvement
+// par `lib/stock-history/record.ts` (seul écrivain). Pas de relation vers la
+// cible ni vers la commande : produit, option ou commande peuvent disparaître,
+// l'historique reste lisible grâce à `label`.
+model StockMovement {
+  id         String              @id @default(cuid())
+  createdAt  DateTime            @default(now())
+  kind       StockHoldKind
+  // `Product.id` ou `SupplementOption.id` selon `kind`.
+  resourceId String
+  // Nom figé au moment du mouvement : « Beignet », « Goûts · Chocolat (Crêpe) ».
+  label      String
+  reason     StockMovementReason
+  source     StockMovementSource @default(STAFF)
+  // Variation signée demandée (négatif = sortie). Renseignée même quand le stock
+  // est illimité (`before`/`after` à null) : on voit alors ce qui se vend.
+  delta      Int?
+  before     Int?
+  after      Int?
+  orderId    String?
+  refundId   String?
+  actorId    String?
+  note       String?
+
+  @@index([resourceId, createdAt(sort: Desc)])
+  @@index([orderId])
+  @@index([createdAt(sort: Desc)])
+  @@index([reason, createdAt(sort: Desc)])
+  @@map("stock_movement")
+}
+
+enum StockMovementSource {
+  STAFF
+  MCP
+  SYSTEM
+}
+
+enum StockMovementReason {
+  BASELINE
+  ORDER_KITCHEN
+  HOLD_RESERVE
+  HOLD_RELEASE
+  ORDER_EDIT_ADD
+  ORDER_EDIT_REMOVE
+  SHORTAGE_COVER
+  REFUND_RESTOCK
+  EXPIRY_RELEASE
+  MANUAL_RESTOCK
+  MANUAL_SET
+  BULK_SET
+  FORM_EDIT
+  CREATED
+  OPTION_REMOVED
+  ANOMALY
+}
+
+model Refund {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  amount Int // FCFA, produits seuls
+  reason RefundReason
+  note   String?
+  source RefundSource @default(STAFF)
+  status RefundStatus @default(REQUESTED)
+
+  delivery         RefundDelivery
+  // Canal par lequel l'argent sort (par défaut le mode utilisé par le client).
+  channel          PaymentMode
+  destinationPhone String? // E.164, pour un transfert Jèko
+
+  // Instantanés : survivent à la suppression du client ; effacés à l'anonymisation.
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerName String?
+
+  requestedById String?
+  requestedBy   User?     @relation("RefundRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  approvedById  String?
+  approvedBy    User?     @relation("RefundApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt    DateTime?
+
+  paidAt     DateTime?
+  // Jour civil (Abidjan) où l'argent est parti : date d'effet comptable.
+  payoutDate DateTime? @db.Date
+
+  // Transfert Jèko. `attempt` numérote la référence `REMB-<id>-<attempt>` : Jèko
+  // refuse une référence déjà utilisée (409), un nouvel essai en prend une neuve.
+  attempt        Int     @default(0)
+  jekoTransferId String?
+  feeFcfa        Int     @default(0)
+  failureCode    String?
+  failureMessage String?
+
+  // Conversion d'avoir en argent : id du remboursement `STORE_CREDIT` converti.
+  // Une conversion sort de l'argent (trésorerie, solde Jèko) mais ne retire pas de
+  // CA une 2e fois (l'avoir l'a déjà fait) ni ne consomme le plafond de la commande.
+  creditSourceId String?
+
+  // Remise en stock des lignes remboursées (choix du staff, non par défaut).
+  restockItems    Boolean   @default(false)
+  stockRestoredAt DateTime?
+
+  lines  RefundLine[]
+  events RefundEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@index([payoutDate])
+  @@index([creditSourceId])
+  @@map("refund")
+}
+
+// Lignes remboursées (optionnel) : instantanés, car `Order.items` (JSON) n'a pas
+// d'identifiant de ligne stable et peut être réédité.
+model RefundLine {
+  id         String         @id @default(cuid())
+  refundId   String
+  refund     Refund         @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  cartId     String
+  productId  String
+  name       String
+  kind       RefundLineKind
+  groupName  String?
+  optionName String?
+  quantity   Int
+  amount     Int // FCFA
+
+  @@index([refundId])
+  @@map("refund_line")
+}
+
+// Journal : qui a fait passer quel remboursement de quel statut à quel autre.
+model RefundEvent {
+  id         String        @id @default(cuid())
+  refundId   String
+  refund     Refund        @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  actorId    String?
+  actor      User?         @relation("RefundEventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  fromStatus RefundStatus?
+  toStatus   RefundStatus
+  note       String?
+  createdAt  DateTime      @default(now())
+
+  @@index([refundId])
+  @@map("refund_event")
+}
+
+// ─── Investissements (apports / financements) ──────────────────────────────────
+// Distincts des dépenses d'exploitation : argent INJECTÉ dans l'affaire (capital
+// propre, prêt, apport d'associé, subvention…). On suit la source de financement
+// et, pour les apports remboursables, un suivi de remboursement léger
+// (montant remboursé / restant dû calculé). N'impacte PAS la marge nette.
+
+enum InvestmentPaymentMethod {
+  CASH
+  WAVE
+  BANK
+  OTHER
+}
+
+model InvestmentSource {
+  id          String       @id @default(cuid())
+  name        String       @unique
+  sortOrder   Int          @default(0)
+  // Soft delete : voir ExpenseCategory. Retirée des sélecteurs mais conservée ;
+  // recréer une source du même nom ressuscite la version supprimée.
+  deletedAt   DateTime?
+  investments Investment[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([deletedAt])
+  @@map("investment_source")
+}
+
+model Investment {
+  id            String                  @id @default(cuid())
+  // Jour civil de l'apport (cohérent avec Order.dailyDate / Expense.date).
+  date          DateTime                @db.Date
+  amount        Int // montant injecté, en francs CFA
+  paymentMethod InvestmentPaymentMethod @default(CASH) // canal d'entrée des fonds
+  financier     String? // nom du financeur (associé, banque…)
+  note          String?
+  // Justificatif optionnel : chemin /uploads/receipts/... ou URL http(s).
+  documentUrl   String?
+
+  // Suivi de remboursement léger. `reimbursable` = false → apport non remboursable
+  // (capital, subvention). Restant dû = amount - amountRepaid (calculé, jamais stocké).
+  reimbursable Boolean   @default(false)
+  amountRepaid Int       @default(0) // cumul déjà remboursé (FCFA)
+  dueDate      DateTime? @db.Date // échéance indicative (optionnelle)
+
+  sourceId String
+  source   InvestmentSource @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+
+  createdById String?
+  createdBy   User?   @relation("InvestmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date(sort: Desc)])
+  @@index([sourceId])
+  @@map("investment")
+}
+
+// ─── Régularisation de recette (ajustement manuel du CA) ───────────────────────
+// Permet d'enregistrer un montant de CA SANS commande (ventes non saisies en
+// temps réel, anciennes commandes perdues…). Injecté dans lib/stats.ts → remonte
+// dans les statistiques, la série journalière et la clôture de caisse (mode
+// espèces). Réutilise l'enum PaymentMode (cohérent avec les commandes).
+
+model RevenueAdjustment {
+  id          String      @id @default(cuid())
+  // Jour civil de la recette (cohérent avec Order.dailyDate / Expense.date).
+  date        DateTime    @db.Date
+  amount      Int // FCFA, SIGNÉ : + = recette ajoutée, − = recette retirée
+  paymentMode PaymentMode @default(CASH) // canal (alimente la clôture si CASH)
+  note        String? // motif de la régularisation
+
+  createdById String?
+  createdBy   User?   @relation("RevenueAdjustmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date(sort: Desc)])
+  @@map("revenue_adjustment")
+}
+
+// Retrait du solde Jèko vers le compte réel. `amount` = ce qui arrive, `fee` =
+// frais de retrait ; le compte Jèko est débité de amount + fee.
+model JekoWithdrawal {
+  id          String   @id @default(cuid())
+  amount      Int // FCFA retirés
+  fee         Int // FCFA de frais de retrait
+  note        String?
+  // Compte Jèko débité ('A' | 'B').
+  jekoAccount String   @default("A")
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@map("jeko_withdrawal")
+}
+
+// Compte Jèko qui encaisse les NOUVEAUX paiements en ligne (singleton). Les clés
+// restent dans l'environnement (JEKO_* = A, JEKO_B_* = B), jamais en base.
+model JekoSettings {
+  id            String   @id @default("singleton")
+  activeAccount String   @default("A")
+  updatedAt     DateTime @updatedAt
+
+  @@map("jeko_settings")
+}
+
+// ─── Inventaire (matières premières & consommables) ────────────────────────────
+// Suivi de stock PÉRIODIQUE (inventaire intermittent) de références indépendantes
+// du menu (grains, lait, gobelets, sirops…). On enregistre un comptage physique
+// par période ; le système déduit la consommation (= stock initial + achats −
+// stock final). Les achats portent fournisseur + coût unitaire → prix moyen
+// pondéré (PMP). Quantités en Decimal (kg/L fractionnaires), montants en Int FCFA.
+
+enum InventoryUnit {
+  UNIT // unité / pièce
+  KG
+  G
+  L
+  ML
+  BOX // carton / lot
+}
+
+enum InventoryBatchSource {
+  MANUAL // saisie manuelle (grille réappro)
+  IMPORT // import Excel
+}
+
+// La référence stockable. `currentQuantity` et `avgUnitCost` (PMP) sont
+// dénormalisés et maintenus dans la même transaction que les achats/comptages
+// (les tables purchase/countLine restent la source d'audit).
+model InventoryItem {
+  id              String        @id @default(cuid())
+  sku             String        @unique // clé d'upsert à l'import
+  name            String
+  category        String?
+  unit            InventoryUnit @default(UNIT)
+  currentQuantity Decimal       @default(0) @db.Decimal(12, 3) // dernier comptage + achats depuis
+  avgUnitCost     Int           @default(0) // prix moyen pondéré (FCFA)
+  safetyStock     Decimal       @default(0) @db.Decimal(12, 3)
+  reorderPoint    Decimal?      @db.Decimal(12, 3)
+  supplier        String?
+  notes           String?
+  active          Boolean       @default(true)
+  lastCountedAt   DateTime?     @db.Date
+
+  purchases  InventoryPurchase[]
+  countLines InventoryCountLine[]
+
+  // Relation inverse : article de dépense rattaché à cette référence
+  // d'inventaire (voir ExpenseArticle.inventoryItemId).
+  expenseArticle ExpenseArticle?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, category])
+  @@index([name])
+  @@map("inventory_item")
+}
+
+// Lot de réappro : regroupe les achats d'une même opération (saisie ou import)
+// pour permettre une annulation en une fois. `expenseId` = dépense auto-créée.
+model InventoryRestockBatch {
+  id          String               @id @default(cuid())
+  date        DateTime             @db.Date
+  supplier    String?
+  note        String?
+  source      InventoryBatchSource @default(MANUAL)
+  expenseId   String?
+  expense     Expense?             @relation("ExpenseRestockBatch", fields: [expenseId], references: [id], onDelete: SetNull)
+  createdById String?
+  createdBy   User?                @relation("RestockBatchCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  canceledAt  DateTime?
+  createdAt   DateTime             @default(now())
+
+  purchases InventoryPurchase[]
+
+  @@index([date(sort: Desc)])
+  @@map("inventory_restock_batch")
+}
+
+// Une entrée (achat) : ligne d'un lot de réappro.
+model InventoryPurchase {
+  id        String        @id @default(cuid())
+  itemId    String
+  item      InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  date      DateTime      @db.Date
+  quantity  Decimal       @db.Decimal(12, 3)
+  unitCost  Int // coût unitaire à l'achat (FCFA)
+  totalCost Int // quantity * unitCost (FCFA, arrondi)
+  supplier  String?
+  note      String?
+
+  batchId String?
+  batch   InventoryRestockBatch? @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  expenseId String?
+  expense   Expense? @relation("ExpenseInventoryPurchases", fields: [expenseId], references: [id], onDelete: SetNull)
+
+  createdById String?
+  createdBy   User?   @relation("InventoryPurchaseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([itemId, date(sort: Desc)])
+  @@index([date(sort: Desc)])
+  @@index([batchId])
+  @@index([expenseId])
+  @@map("inventory_purchase")
+}
+
+// Session de comptage périodique (= « enregistrer l'inventaire »).
+model InventoryCount {
+  id          String   @id @default(cuid())
+  date        DateTime @db.Date
+  label       String?
+  note        String?
+  createdById String?
+  createdBy   User?    @relation("InventoryCountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  lines InventoryCountLine[]
+
+  @@index([date(sort: Desc)])
+  @@map("inventory_count")
+}
+
+// Ligne de comptage : fige le calcul entrées/sorties de la période pour un item.
+model InventoryCountLine {
+  id                String         @id @default(cuid())
+  countId           String
+  count             InventoryCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  itemId            String
+  item              InventoryItem  @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  openingQuantity   Decimal        @db.Decimal(12, 3) // comptage précédent (snapshot), 0 si premier
+  purchasesQuantity Decimal        @db.Decimal(12, 3) // achats entre les 2 comptages (snapshot)
+  countedQuantity   Decimal        @db.Decimal(12, 3) // saisie physique
+  consumption       Decimal        @db.Decimal(12, 3) // = opening + purchases − counted (figé)
+  unitCostSnapshot  Int // PMP au moment du comptage (valorisation)
+
+  @@unique([countId, itemId])
+  @@index([itemId])
+  @@map("inventory_count_line")
+}
+
+// Réglages d'inventaire (singleton) : rappel email si pas de comptage depuis N jours.
+model InventorySettings {
+  id                 String    @id @default("singleton")
+  reminderDays       Int       @default(7)
+  reminderEnabled    Boolean   @default(true)
+  lastReminderSentAt DateTime?
+  updatedAt          DateTime  @updatedAt
+
+  @@map("inventory_settings")
+}
+
+// ─── Notifications push (backoffice + client) ──────────────────────────────────
+// Un abonnement Web Push par navigateur/appareil (PushSubscription API), à
+// double usage exclusif :
+//   - `userId` renseigné  → appareil STAFF (nouvelles commandes, prêtes) ;
+//   - `orderId` renseigné → appareil CLIENT suivant UNE commande (changements
+//     de statut, page publique de suivi — capability URL).
+// `endpoint` est unique (identifie l'abonnement côté navigateur) : un même
+// appareil qui se réabonne (autre commande, autre compte) bascule simplement
+// d'usage. `p256dh`/`auth` sont les clés de chiffrement requises par `web-push`.
+// Nettoyé automatiquement (lib/push-notify.ts) quand le navigateur renvoie
+// 404/410 (abonnement expiré), et à la fin de vie de la commande suivie.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([orderId])
+  @@map("push_subscription")
+}
+
+// Historique de l'assistant IA du dashboard (lib/ai/assistant/). Une
+// conversation = l'historique OpenAI complet (messages utilisateur, appels
+// d'outils, résultats) en JSON : il est renvoyé tel quel au modèle à la reprise.
+// Privé à son auteur ; supprimé avec le compte.
+model AssistantConversation {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+  @@map("assistant_conversation")
+}
