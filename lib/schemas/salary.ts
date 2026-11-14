@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
   EXPENSE_AMOUNT_MAX,
+  SALARY_ADJUSTMENT_AMOUNT_MAX,
+  SALARY_ADJUSTMENT_NOTE_MAX,
   SALARY_END_AFTER_START_MESSAGE,
   SALARY_IDEMPOTENCY_KEY_MAX,
   SALARY_IDEMPOTENCY_KEY_MIN,
@@ -175,3 +177,46 @@ export type SalaryAdvanceAdjustInput = z.infer<
 export type SalaryAdvanceCancelInput = z.infer<
   typeof salaryAdvanceCancelSchema
 >;
+
+// ── Primes et retenues (#443) ──
+//
+// Montant toujours POSITIF : la nature porte le signe. Un ajustement n'est
+// jamais supprimé, seulement annulé (`canceledAt`) pour garder l'historique.
+
+export const SALARY_ADJUSTMENT_NATURES = ['PRIME', 'RETENUE'] as const;
+
+export const salaryAdjustmentNatureSchema = z.enum(SALARY_ADJUSTMENT_NATURES);
+
+export const SALARY_ADJUSTMENT_NATURE_LABELS: Record<
+  (typeof SALARY_ADJUSTMENT_NATURES)[number],
+  string
+> = {
+  PRIME: 'Prime',
+  RETENUE: 'Retenue',
+};
+
+export const salaryAdjustmentCreateSchema = z.object({
+  employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
+  month: monthSchema,
+  date: dateOnly,
+  nature: salaryAdjustmentNatureSchema,
+  amount: z
+    .number()
+    .int('Montant entier (FCFA)')
+    .positive('Montant invalide')
+    .max(SALARY_ADJUSTMENT_AMOUNT_MAX, 'Montant trop élevé'),
+  note: z.string().trim().max(SALARY_ADJUSTMENT_NOTE_MAX).nullable().optional(),
+});
+
+export const salaryAdjustmentCancelSchema = z.object({
+  adjustmentId: z.string().min(SALARY_ID_MIN_LENGTH, 'Ajustement requis'),
+});
+
+export type SalaryAdjustmentCreateInput = z.infer<
+  typeof salaryAdjustmentCreateSchema
+>;
+export type SalaryAdjustmentCancelInput = z.infer<
+  typeof salaryAdjustmentCancelSchema
+>;
+export type SalaryAdjustmentNatureValue =
+  (typeof SALARY_ADJUSTMENT_NATURES)[number];
