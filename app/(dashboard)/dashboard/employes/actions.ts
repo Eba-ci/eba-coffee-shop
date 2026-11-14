@@ -75,3 +75,13 @@ export async function addSalaryRateAction(
     return addSalaryRate(input);
   });
 }
+
+/**
+ * Réactivation (#466) : l'employé redevient actif et sa date de sortie est
+ * effacée. Aucune donnée n'est supprimée — l'historique reste intact.
+ */
+export async function reactivateEmployeeAction(
+  id: string
+): Promise<EmployeActionResult> {
+  return run(() => updateEmployee(id, { active: true, endDate: null }));
+}

@@ -1,7 +1,7 @@
 // lib/salaries/rate-mutations.ts
 //
 // Ajout d'un taux daté depuis la fiche employé (#441). Distinct de
-// `setSalaryRate` (`mutations.ts`, upsert historique de l'onglet Salaires) :
+// `setSalaryRate` (`mutations.ts`, upsert historique du module Employés (Paie du mois)) :
 // ici un taux ne s'écrase JAMAIS. Une date déjà utilisée lève un refus lisible ;
 // une correction est un NOUVEAU taux daté, ce qui garde l'historique ordonné.
 

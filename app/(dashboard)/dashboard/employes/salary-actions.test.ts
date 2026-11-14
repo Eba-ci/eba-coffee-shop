@@ -1,11 +1,12 @@
+// Garde des écritures de paie du module Employés (#450) : versements, avances,
+// primes et retenues. La garde ADMIN est évaluée côté serveur, avant toute
+// mutation : un COMPTABLE (qui consulte la Paie du mois) ne peut rien écrire.
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/lib/auth-helpers', () => ({ requireAdmin: vi.fn() }));
 vi.mock('@/lib/salaries/mutations', () => ({
-  createEmployee: vi.fn(),
-  updateEmployee: vi.fn(),
-  setSalaryRate: vi.fn(),
   recordSalaryPayment: vi.fn(),
 }));
 vi.mock('@/lib/salaries/advance-mutations', () => ({
@@ -13,44 +14,31 @@ vi.mock('@/lib/salaries/advance-mutations', () => ({
   adjustSalaryAdvance: vi.fn(),
   cancelSalaryAdvance: vi.fn(),
 }));
+vi.mock('@/lib/salaries/adjustment-mutations', () => ({
+  createSalaryAdjustment: vi.fn(),
+  cancelSalaryAdjustment: vi.fn(),
+}));
 
 import { requireAdmin } from '@/lib/auth-helpers';
+import * as adjustments from '@/lib/salaries/adjustment-mutations';
 import * as advances from '@/lib/salaries/advance-mutations';
 import * as salaries from '@/lib/salaries/mutations';
 import {
   adjustSalaryAdvanceAction,
   cancelSalaryAdvanceAction,
-  createEmployeeAction,
+  cancelSalaryAdjustmentAction,
+  createSalaryAdjustmentAction,
   recordSalaryPaymentAction,
-  setSalaryRateAction,
   updateAdvanceRecoveryAction,
-  updateEmployeeAction,
-} from './actions';
+} from './salary-actions';
 
 const admin = { user: { id: 'u1', role: 'ADMIN' } } as never;
 
-// Chaque action de l'écran : son déclencheur et la mutation lib qu'elle doit
-// atteindre (jamais rappelée pour un non-admin).
 const cases: [
   string,
   () => Promise<unknown>,
   { fn: unknown; args: unknown[] },
 ][] = [
-  [
-    'createEmployeeAction',
-    () => createEmployeeAction({ name: 'A' }),
-    { fn: salaries.createEmployee, args: [{ name: 'A' }] },
-  ],
-  [
-    'updateEmployeeAction',
-    () => updateEmployeeAction('e1', { name: 'B' }),
-    { fn: salaries.updateEmployee, args: ['e1', { name: 'B' }] },
-  ],
-  [
-    'setSalaryRateAction',
-    () => setSalaryRateAction({ employeeId: 'e1' }),
-    { fn: salaries.setSalaryRate, args: [{ employeeId: 'e1' }] },
-  ],
   [
     'recordSalaryPaymentAction',
     () => recordSalaryPaymentAction({ employeeId: 'e1' }),
@@ -71,24 +59,37 @@ const cases: [
     () => cancelSalaryAdvanceAction({ paymentId: 'a1' }),
     { fn: advances.cancelSalaryAdvance, args: [{ paymentId: 'a1' }] },
   ],
+  [
+    'createSalaryAdjustmentAction',
+    () => createSalaryAdjustmentAction({ employeeId: 'e1' }),
+    { fn: adjustments.createSalaryAdjustment, args: [{ employeeId: 'e1' }] },
+  ],
+  [
+    'cancelSalaryAdjustmentAction',
+    () => cancelSalaryAdjustmentAction({ adjustmentId: 'x1' }),
+    { fn: adjustments.cancelSalaryAdjustment, args: [{ adjustmentId: 'x1' }] },
+  ],
 ];
 
-describe('actions Salaires : garde ADMIN par action', () => {
+describe('écritures de paie : garde ADMIN', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(requireAdmin).mockRejectedValue(new Error('Non autorisé'));
   });
 
   it.each(cases)(
-    '%s refuse un non-admin et n’exécute rien',
+    '%s refuse un COMPTABLE et n’exécute rien',
     async (_n, call, c) => {
-      await expect(call()).rejects.toThrow('Non autorisé');
+      await expect(call()).resolves.toEqual({
+        ok: false,
+        error: 'Non autorisé',
+      });
       expect(c.fn).not.toHaveBeenCalled();
     }
   );
 });
 
-describe('actions Salaires : admin', () => {
+describe('écritures de paie : ADMIN', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(requireAdmin).mockResolvedValue(admin);

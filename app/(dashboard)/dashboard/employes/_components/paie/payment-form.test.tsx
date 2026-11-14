@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-vi.mock('./actions', () => ({ recordSalaryPaymentAction: vi.fn() }));
+vi.mock('../../salary-actions', () => ({ recordSalaryPaymentAction: vi.fn() }));
 
 import { SalaryPaymentForm } from './payment-form';
 

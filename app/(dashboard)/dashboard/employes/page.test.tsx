@@ -13,6 +13,9 @@ vi.mock('./_components/employees-list', () => ({
 vi.mock('./_components/new-employee-button', () => ({
   NewEmployeeButton: () => null,
 }));
+vi.mock('./_components/new-payment-button', () => ({
+  NewPaymentButton: () => null,
+}));
 
 import { requirePayroll } from '@/lib/auth-helpers';
 import { listEmployeesOverview } from '@/lib/employees/queries';

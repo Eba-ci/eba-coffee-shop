@@ -27,7 +27,7 @@ import {
   adjustSalaryAdvanceAction,
   cancelSalaryAdvanceAction,
   updateAdvanceRecoveryAction,
-} from './actions';
+} from '../../salary-actions';
 
 function AdvanceRow({ advance }: { advance: SalaryAdvanceRow }) {
   const [recovery, setRecovery] = useState(String(advance.recoveryMonths));

@@ -1,267 +1,40 @@
-// Fiche employé 360° en lecture (#440). Présentation pure : les six blocs sont
-// alimentés par `getEmployee360`, qui rejoue le ledger unique de `lib/salaries`.
-// Mobile d'abord : blocs empilés, cibles de navigation ≥ 44 px.
+// Fiche employé 360° en lecture (#440/#442). Présentation pure : chaque bloc
+// est alimenté par `getEmployee360`, qui rejoue le ledger unique de
+// `lib/salaries`. Ordre voulu par fréquence d'usage :
+// Synthèse → Derniers versements → Rémunération → Dettes et avances → Identité.
+// Mobile d'abord : une colonne, aucune grille qui déborde à 390 px.
 
-import type { ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { money } from '@/lib/fixed-costs/format';
 import { monthLabel } from '@/lib/fixed-costs/month';
-import { SALARY_PAYMENT_TYPE_LABELS } from '@/lib/employees/format';
 import type { Employee360 } from '@/lib/employees/queries';
-import { EmployeeAvatar } from '../../_components/employee-avatar';
-import {
-  EmploymentBadge,
-  MonthStateBadge,
-} from '../../_components/employee-badges';
-
-function Field({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div className="flex justify-between gap-3 text-sm">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right font-medium tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
-function IdentityCard({ employee }: { employee: Employee360 }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Identité</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4 flex items-center gap-3">
-          <EmployeeAvatar name={employee.name} />
-          <div className="min-w-0">
-            <p className="font-medium">{employee.name}</p>
-            <p className="text-xs text-muted-foreground">
-              {employee.position || 'Poste non renseigné'}
-            </p>
-          </div>
-        </div>
-        <dl className="space-y-1">
-          <Field label="Nom" value={employee.name} />
-          <Field
-            label="Poste"
-            value={employee.position || 'Poste non renseigné'}
-          />
-          <Field label="Entrée" value={employee.startDate} />
-          <Field
-            label="Sortie"
-            value={employee.endDate ? employee.endDate : '—'}
-          />
-          <Field
-            label="Statut"
-            value={
-              <EmploymentBadge
-                active={employee.active}
-                endDate={employee.endDate}
-              />
-            }
-          />
-          <Field label="Note" value={employee.note || '—'} />
-        </dl>
-      </CardContent>
-    </Card>
-  );
-}
-
-function CompensationCard({ employee }: { employee: Employee360 }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Rémunération</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <dl>
-          <Field
-            label="Taux en vigueur"
-            value={
-              employee.currentRate === null
-                ? 'Aucun taux'
-                : `${money(employee.currentRate)} / mois`
-            }
-          />
-        </dl>
-        {employee.rates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Aucun taux défini pour cet employé.
-          </p>
-        ) : (
-          <div>
-            <p className="text-xs font-medium text-muted-foreground">
-              Historique des taux
-            </p>
-            <ul className="mt-1 divide-y">
-              {employee.rates.map((rate) => (
-                <li
-                  key={rate.startDate}
-                  className="flex justify-between gap-3 py-1 text-sm"
-                >
-                  <span className="text-muted-foreground">
-                    Depuis le {rate.startDate}
-                  </span>
-                  <span className="font-medium tabular-nums">
-                    {money(rate.monthlyAmount)} / mois
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function MonthCard({ employee }: { employee: Employee360 }) {
-  const { month } = employee;
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
-          Situation de {monthLabel(month.month)}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <dl className="space-y-1">
-          <Field label="Base (taux proratisés)" value={money(month.baseDue)} />
-          <Field label="Primes" value={money(month.primes)} />
-          <Field label="Retenues" value={money(month.retenues)} />
-          <Field label="Dû du mois" value={money(month.due)} />
-          <Field label="Salaires versés" value={money(month.salariesPaid)} />
-          <Field label="Acomptes versés" value={money(month.advancesPaid)} />
-          <Field
-            label="Avances récupérées"
-            value={money(month.advanceRecovered)}
-          />
-          <Field
-            label="Reste à payer"
-            value={<strong>{money(month.remainingToPay)}</strong>}
-          />
-          {month.overpaid > 0 && (
-            <Field label="Excédent versé" value={money(month.overpaid)} />
-          )}
-        </dl>
-        <div className="mt-2">
-          <MonthStateBadge remainingToPay={month.remainingToPay} />
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ArrearsCard({ employee }: { employee: Employee360 }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Arriéré</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <dl>
-          <Field
-            label="Total impayé (mois clôturés)"
-            value={<strong>{money(employee.arrears.total)}</strong>}
-          />
-        </dl>
-        {employee.arrears.months.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Aucun mois clôturé impayé.
-          </p>
-        ) : (
-          <ul className="divide-y text-sm">
-            {employee.arrears.months.map((m) => (
-              <li key={m.month} className="flex justify-between gap-3 py-1">
-                <span className="text-muted-foreground">
-                  {monthLabel(m.month)}
-                </span>
-                <span className="font-medium">{money(m.remaining)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {employee.proposedPayment.total > 0 && (
-          <p className="rounded-md bg-muted/50 p-2 text-sm">
-            Proposé au paiement :{' '}
-            <strong>{money(employee.proposedPayment.total)}</strong>{' '}
-            <span className="text-muted-foreground">
-              (mois courant + arriéré, hors base du point mort)
-            </span>
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function AdvanceCard({ employee }: { employee: Employee360 }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Solde d’avance</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <dl>
-          <Field
-            label="Avance restant à récupérer"
-            value={<strong>{money(employee.advanceBalance)}</strong>}
-          />
-        </dl>
-        {employee.advanceBalance === 0 && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Aucune avance à récupérer.
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function PaymentsCard({ employee }: { employee: Employee360 }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Derniers versements</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {employee.payments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Aucun versement enregistré.
-          </p>
-        ) : (
-          <ul className="divide-y">
-            {employee.payments.map((p) => (
-              <li key={p.id} className="space-y-1 py-2 text-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <span className="font-medium">
-                    {SALARY_PAYMENT_TYPE_LABELS[p.type]} · {monthLabel(p.month)}
-                  </span>
-                  <span className="font-semibold tabular-nums">
-                    {money(p.amount)}
-                  </span>
-                </div>
-                <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                  <span>Le {p.date}</span>
-                </p>
-                {p.note && <p className="text-xs">{p.note}</p>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
+import { SalarySummaryBand } from '../../_components/salary-summary';
+import { CompensationSection } from './sections/compensation-section';
+import { DebtsSection } from './sections/debts-section';
+import { IdentitySection } from './sections/identity-section';
+import { MonthSection } from './sections/month-section';
+import { PaymentsSection } from './sections/payments-section';
 
 export function EmployeeDetail({ employee }: { employee: Employee360 }) {
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <IdentityCard employee={employee} />
-      <CompensationCard employee={employee} />
-      <MonthCard employee={employee} />
-      <ArrearsCard employee={employee} />
-      <AdvanceCard employee={employee} />
-      <PaymentsCard employee={employee} />
+    <div className="space-y-6">
+      <SalarySummaryBand
+        employee={employee}
+        monthLabel={monthLabel(employee.month.month)}
+        values={{
+          due: employee.month.due,
+          paid:
+            employee.month.salariesPaid +
+            employee.month.advancesPaid +
+            employee.month.advanceRecovered,
+          remainingToPay: employee.month.remainingToPay,
+          arrearsTotal: employee.arrears.total,
+          advanceBalance: employee.advanceBalance,
+        }}
+      />
+      <MonthSection employee={employee} />
+      <PaymentsSection employee={employee} />
+      <CompensationSection employee={employee} />
+      <DebtsSection employee={employee} />
+      <IdentitySection employee={employee} />
     </div>
   );
 }
