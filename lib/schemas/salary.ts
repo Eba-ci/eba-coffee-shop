@@ -33,6 +33,13 @@ const monthSchema = z
   .string()
   .refine(isValidMonth, 'Mois attendu au format YYYY-MM');
 
+/** Date obligatoire : vide → message dédié (plus lisible que le format). */
+const requiredDateOnly = (requiredMessage: string) =>
+  z
+    .string()
+    .min(1, requiredMessage)
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date attendue au format YYYY-MM-DD');
+
 const amountSchema = z
   .number()
   .int('Montant entier (FCFA)')
@@ -79,6 +86,25 @@ export const salaryRateCreateSchema = z.object({
   startDate: dateOnly,
 });
 
+/**
+ * Ajout d'un taux depuis la fiche employé : jamais d'écrasement (voir
+ * `addSalaryRate`). Messages dédiés pour rester lisibles dans le tiroir.
+ */
+export const salaryRateAddSchema = z.object({
+  employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
+  monthlyAmount: z
+    .number({ error: 'Montant requis' })
+    .int('Montant entier (FCFA)')
+    .positive('Le taux doit être un montant positif')
+    .max(EXPENSE_AMOUNT_MAX, 'Montant trop élevé'),
+  startDate: requiredDateOnly('Date d’effet requise'),
+});
+
+/** « Enregistrer une sortie » : la date est obligatoire. */
+export const employeeExitSchema = z.object({
+  endDate: requiredDateOnly('Date de sortie requise'),
+});
+
 // Champs communs à la création et à la mise à jour d'un versement. Le défaut
 // du mode de paiement (WAVE) vit dans `salaryPaymentCreateSchema` : en pratique
 // on règle par Wave, et un versement espèces est un cas explicite (il sort du
@@ -117,7 +143,9 @@ export const salaryPaymentUpdateSchema = salaryPaymentObjectSchema
 
 export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;
 export type EmployeeUpdateInput = z.infer<typeof employeeUpdateSchema>;
+export type EmployeeExitInput = z.infer<typeof employeeExitSchema>;
 export type SalaryRateCreateInput = z.infer<typeof salaryRateCreateSchema>;
+export type SalaryRateAddInput = z.infer<typeof salaryRateAddSchema>;
 export type SalaryPaymentCreateInput = z.infer<
   typeof salaryPaymentCreateSchema
 >;
