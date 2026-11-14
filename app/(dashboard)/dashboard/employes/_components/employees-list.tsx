@@ -1,9 +1,12 @@
-// Liste des employés (#440) : actifs d'abord, sortis ensuite. Aucune requête,
-// aucun calcul de règle ici : les chiffres viennent de `listEmployeesOverview`.
-// Mobile d'abord : cartes empilées sous `md`, tableau au-delà.
+// Liste des employés (#440/#441) : actifs d'abord, sortis ensuite. Aucune
+// requête, aucun calcul de règle ici : les chiffres viennent de
+// `listEmployeesOverview`. Mobile d'abord : cartes empilées sous `md`, tableau
+// au-delà. Aucun champ de saisie : « Nouvel employé » ouvre un tiroir.
 
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
+import { UsersRound } from 'lucide-react';
+import { money } from '@/lib/fixed-costs/format';
+import { monthLabel } from '@/lib/fixed-costs/month';
 import {
   Table,
   TableBody,
@@ -12,30 +15,46 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { money } from '@/lib/fixed-costs/format';
-import { monthLabel } from '@/lib/fixed-costs/month';
 import type {
   EmployeeListRow,
   EmployeesOverview,
 } from '@/lib/employees/queries';
+import {
+  ArrearsBadge,
+  EmploymentBadge,
+  MonthStateBadge,
+} from './employee-badges';
+import { EmployeeAvatar } from './employee-avatar';
+import { NewEmployeeButton } from './new-employee-button';
 
 function StatusBadges({ row }: { row: EmployeeListRow }) {
   return (
     <span className="flex flex-wrap items-center gap-1">
-      {row.active ? (
-        <Badge variant="outline">En poste</Badge>
-      ) : (
-        <Badge variant="secondary">Sorti</Badge>
-      )}
-      {row.month.remainingToPay > 0 ? (
-        <Badge variant="secondary">Mois non soldé</Badge>
-      ) : (
-        <Badge variant="outline">Soldé</Badge>
-      )}
-      {row.arrearsTotal > 0 && (
-        <Badge variant="destructive">Arriéré {money(row.arrearsTotal)}</Badge>
-      )}
+      <EmploymentBadge active={row.active} endDate={row.endDate} />
+      <MonthStateBadge remainingToPay={row.month.remainingToPay} />
+      <ArrearsBadge total={row.arrearsTotal} />
     </span>
+  );
+}
+
+function Amount({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: number;
+  strong?: boolean;
+}) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd
+        className={`text-right tabular-nums ${strong ? 'font-semibold' : ''}`}
+      >
+        {money(value)}
+      </dd>
+    </>
   );
 }
 
@@ -44,32 +63,30 @@ function EmployeeCard({ row }: { row: EmployeeListRow }) {
     <li>
       <Link
         href={`/dashboard/employes/${row.id}`}
-        className="block min-h-11 rounded-lg border p-3 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="block min-h-11 rounded-lg border p-4 transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
+        <div className="flex items-start gap-3">
+          <EmployeeAvatar name={row.name} />
+          <div className="min-w-0 flex-1">
             <p className="font-medium">{row.name}</p>
             <p className="text-xs text-muted-foreground">
               {row.position || 'Poste non renseigné'}
             </p>
+            <div className="mt-2">
+              <StatusBadges row={row} />
+            </div>
           </div>
-          <StatusBadges row={row} />
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+        <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
           <dt className="text-muted-foreground">Taux</dt>
-          <dd className="text-right">
+          <dd className="text-right tabular-nums">
             {row.currentRate === null
               ? 'Aucun taux'
               : `${money(row.currentRate)} / mois`}
           </dd>
-          <dt className="text-muted-foreground">Dû</dt>
-          <dd className="text-right">{money(row.month.due)}</dd>
-          <dt className="text-muted-foreground">Versé</dt>
-          <dd className="text-right">{money(row.month.paid)}</dd>
-          <dt className="text-muted-foreground">Reste</dt>
-          <dd className="text-right font-semibold">
-            {money(row.month.remainingToPay)}
-          </dd>
+          <Amount label="Dû" value={row.month.due} />
+          <Amount label="Versé" value={row.month.paid} />
+          <Amount label="Reste" value={row.month.remainingToPay} strong />
         </dl>
       </Link>
     </li>
@@ -79,9 +96,9 @@ function EmployeeCard({ row }: { row: EmployeeListRow }) {
 function Group({ label, rows }: { label: string; rows: EmployeeListRow[] }) {
   if (rows.length === 0) return null;
   return (
-    <section className="space-y-2">
+    <section className="space-y-3">
       <h2 className="text-sm font-medium text-muted-foreground">{label}</h2>
-      <ul className="grid gap-2 md:hidden">
+      <ul className="grid gap-3 md:hidden">
         {rows.map((row) => (
           <EmployeeCard key={row.id} row={row} />
         ))}
@@ -102,31 +119,36 @@ function Group({ label, rows }: { label: string; rows: EmployeeListRow[] }) {
             {rows.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>
-                  <Link
-                    href={`/dashboard/employes/${row.id}`}
-                    className="font-medium underline-offset-4 hover:underline"
-                  >
-                    {row.name}
-                  </Link>
-                  <span className="block text-xs text-muted-foreground">
-                    {row.position || 'Poste non renseigné'}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <EmployeeAvatar name={row.name} />
+                    <div className="min-w-0">
+                      <Link
+                        href={`/dashboard/employes/${row.id}`}
+                        className="font-medium underline-offset-4 hover:underline"
+                      >
+                        {row.name}
+                      </Link>
+                      <span className="block text-xs text-muted-foreground">
+                        {row.position || 'Poste non renseigné'}
+                      </span>
+                    </div>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <StatusBadges row={row} />
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right tabular-nums">
                   {row.currentRate === null
                     ? 'Aucun taux'
                     : money(row.currentRate)}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right tabular-nums">
                   {money(row.month.due)}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right tabular-nums">
                   {money(row.month.paid)}
                 </TableCell>
-                <TableCell className="text-right font-semibold">
+                <TableCell className="text-right font-semibold tabular-nums">
                   {money(row.month.remainingToPay)}
                 </TableCell>
               </TableRow>
@@ -138,20 +160,39 @@ function Group({ label, rows }: { label: string; rows: EmployeeListRow[] }) {
   );
 }
 
-export function EmployeesList({ overview }: { overview: EmployeesOverview }) {
+function EmptyState({ today }: { today: string }) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-8 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <UsersRound className="size-6" aria-hidden="true" />
+      </span>
+      <div>
+        <p className="font-medium">Aucun employé enregistré</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Crée le premier employé pour suivre ses taux et sa paie.
+        </p>
+      </div>
+      <NewEmployeeButton today={today} label="Créer un employé" />
+    </div>
+  );
+}
+
+export function EmployeesList({
+  overview,
+  today,
+}: {
+  overview: EmployeesOverview;
+  today: string;
+}) {
   const active = overview.employees.filter((e) => e.active);
   const inactive = overview.employees.filter((e) => !e.active);
 
   if (overview.employees.length === 0) {
-    return (
-      <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-        Aucun employé enregistré pour le moment.
-      </p>
-    );
+    return <EmptyState today={today} />;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <p className="text-xs text-muted-foreground">
         Situation de {monthLabel(overview.month)}.
       </p>

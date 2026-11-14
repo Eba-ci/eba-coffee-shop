@@ -12,6 +12,9 @@ vi.mock('@/lib/employees/queries', () => ({ getEmployee360: vi.fn() }));
 vi.mock('./_components/employee-detail', () => ({
   EmployeeDetail: () => null,
 }));
+vi.mock('../_components/employee-detail-actions', () => ({
+  EmployeeDetailActions: () => null,
+}));
 
 import { requirePayroll } from '@/lib/auth-helpers';
 import { getEmployee360 } from '@/lib/employees/queries';

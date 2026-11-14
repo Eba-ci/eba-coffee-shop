@@ -3,23 +3,22 @@
 // Mobile d'abord : blocs empilés, cibles de navigation ≥ 44 px.
 
 import type { ReactNode } from 'react';
-import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { money } from '@/lib/fixed-costs/format';
 import { monthLabel } from '@/lib/fixed-costs/month';
-import {
-  SALARY_PAYMENT_TYPE_LABELS,
-  employmentLabel,
-} from '@/lib/employees/format';
+import { SALARY_PAYMENT_TYPE_LABELS } from '@/lib/employees/format';
 import type { Employee360 } from '@/lib/employees/queries';
+import { EmployeeAvatar } from '../../_components/employee-avatar';
+import {
+  EmploymentBadge,
+  MonthStateBadge,
+} from '../../_components/employee-badges';
 
 function Field({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex justify-between gap-3 text-sm">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right font-medium">{value}</dd>
+      <dd className="text-right font-medium tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -31,6 +30,15 @@ function IdentityCard({ employee }: { employee: Employee360 }) {
         <CardTitle className="text-base">Identité</CardTitle>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 flex items-center gap-3">
+          <EmployeeAvatar name={employee.name} />
+          <div className="min-w-0">
+            <p className="font-medium">{employee.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {employee.position || 'Poste non renseigné'}
+            </p>
+          </div>
+        </div>
         <dl className="space-y-1">
           <Field label="Nom" value={employee.name} />
           <Field
@@ -45,13 +53,10 @@ function IdentityCard({ employee }: { employee: Employee360 }) {
           <Field
             label="Statut"
             value={
-              employee.active ? (
-                <Badge variant="outline">En poste</Badge>
-              ) : (
-                <Badge variant="secondary">
-                  {employmentLabel(employee.active, employee.endDate)}
-                </Badge>
-              )
+              <EmploymentBadge
+                active={employee.active}
+                endDate={employee.endDate}
+              />
             }
           />
           <Field label="Note" value={employee.note || '—'} />
@@ -96,7 +101,7 @@ function CompensationCard({ employee }: { employee: Employee360 }) {
                   <span className="text-muted-foreground">
                     Depuis le {rate.startDate}
                   </span>
-                  <span className="font-medium">
+                  <span className="font-medium tabular-nums">
                     {money(rate.monthlyAmount)} / mois
                   </span>
                 </li>
@@ -138,15 +143,9 @@ function MonthCard({ employee }: { employee: Employee360 }) {
             <Field label="Excédent versé" value={money(month.overpaid)} />
           )}
         </dl>
-        {month.remainingToPay > 0 ? (
-          <Badge variant="secondary" className="mt-2">
-            Mois non soldé
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="mt-2">
-            Soldé
-          </Badge>
-        )}
+        <div className="mt-2">
+          <MonthStateBadge remainingToPay={month.remainingToPay} />
+        </div>
       </CardContent>
     </Card>
   );
@@ -237,7 +236,9 @@ function PaymentsCard({ employee }: { employee: Employee360 }) {
                   <span className="font-medium">
                     {SALARY_PAYMENT_TYPE_LABELS[p.type]} · {monthLabel(p.month)}
                   </span>
-                  <span className="font-semibold">{money(p.amount)}</span>
+                  <span className="font-semibold tabular-nums">
+                    {money(p.amount)}
+                  </span>
                 </div>
                 <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span>Le {p.date}</span>
@@ -254,20 +255,13 @@ function PaymentsCard({ employee }: { employee: Employee360 }) {
 
 export function EmployeeDetail({ employee }: { employee: Employee360 }) {
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
-        <Button asChild variant="outline" className="min-h-11">
-          <Link href="/dashboard/employes">Retour à la liste</Link>
-        </Button>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <IdentityCard employee={employee} />
-        <CompensationCard employee={employee} />
-        <MonthCard employee={employee} />
-        <ArrearsCard employee={employee} />
-        <AdvanceCard employee={employee} />
-        <PaymentsCard employee={employee} />
-      </div>
+    <div className="grid gap-6 md:grid-cols-2">
+      <IdentityCard employee={employee} />
+      <CompensationCard employee={employee} />
+      <MonthCard employee={employee} />
+      <ArrearsCard employee={employee} />
+      <AdvanceCard employee={employee} />
+      <PaymentsCard employee={employee} />
     </div>
   );
 }

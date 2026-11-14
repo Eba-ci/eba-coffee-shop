@@ -68,6 +68,14 @@ export const SALARY_END_AFTER_START_MESSAGE =
   'La sortie doit être après l’entrée';
 
 /**
+ * Un taux ne s'écrase jamais : une correction est un NOUVEAU taux daté. Une
+ * date déjà utilisée est refusée (le module expose `addSalaryRate` pour ça,
+ * distinct de l'`upsert` historique de l'onglet Salaires).
+ */
+export const SALARY_RATE_DUPLICATE_MESSAGE =
+  'Un taux existe déjà à cette date : choisis une autre date pour corriger';
+
+/**
  * Une retenue ne peut pas rendre le dû négatif : elle est refusée au-delà du
  * salaire dû du mois (prorata des taux), pour ne pas créer de dette silencieuse.
  */
