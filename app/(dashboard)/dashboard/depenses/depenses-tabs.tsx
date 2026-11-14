@@ -57,7 +57,11 @@ export function DepensesTabs({
 
   return (
     <Tabs value={tab} onValueChange={change}>
-      <TabsList className="mb-4 flex w-full flex-wrap sm:w-auto">
+      {/*
+        Mobile : défilement horizontal (hauteur figée h-9 du TabsList + flex-wrap
+        faisaient déborder la 2e ligne hors du fond arrondi). Desktop : wrap normal.
+      */}
+      <TabsList className="mb-4 flex w-full max-w-full overflow-x-auto scrollbar-none [&>*]:shrink-0 sm:w-auto sm:flex-wrap sm:overflow-x-visible">
         <TabsTrigger value="apercu">Aperçu</TabsTrigger>
         <TabsTrigger value="historique">Historique</TabsTrigger>
         <TabsTrigger value="articles">Articles</TabsTrigger>

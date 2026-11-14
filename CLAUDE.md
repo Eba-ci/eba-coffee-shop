@@ -15,7 +15,8 @@ pnpm start            # Start production server
 pnpm lint             # ESLint
 pnpm format:fix       # Prettier auto-format
 pnpm db:generate      # Regenerate Prisma client
-pnpm db:push          # Sync Prisma schema to database
+pnpm db:migrate:dev -- --name ma_migration  # nouvelle migration (voir docs/migration-prisma-migrate.md)
+pnpm db:push          # sync directe du schéma (dépannage local uniquement)
 pnpm db:studio        # Open Prisma Studio GUI
 ```
 

@@ -49,10 +49,17 @@ const employeeObjectSchema = z.object({
 const endAfterStart = (v: { startDate?: string; endDate?: string | null }) =>
   !v.endDate || !v.startDate || v.endDate >= v.startDate;
 
-export const employeeCreateSchema = employeeObjectSchema.refine(endAfterStart, {
-  message: SALARY_END_AFTER_START_MESSAGE,
-  path: ['endDate'],
-});
+export const employeeCreateSchema = employeeObjectSchema
+  .extend({
+    /** Salaire mensuel actuel (FCFA) : crée le premier taux avec l'employé. */
+    monthlyAmount: amountSchema.nullable().optional(),
+    /** Date d'effet du taux ; par défaut, la date d'entrée. */
+    rateStartDate: dateOnly.nullable().optional(),
+  })
+  .refine(endAfterStart, {
+    message: SALARY_END_AFTER_START_MESSAGE,
+    path: ['endDate'],
+  });
 
 export const employeeUpdateSchema = employeeObjectSchema
   .partial()
