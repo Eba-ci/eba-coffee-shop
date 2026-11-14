@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { requireRoleOrAnalyst } from '@/lib/auth-helpers';
 import {
@@ -24,7 +25,6 @@ import { HistoriqueSection } from './_components/historique-section';
 import { ArticlesSection } from './_components/articles-section';
 import { PointMortSection } from './_components/point-mort-section';
 import { PaymentsSection } from './_components/paiements/payments-section';
-import { SalairesSection } from './_components/salaires/salaires-section';
 import { SalairesGlobalLine } from './_components/salaires-global-line';
 import { HideOnTab } from './_components/hide-on-tab';
 import { loadPointMortParams } from './point-mort-search-params';
@@ -56,14 +56,19 @@ export default async function DepensesPage({
   const session = await requireRoleOrAnalyst(['ADMIN', 'MANAGER', 'COMPTABLE']);
   // ANALYSTE = lecture seule : l'onglet Paiements lui masque l'action d'écriture.
   const readOnly = session.user.role === 'ANALYSTE';
-  // Onglet Salaires réservé à l'ADMIN (garde onglet par onglet, cf. #420) :
-  // non-admin ne reçoit ni le contenu, ni l'onglet.
-  const isAdmin = session.user.role === 'ADMIN';
   // Les lignes de salaire (catégorie « Salaires ») sont réservées à l'ADMIN :
   // manager, comptable et analyste ne les voient ni dans l'historique ni dans
   // les totaux par catégorie.
-  const includeSalary = isAdmin;
+  const includeSalary = session.user.role === 'ADMIN';
   const params = await searchParams;
+
+  // L'onglet Salaires a été retiré (#450) : les anciens liens et favoris
+  // arrivent ici avec `?tab=salaires` et repartent vers la Paie du mois, avec
+  // le mois demandé s'il est présent. Aucun 404.
+  if (params.tab === 'salaires') {
+    const query = params.mois ? `?mois=${encodeURIComponent(params.mois)}` : '';
+    redirect(`/dashboard/employes/paie${query}`);
+  }
   const pointMortMonth = parseMonth(
     loadPointMortParams(params).mois,
     todayDateString()
@@ -119,13 +124,13 @@ export default async function DepensesPage({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Dépenses</h1>
-          <HideOnTab tab={['pointmort', 'paiements', 'salaires']}>
+          <HideOnTab tab={['pointmort', 'paiements']}>
             <p className="text-sm text-muted-foreground">{periodLabel}</p>
           </HideOnTab>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ExpenseSettingsButton settings={expenseSettings} />
-          <HideOnTab tab={['pointmort', 'paiements', 'salaires']}>
+          <HideOnTab tab={['pointmort', 'paiements']}>
             <DateRangeFilter from={fromStr} to={toStr} isAll={isAll} />
           </HideOnTab>
           {/* Accessible quel que soit l'onglet actif, plus seulement depuis
@@ -149,7 +154,6 @@ export default async function DepensesPage({
 
       <DepensesTabs
         defaultTab={params.tab}
-        showSalaires={isAdmin}
         apercu={
           <Suspense
             fallback={
@@ -206,13 +210,6 @@ export default async function DepensesPage({
           <Suspense fallback={<TableSkeleton rows={8} withToolbar={false} />}>
             <PaymentsSection month={pointMortMonth} readOnly={readOnly} />
           </Suspense>
-        }
-        salaires={
-          isAdmin ? (
-            <Suspense fallback={<TableSkeleton rows={8} withToolbar={false} />}>
-              <SalairesSection month={pointMortMonth} />
-            </Suspense>
-          ) : null
         }
       />
 

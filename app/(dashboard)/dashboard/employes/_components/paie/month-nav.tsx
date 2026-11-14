@@ -5,7 +5,7 @@ import { useQueryStates } from 'nuqs';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { monthLabel, shiftMonth } from '@/lib/fixed-costs/month';
-import { salairesParsers } from './salaires-search-params';
+import { paieParsers } from './search-params';
 
 /**
  * ‹ novembre 2026 › + « Aujourd'hui ». Même patron que le Point mort : le mois
@@ -24,7 +24,7 @@ export function SalairesMonthNav({
 }) {
   const [pending, startTransition] = useTransition();
   const [, setParams] = useQueryStates(
-    { mois: salairesParsers.mois },
+    { mois: paieParsers.mois },
     { shallow: false, startTransition }
   );
 

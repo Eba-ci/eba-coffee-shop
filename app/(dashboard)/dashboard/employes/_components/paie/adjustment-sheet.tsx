@@ -31,7 +31,7 @@ import { ArrearsCard } from './arrears-card';
 import {
   cancelSalaryAdjustmentAction,
   createSalaryAdjustmentAction,
-} from './actions';
+} from '../../salary-actions';
 import {
   SALARY_SHEET_CLASS,
   SalarySheetBody,

@@ -11,7 +11,7 @@ import {
   type SalaryPaymentTypeValue,
 } from '@/lib/schemas/salary';
 import { SALARY_PAYMENT_METHOD_LABELS } from './format';
-import { recordSalaryPaymentAction } from './actions';
+import { recordSalaryPaymentAction } from '../../salary-actions';
 
 const METHODS = ['CASH', 'WAVE', 'BANK', 'OTHER'] as const;
 

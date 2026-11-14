@@ -9,7 +9,6 @@ const TAB_VALUES = [
   'articles',
   'pointmort',
   'paiements',
-  'salaires',
 ] as const;
 type TabValue = (typeof TAB_VALUES)[number];
 
@@ -18,32 +17,26 @@ type TabValue = (typeof TAB_VALUES)[number];
  * via l'History API (pas de round-trip serveur) pour survivre aux navigations
  * des filtres (date, catégorie…) qui préservent les search params.
  *
- * `showSalaires` (ADMIN seul) masque l'onglet Salaires aux autres rôles : la
- * page ne lui transmet pas son contenu, et le garde de la section reste posé
- * onglet par onglet.
+ * L'ancien onglet « Salaires » a été retiré (#450) : la paie vit désormais
+ * dans le module Employés. `?tab=salaires` est redirigé côté serveur.
  */
 export function DepensesTabs({
   defaultTab,
-  showSalaires = false,
   apercu,
   historique,
   articles,
   pointmort,
   paiements,
-  salaires,
 }: {
   defaultTab?: string;
-  showSalaires?: boolean;
   apercu: ReactNode;
   historique: ReactNode;
   articles: ReactNode;
   pointmort: ReactNode;
   paiements: ReactNode;
-  salaires: ReactNode;
 }) {
   const [tab, setTab] = useState<TabValue>(
-    TAB_VALUES.includes(defaultTab as TabValue) &&
-      (defaultTab !== 'salaires' || showSalaires)
+    TAB_VALUES.includes(defaultTab as TabValue)
       ? (defaultTab as TabValue)
       : 'apercu'
   );
@@ -67,7 +60,6 @@ export function DepensesTabs({
         <TabsTrigger value="articles">Articles</TabsTrigger>
         <TabsTrigger value="pointmort">Point mort</TabsTrigger>
         <TabsTrigger value="paiements">Paiements</TabsTrigger>
-        {showSalaires && <TabsTrigger value="salaires">Salaires</TabsTrigger>}
       </TabsList>
       <TabsContent value="apercu" className="space-y-4">
         {apercu}
@@ -84,11 +76,6 @@ export function DepensesTabs({
       <TabsContent value="paiements" className="space-y-4">
         {paiements}
       </TabsContent>
-      {showSalaires && (
-        <TabsContent value="salaires" className="space-y-4">
-          {salaires}
-        </TabsContent>
-      )}
     </Tabs>
   );
 }

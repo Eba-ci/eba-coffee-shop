@@ -40,7 +40,7 @@ import {
 import { Button } from '@/components/ui/button';
 import type { EmployeeListRow } from '@/lib/employees/queries';
 import { reactivateEmployeeAction } from '../actions';
-import { SalaryPaymentDrawer } from '../../depenses/_components/salaires/payment-drawer';
+import { SalaryPaymentDrawer } from './paie/payment-drawer';
 import { EmployeeEditDrawer } from './employee-edit-drawer';
 import { EmployeeExitDrawer } from './employee-exit-drawer';
 import { EmployeeRateDrawer } from './employee-rate-drawer';

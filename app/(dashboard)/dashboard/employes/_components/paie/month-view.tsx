@@ -21,8 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { EmployeeAvatar } from '@/app/(dashboard)/dashboard/employes/_components/employee-avatar';
-import { SettlementBadge } from '@/app/(dashboard)/dashboard/employes/_components/salary-summary';
+import { EmployeeAvatar } from '../employee-avatar';
+import { SettlementBadge } from '../salary-summary';
 
 function PayLine({ row }: { row: SalaryEmployeeMonthRow }) {
   return (
@@ -138,7 +138,7 @@ export function SalaryMonthView({ view }: { view: SalaryMonthView }) {
         <TotalsMobile view={view} />
       </ul>
 
-      <div className="hidden md:block">
+      <div className="hidden md:block overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -147,9 +147,7 @@ export function SalaryMonthView({ view }: { view: SalaryMonthView }) {
               <TableHead className="text-right">Dû</TableHead>
               <TableHead className="text-right">Primes</TableHead>
               <TableHead className="text-right">Retenues</TableHead>
-              <TableHead className="text-right">Salaires</TableHead>
-              <TableHead className="text-right">Acomptes</TableHead>
-              <TableHead className="text-right">Avance récup.</TableHead>
+              <TableHead className="text-right">Versé</TableHead>
               <TableHead className="text-right">Reste à payer</TableHead>
               <TableHead className="text-right">Arriéré</TableHead>
               <TableHead className="text-right">À payer</TableHead>
@@ -182,9 +180,11 @@ export function SalaryMonthView({ view }: { view: SalaryMonthView }) {
                 <AmountCell value={row.due} />
                 <AmountCell value={row.primes} />
                 <AmountCell value={row.retenues} />
-                <AmountCell value={row.salariesPaid} />
-                <AmountCell value={row.advancesPaid} />
-                <AmountCell value={row.advanceRecovered} />
+                <AmountCell
+                  value={
+                    row.salariesPaid + row.advancesPaid + row.advanceRecovered
+                  }
+                />
                 <AmountCell value={row.remainingToPay} strong />
                 <AmountCell value={row.arrears.total} />
                 <AmountCell value={row.proposedPayment.total} strong />
@@ -199,9 +199,13 @@ export function SalaryMonthView({ view }: { view: SalaryMonthView }) {
               <AmountCell value={totals.due} />
               <AmountCell value={totals.primes} />
               <AmountCell value={totals.retenues} />
-              <AmountCell value={totals.salariesPaid} />
-              <AmountCell value={totals.advancesPaid} />
-              <AmountCell value={totals.advanceRecovered} />
+              <AmountCell
+                value={
+                  totals.salariesPaid +
+                  totals.advancesPaid +
+                  totals.advanceRecovered
+                }
+              />
               <AmountCell value={totals.remainingToPay} strong />
               <AmountCell value={totals.arrearsTotal} />
               <AmountCell

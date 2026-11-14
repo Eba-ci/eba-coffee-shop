@@ -33,7 +33,7 @@ pnpm db:migrate-salary-fixed-costs --restore <sauvegarde.json> --apply --confirm
 
 Une fois les charges retirées, le total **« Salaires du mois »** du point mort
 **tombe à 0 TANT QUE l'admin n'a pas saisi les employés et leurs taux** dans
-l'onglet Salaires. Le script :
+le module Employés (Paie du mois). Le script :
 
 1. **refuse** `--apply` sans `--confirm` ;
 2. **affiche les montants à ressaisir, regroupés par périodicité** (un montant
@@ -85,7 +85,7 @@ Sur **staging puis production** (voir `docs/deploiement.md`) :
 1. `pnpm db:push` — migrations `20261111090000_add_fixed_cost`,
    `20261112090000_add_fixed_cost_schedule`, `20261113090000_add_salary_model`,
    `20261116090000_drop_recurring_expense` (reprise des récurrentes, voir ci-dessus).
-2. L'admin **saisit les employés et leurs taux** dans l'onglet Salaires (sinon
+2. L'admin **saisit les employés et leurs taux** dans le module Employés → Paie du mois (sinon
    « Salaires du mois » reste à 0 une fois les charges retirées).
 3. **Simuler** : `pnpm db:migrate-salary-fixed-costs`, puis relire le rapport
    (charges concernées, montants par périodicité).

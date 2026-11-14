@@ -13,10 +13,11 @@ import { money } from '@/lib/fixed-costs/format';
 import { monthLabel, parseMonth } from '@/lib/fixed-costs/month';
 import { getSalaryMonthView } from '@/lib/salaries/admin-queries';
 import { todayDateString } from '@/lib/timezone';
-import { SalairesMonthNav } from '../../depenses/_components/salaires/month-nav';
-import { SalaryMonthView } from '../../depenses/_components/salaires/month-view';
+import { NewPaymentButton } from '../_components/new-payment-button';
+import { SalairesMonthNav } from '../_components/paie/month-nav';
+import { SalaryMonthView } from '../_components/paie/month-view';
 import { PageHeader } from '../_components/page-header';
-import { loadPaieParams } from './search-params';
+import { loadPaieParams } from '../_components/paie/search-params';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,7 +52,8 @@ export default async function PaiePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requirePayroll();
+  const session = await requirePayroll();
+  const isAdmin = session.user.role === 'ADMIN';
   const today = todayDateString();
   const currentMonth = today.slice(0, 7);
   const params = await searchParams;
@@ -65,12 +67,26 @@ export default async function PaiePage({
         title="Paie du mois"
         subtitle={`Situation de ${monthLabel(month)}, employé par employé.`}
         action={
-          <Button asChild variant="outline" className="h-11">
-            <Link href="/dashboard/employes">
-              <Wallet className="size-4" aria-hidden="true" />
-              Employés
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="outline" className="h-11">
+              <Link href="/dashboard/employes">
+                <Wallet className="size-4" aria-hidden="true" />
+                Employés
+              </Link>
+            </Button>
+            {isAdmin && (
+              <NewPaymentButton
+                employees={view.employees
+                  .filter((employee) => employee.active)
+                  .map((employee) => ({
+                    id: employee.employeeId,
+                    name: employee.name,
+                  }))}
+                month={month}
+                today={today}
+              />
+            )}
+          </>
         }
       />
 

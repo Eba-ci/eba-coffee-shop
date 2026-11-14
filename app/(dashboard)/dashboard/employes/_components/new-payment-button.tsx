@@ -4,7 +4,7 @@
 // existant, sans poser de champ sur la liste. Réservé à l'ADMIN : la page ne
 // monte ce bouton que pour lui.
 
-import { SalaryPaymentDrawer } from '../../depenses/_components/salaires/payment-drawer';
+import { SalaryPaymentDrawer } from './paie/payment-drawer';
 
 export function NewPaymentButton({
   employees,
