@@ -1,15 +1,17 @@
-// Vue du mois : dû, primes/retenues, versé, reste à payer, arriéré et solde
-// d'avance par employé, plus les totaux du mois. Présentation pure (aucune
-// requête, aucun calcul de règle) : les chiffres sont calculés côté serveur par
-// `getSalaryMonthView`.
+// Vue du mois (#442) : dû, primes/retenues, versé, reste à payer, arriéré et
+// solde d'avance par employé, plus les totaux du mois. Présentation pure
+// (aucune requête, aucun calcul de règle) : les chiffres sont calculés côté
+// serveur par `getSalaryMonthView`.
 //
 // Mobile d'abord : des cartes empilées sous `md`, un tableau dense au-delà.
+// L'état (soldé / partiel / en retard) porte toujours un libellé et une icône.
 
 import { money } from '@/lib/fixed-costs/format';
 import type {
   SalaryEmployeeMonthRow,
   SalaryMonthView,
 } from '@/lib/salaries/admin-queries';
+import { settlementState } from '@/lib/employees/format';
 import {
   Table,
   TableBody,
@@ -19,98 +21,100 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+import { EmployeeAvatar } from '@/app/(dashboard)/dashboard/employes/_components/employee-avatar';
+import { SettlementBadge } from '@/app/(dashboard)/dashboard/employes/_components/salary-summary';
 
 function PayLine({ row }: { row: SalaryEmployeeMonthRow }) {
   return (
-    <div className="rounded-lg border p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="font-medium">{row.name}</p>
-          <p className="text-xs text-muted-foreground">
+    <li className="rounded-lg border bg-card p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <EmployeeAvatar name={row.name} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">{row.name}</p>
+          <p className="truncate text-xs text-muted-foreground">
             {row.position || 'Poste non renseigné'}
             {!row.active && ' · sorti'}
           </p>
         </div>
-        <Badge variant={row.remainingToPay > 0 ? 'secondary' : 'outline'}>
-          {row.remainingToPay > 0 ? 'Reste à payer' : 'Soldé'}
-        </Badge>
+        <SettlementBadge
+          state={settlementState({
+            remainingToPay: row.remainingToPay,
+            arrearsTotal: row.arrears.total,
+          })}
+        />
       </div>
-      {row.arrears.total > 0 && (
-        <p className="mt-1 text-xs">
-          <Badge variant="secondary">Impayé {money(row.arrears.total)}</Badge>
-        </p>
-      )}
-      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 border-t pt-3 text-sm">
         <dt className="text-muted-foreground">Dû</dt>
-        <dd className="text-right font-medium">{money(row.due)}</dd>
-        <dt className="text-muted-foreground">Primes</dt>
-        <dd className="text-right">{money(row.primes)}</dd>
-        <dt className="text-muted-foreground">Retenues</dt>
-        <dd className="text-right">{money(row.retenues)}</dd>
+        <dd className="text-right font-medium tabular-nums">
+          {money(row.due)}
+        </dd>
         <dt className="text-muted-foreground">Versé</dt>
-        <dd className="text-right">
+        <dd className="text-right tabular-nums">
           {money(row.salariesPaid + row.advancesPaid + row.advanceRecovered)}
         </dd>
         <dt className="text-muted-foreground">Reste à payer</dt>
-        <dd className="text-right font-semibold">
+        <dd className="text-right font-semibold tabular-nums">
           {money(row.remainingToPay)}
         </dd>
         <dt className="text-muted-foreground">Arriéré</dt>
-        <dd className="text-right">{money(row.arrears.total)}</dd>
+        <dd className="text-right tabular-nums">
+          {money(row.arrears.total)}
+        </dd>
         <dt className="text-muted-foreground">À payer (avec arriéré)</dt>
-        <dd className="text-right font-semibold">
+        <dd className="text-right font-semibold tabular-nums">
           {money(row.proposedPayment.total)}
         </dd>
         <dt className="text-muted-foreground">Solde d’avance</dt>
-        <dd className="text-right">{money(row.advanceBalance)}</dd>
+        <dd className="text-right tabular-nums">
+          {money(row.advanceBalance)}
+        </dd>
       </dl>
-    </div>
+    </li>
   );
 }
 
 function TotalsMobile({ view }: { view: SalaryMonthView }) {
   const { totals } = view;
   return (
-    <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+    <li className="rounded-lg border bg-muted/40 p-4 text-sm">
       <p className="font-medium">Total du mois</p>
-      <div className="mt-1 flex justify-between">
-        <span className="text-muted-foreground">Dû</span>
-        <span>{money(totals.due)}</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Primes</span>
-        <span>{money(totals.primes)}</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Retenues</span>
-        <span>{money(totals.retenues)}</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Versé</span>
-        <span>
-          {money(
-            totals.salariesPaid + totals.advancesPaid + totals.advanceRecovered
-          )}
-        </span>
-      </div>
-      <div className="flex justify-between font-semibold">
-        <span>Reste à payer</span>
-        <span>{money(totals.remainingToPay)}</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Arriéré</span>
-        <span>{money(totals.arrearsTotal)}</span>
-      </div>
-      <div className="flex justify-between font-semibold">
-        <span>À payer (avec arriéré)</span>
-        <span>{money(totals.remainingToPay + totals.arrearsTotal)}</span>
-      </div>
-      <div className="flex justify-between">
-        <span className="text-muted-foreground">Solde d’avance</span>
-        <span>{money(totals.advanceBalance)}</span>
-      </div>
-    </div>
+      <dl className="mt-2 space-y-1">
+        {[
+          ['Dû', totals.due],
+          ['Primes', totals.primes],
+          ['Retenues', totals.retenues],
+          [
+            'Versé',
+            totals.salariesPaid + totals.advancesPaid + totals.advanceRecovered,
+          ],
+          ['Reste à payer', totals.remainingToPay],
+          ['Arriéré', totals.arrearsTotal],
+          ['À payer (avec arriéré)', totals.remainingToPay + totals.arrearsTotal],
+          ['Solde d’avance', totals.advanceBalance],
+        ].map(([label, value]) => (
+          <div key={label as string} className="flex justify-between gap-3">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="tabular-nums">{money(value as number)}</dd>
+          </div>
+        ))}
+      </dl>
+    </li>
+  );
+}
+
+function AmountCell({
+  value,
+  strong = false,
+}: {
+  value: number;
+  strong?: boolean;
+}) {
+  return (
+    <TableCell
+      className={`text-right tabular-nums ${strong ? 'font-semibold' : ''}`}
+    >
+      {money(value)}
+    </TableCell>
   );
 }
 
@@ -119,28 +123,27 @@ export function SalaryMonthView({ view }: { view: SalaryMonthView }) {
 
   if (employees.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-        Aucun employé enregistré : ajoute-en un ci-dessous pour voir le mois.
+      <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+        Aucun employé enregistré : crée un employé pour voir la paie du mois.
       </p>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {/* Mobile : cartes */}
-      <div className="grid gap-3 md:hidden">
-        {employees.map((r) => (
-          <PayLine key={r.employeeId} row={r} />
+    <div className="space-y-4">
+      <ul className="grid gap-3 md:hidden">
+        {employees.map((row) => (
+          <PayLine key={row.employeeId} row={row} />
         ))}
         <TotalsMobile view={view} />
-      </div>
+      </ul>
 
-      {/* Bureau : tableau dense */}
       <div className="hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Employé</TableHead>
+              <TableHead>État</TableHead>
               <TableHead className="text-right">Dû</TableHead>
               <TableHead className="text-right">Primes</TableHead>
               <TableHead className="text-right">Retenues</TableHead>
@@ -154,86 +157,58 @@ export function SalaryMonthView({ view }: { view: SalaryMonthView }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {employees.map((r) => (
-              <TableRow key={r.employeeId}>
+            {employees.map((row) => (
+              <TableRow key={row.employeeId}>
                 <TableCell>
-                  <span className="font-medium">{r.name}</span>
-                  {!r.active && (
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      sorti
-                    </span>
-                  )}
-                  {r.position && (
-                    <span className="block text-xs text-muted-foreground">
-                      {r.position}
-                    </span>
-                  )}
-                  {r.arrears.total > 0 && (
-                    <Badge variant="secondary" className="mt-1">
-                      Impayé {money(r.arrears.total)}
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <EmployeeAvatar name={row.name} className="size-8" />
+                    <div className="min-w-0">
+                      <span className="font-medium">{row.name}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {row.position || 'Poste non renseigné'}
+                        {!row.active && ' · sorti'}
+                      </span>
+                    </div>
+                  </div>
                 </TableCell>
-                <TableCell className="text-right">{money(r.due)}</TableCell>
-                <TableCell className="text-right">{money(r.primes)}</TableCell>
-                <TableCell className="text-right">
-                  {money(r.retenues)}
+                <TableCell>
+                  <SettlementBadge
+                    state={settlementState({
+                      remainingToPay: row.remainingToPay,
+                      arrearsTotal: row.arrears.total,
+                    })}
+                  />
                 </TableCell>
-                <TableCell className="text-right">
-                  {money(r.salariesPaid)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {money(r.advancesPaid)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {money(r.advanceRecovered)}
-                </TableCell>
-                <TableCell className="text-right font-semibold">
-                  {money(r.remainingToPay)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {money(r.arrears.total)}
-                </TableCell>
-                <TableCell className="text-right font-semibold">
-                  {money(r.proposedPayment.total)}
-                </TableCell>
-                <TableCell className="text-right">
-                  {money(r.advanceBalance)}
-                </TableCell>
+                <AmountCell value={row.due} />
+                <AmountCell value={row.primes} />
+                <AmountCell value={row.retenues} />
+                <AmountCell value={row.salariesPaid} />
+                <AmountCell value={row.advancesPaid} />
+                <AmountCell value={row.advanceRecovered} />
+                <AmountCell value={row.remainingToPay} strong />
+                <AmountCell value={row.arrears.total} />
+                <AmountCell value={row.proposedPayment.total} strong />
+                <AmountCell value={row.advanceBalance} />
               </TableRow>
             ))}
           </TableBody>
           <TableFooter>
             <TableRow>
               <TableCell className="font-medium">Total</TableCell>
-              <TableCell className="text-right">{money(totals.due)}</TableCell>
-              <TableCell className="text-right">
-                {money(totals.primes)}
-              </TableCell>
-              <TableCell className="text-right">
-                {money(totals.retenues)}
-              </TableCell>
-              <TableCell className="text-right">
-                {money(totals.salariesPaid)}
-              </TableCell>
-              <TableCell className="text-right">
-                {money(totals.advancesPaid)}
-              </TableCell>
-              <TableCell className="text-right">
-                {money(totals.advanceRecovered)}
-              </TableCell>
-              <TableCell className="text-right font-semibold">
-                {money(totals.remainingToPay)}
-              </TableCell>
-              <TableCell className="text-right">
-                {money(totals.arrearsTotal)}
-              </TableCell>
-              <TableCell className="text-right font-semibold">
-                {money(totals.remainingToPay + totals.arrearsTotal)}
-              </TableCell>
-              <TableCell className="text-right">
-                {money(totals.advanceBalance)}
-              </TableCell>
+              <TableCell />
+              <AmountCell value={totals.due} />
+              <AmountCell value={totals.primes} />
+              <AmountCell value={totals.retenues} />
+              <AmountCell value={totals.salariesPaid} />
+              <AmountCell value={totals.advancesPaid} />
+              <AmountCell value={totals.advanceRecovered} />
+              <AmountCell value={totals.remainingToPay} strong />
+              <AmountCell value={totals.arrearsTotal} />
+              <AmountCell
+                value={totals.remainingToPay + totals.arrearsTotal}
+                strong
+              />
+              <AmountCell value={totals.advanceBalance} />
             </TableRow>
           </TableFooter>
         </Table>

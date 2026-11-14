@@ -4,24 +4,16 @@ import { useTransition } from 'react';
 import { useQueryStates } from 'nuqs';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  listMonthOptions,
-  monthLabel,
-  shiftMonth,
-} from '@/lib/fixed-costs/month';
+import { monthLabel, shiftMonth } from '@/lib/fixed-costs/month';
 import { salairesParsers } from './salaires-search-params';
 
 /**
- * ‹ novembre 2026 › + sélecteur + « Aujourd'hui ». Même patron que le Point
- * mort : le mois vit dans l'URL (`mois`), `shallow: false` relit la base et
- * `startTransition` garde l'écran visible pendant le chargement.
+ * ‹ novembre 2026 › + « Aujourd'hui ». Même patron que le Point mort : le mois
+ * vit dans l'URL (`mois`), `shallow: false` relit la base et `startTransition`
+ * garde l'écran visible pendant le chargement.
+ *
+ * Pas de `<select>` : la règle des écrans Employés interdit tout champ de
+ * formulaire sur la Paie du mois. Deux chevrons et le mois écrit suffisent.
  */
 export function SalairesMonthNav({
   month,
@@ -39,8 +31,6 @@ export function SalairesMonthNav({
   const go = (target: string) =>
     setParams({ mois: target === currentMonth ? null : target });
 
-  const options = listMonthOptions(month);
-
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button
@@ -53,21 +43,12 @@ export function SalairesMonthNav({
         <ChevronLeft className="h-4 w-4" />
       </Button>
 
-      <Select value={month} onValueChange={go}>
-        <SelectTrigger
-          className="h-11 min-w-44 capitalize"
-          aria-label="Choisir un mois"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((o) => (
-            <SelectItem key={o.value} value={o.value} className="capitalize">
-              {o.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <p
+        aria-live="polite"
+        className="min-w-32 text-center text-sm font-medium capitalize"
+      >
+        {monthLabel(month)}
+      </p>
 
       <Button
         variant="outline"
@@ -89,9 +70,6 @@ export function SalairesMonthNav({
         </Button>
       )}
 
-      <span aria-live="polite" className="sr-only">
-        {monthLabel(month)}
-      </span>
       {pending && (
         <Loader2
           className="h-4 w-4 animate-spin text-muted-foreground"

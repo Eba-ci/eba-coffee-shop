@@ -38,6 +38,7 @@ describe('liste Employés : aucun champ de saisie hors tiroir', () => {
       React.createElement(EmployeesList, {
         overview: { month: '2026-11', employees: [row] },
         today: '2026-11-14',
+        canWrite: true,
       })
     );
     expect(html).toContain('Awa Traoré');
@@ -50,6 +51,7 @@ describe('liste Employés : aucun champ de saisie hors tiroir', () => {
       React.createElement(EmployeesList, {
         overview: { month: '2026-11', employees: [] },
         today: '2026-11-14',
+        canWrite: true,
       })
     );
     expect(html).toContain('Aucun employé enregistré');
