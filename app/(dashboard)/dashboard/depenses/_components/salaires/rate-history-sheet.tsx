@@ -5,14 +5,14 @@ import { Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { money } from '@/lib/fixed-costs/format';
 import type { SalaryEmployeeRow } from '@/lib/salaries/admin-queries';
+import {
+  SALARY_SHEET_CLASS,
+  SalarySheetBody,
+  SalarySheetHeader,
+} from './salary-sheet';
 import { setSalaryRateAction } from './actions';
 
 /**
@@ -62,13 +62,13 @@ export function RateHistorySheet({
 
   return (
     <Sheet open={employee !== null} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="overflow-y-auto">
-        <SheetHeader>
+      <SheetContent side="right" className={SALARY_SHEET_CLASS}>
+        <SalarySheetHeader>
           <SheetTitle>
             {employee ? `Taux de ${employee.name}` : 'Taux'}
           </SheetTitle>
-        </SheetHeader>
-        <div className="space-y-4 px-4">
+        </SalarySheetHeader>
+        <SalarySheetBody>
           {rates.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Aucun taux défini : le dû de cet employé est de 0 F.
@@ -78,7 +78,7 @@ export function RateHistorySheet({
               {rates.map((r) => (
                 <li
                   key={r.startDate}
-                  className="flex items-center justify-between px-3 py-2"
+                  className="flex items-center justify-between gap-2 px-3 py-2"
                 >
                   <span className="text-muted-foreground">
                     à partir du {r.startDate}
@@ -124,7 +124,7 @@ export function RateHistorySheet({
               Ajouter le taux
             </Button>
           </div>
-        </div>
+        </SalarySheetBody>
       </SheetContent>
     </Sheet>
   );

@@ -45,6 +45,17 @@ export async function createEmployee(input: unknown) {
       endDate: d.endDate ? date(d.endDate) : null,
       active: d.active ?? true,
       note: d.note ?? null,
+      // Le salaire actuel est enregistré avec l'employé (même écriture).
+      ...(d.monthlyAmount
+        ? {
+            rates: {
+              create: {
+                monthlyAmount: d.monthlyAmount,
+                startDate: date(d.rateStartDate || d.startDate),
+              },
+            },
+          }
+        : {}),
     },
   });
 }

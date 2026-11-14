@@ -6,15 +6,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { money } from '@/lib/fixed-costs/format';
 import type { SalaryEmployeeRow } from '@/lib/salaries/admin-queries';
-import { createEmployeeAction, updateEmployeeAction } from './actions';
+import {
+  createEmployeeAction,
+  setSalaryRateAction,
+  updateEmployeeAction,
+} from './actions';
+import {
+  SALARY_SHEET_CLASS,
+  SalarySheetBody,
+  SalarySheetHeader,
+} from './salary-sheet';
 import { RateHistorySheet } from './rate-history-sheet';
 
 type Draft = {
@@ -23,6 +27,8 @@ type Draft = {
   startDate: string;
   endDate: string;
   active: boolean;
+  monthlyAmount: string;
+  rateStartDate: string;
 };
 
 const empty = (today: string): Draft => ({
@@ -31,6 +37,8 @@ const empty = (today: string): Draft => ({
   startDate: today,
   endDate: '',
   active: true,
+  monthlyAmount: '',
+  rateStartDate: today,
 });
 
 export function EmployeeManager({
@@ -62,6 +70,8 @@ export function EmployeeManager({
       startDate: e.startDate,
       endDate: e.endDate ?? '',
       active: e.active,
+      monthlyAmount: e.rates[0] ? String(e.rates[0].monthlyAmount) : '',
+      rateStartDate: e.rates[0] ? e.rates[0].startDate : today,
     });
     setError(null);
     setOpen(true);
@@ -70,6 +80,10 @@ export function EmployeeManager({
   function submit() {
     if (!draft.name.trim()) return setError('Nom requis');
     if (!draft.startDate) return setError('Date d’entrée requise');
+    const amount = draft.monthlyAmount.trim()
+      ? Math.round(Number(draft.monthlyAmount))
+      : null;
+    if (amount !== null && !(amount > 0)) return setError('Salaire invalide');
     setError(null);
     const payload = {
       name: draft.name.trim(),
@@ -79,9 +93,30 @@ export function EmployeeManager({
       active: draft.active,
     };
     startTransition(async () => {
-      const r = editing
-        ? await updateEmployeeAction(editing.id, payload)
-        : await createEmployeeAction(payload);
+      let r;
+      if (editing) {
+        r = await updateEmployeeAction(editing.id, payload);
+        const cur = editing.rates[0];
+        const changed =
+          amount !== null &&
+          (!cur ||
+            cur.monthlyAmount !== amount ||
+            cur.startDate !== draft.rateStartDate);
+        // Nouvelle ligne datée : l'historique des taux n'est jamais écrasé.
+        if (r.ok && changed) {
+          r = await setSalaryRateAction({
+            employeeId: editing.id,
+            monthlyAmount: amount,
+            startDate: draft.rateStartDate || draft.startDate,
+          });
+        }
+      } else {
+        r = await createEmployeeAction({
+          ...payload,
+          monthlyAmount: amount,
+          rateStartDate: draft.rateStartDate || draft.startDate,
+        });
+      }
       if (r.ok) setOpen(false);
       else setError(r.error);
     });
@@ -146,13 +181,14 @@ export function EmployeeManager({
       )}
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="overflow-y-auto">
-          <SheetHeader>
+        {/* Pleine largeur sur mobile (le clavier masquait les champs), max-w sur desktop. */}
+        <SheetContent side="right" className={SALARY_SHEET_CLASS}>
+          <SalarySheetHeader>
             <SheetTitle>
               {editing ? 'Modifier l’employé' : 'Nouvel employé'}
             </SheetTitle>
-          </SheetHeader>
-          <div className="space-y-3 px-4">
+          </SalarySheetHeader>
+          <SalarySheetBody>
             <div className="space-y-1.5">
               <Label htmlFor="emp-name">Nom</Label>
               <Input
@@ -197,6 +233,35 @@ export function EmployeeManager({
                 }
               />
             </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="emp-salary">Salaire mensuel (FCFA)</Label>
+                <Input
+                  id="emp-salary"
+                  className="h-11"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  placeholder="ex. 150000"
+                  value={draft.monthlyAmount}
+                  onChange={(e) =>
+                    setDraft({ ...draft, monthlyAmount: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="emp-rate-date">Applicable depuis</Label>
+                <Input
+                  id="emp-rate-date"
+                  className="h-11"
+                  type="date"
+                  value={draft.rateStartDate}
+                  onChange={(e) =>
+                    setDraft({ ...draft, rateStartDate: e.target.value })
+                  }
+                />
+              </div>
+            </div>
             <label className="flex items-center gap-2 py-1.5 text-sm">
               <input
                 type="checkbox"
@@ -219,7 +284,7 @@ export function EmployeeManager({
               )}
               {editing ? 'Enregistrer' : 'Créer l’employé'}
             </Button>
-          </div>
+          </SalarySheetBody>
         </SheetContent>
       </Sheet>
 
