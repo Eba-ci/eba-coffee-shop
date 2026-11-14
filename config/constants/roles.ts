@@ -19,3 +19,10 @@ export const ORDERS_VIEW_ROLES: UserRole[] = [
   'CASHIER',
   'ANALYSTE',
 ];
+
+/**
+ * Paie nominative (#440) : ADMIN et COMPTABLE seulement. MANAGER et ANALYSTE
+ * restent sur les agrégats (`getMonthlySalaryTotal`). Une seule source pour la
+ * garde serveur (`requirePayroll`) et l'entrée de navigation « Employés ».
+ */
+export const PAYROLL_ROLES: UserRole[] = ['ADMIN', 'COMPTABLE'];
