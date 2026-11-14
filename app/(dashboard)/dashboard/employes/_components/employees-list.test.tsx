@@ -6,7 +6,10 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
-vi.mock('../actions', () => ({ createEmployeeAction: vi.fn() }));
+vi.mock('../actions', () => ({
+  createEmployeeAction: vi.fn(),
+  reactivateEmployeeAction: vi.fn(),
+}));
 
 import type { EmployeeListRow } from '@/lib/employees/queries';
 import { EmployeesList } from './employees-list';
@@ -19,6 +22,8 @@ const row: EmployeeListRow = {
   startDate: '2025-01-06',
   endDate: null,
   currentRate: 150_000,
+  rates: [{ monthlyAmount: 150_000, startDate: '2025-01-06' }],
+  note: null,
   month: {
     due: 150_000,
     salariesPaid: 100_000,
@@ -43,6 +48,20 @@ describe('liste Employés : aucun champ de saisie hors tiroir', () => {
     );
     expect(html).toContain('Awa Traoré');
     expect(html).toContain('Mois non soldé');
+    expect(html).toContain('aria-label="Actions pour Awa Traoré"');
+    expect(html).not.toMatch(noField);
+  });
+
+  it('un COMPTABLE ne reçoit aucune action d’écriture', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(EmployeesList, {
+        overview: { month: '2026-11', employees: [row] },
+        today: '2026-11-14',
+        canWrite: false,
+      })
+    );
+    expect(html).toContain('Awa Traoré');
+    expect(html).not.toContain('Actions pour');
     expect(html).not.toMatch(noField);
   });
 

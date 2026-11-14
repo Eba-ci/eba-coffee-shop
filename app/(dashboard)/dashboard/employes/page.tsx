@@ -11,6 +11,7 @@ import { listEmployeesOverview } from '@/lib/employees/queries';
 import { todayDateString } from '@/lib/timezone';
 import { EmployeesList } from './_components/employees-list';
 import { NewEmployeeButton } from './_components/new-employee-button';
+import { NewPaymentButton } from './_components/new-payment-button';
 import { PageHeader } from './_components/page-header';
 
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,21 @@ export default async function EmployesPage() {
                 Paie du mois
               </Link>
             </Button>
-            {isAdmin && <NewEmployeeButton today={today} />}
+            {isAdmin && (
+              <>
+                <NewEmployeeButton today={today} />
+                <NewPaymentButton
+                  employees={overview.employees
+                    .filter((employee) => employee.active)
+                    .map((employee) => ({
+                      id: employee.id,
+                      name: employee.name,
+                    }))}
+                  month={overview.month}
+                  today={today}
+                />
+              </>
+            )}
           </>
         }
       />

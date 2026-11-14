@@ -1,20 +1,32 @@
-// Carte Employé (#442) : la version mobile de la liste. Le nom et la situation
-// du mois restent lisibles d'un coup d'œil ; la carte entière est un lien vers
-// la fiche, sans aucun champ de saisie.
+// Carte Employé (#442/#466) : la version mobile de la liste. Le nom et la
+// situation du mois restent lisibles d'un coup d'œil ; la zone principale est
+// un lien vers la fiche, le menu d'actions reste hors du lien (un contrôle
+// interactif ne s'imbrique pas dans un autre).
 
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import type { EmployeeListRow } from '@/lib/employees/queries';
 import { EmployeeAvatar } from './employee-avatar';
+import { EmployeeRowActions } from './employee-row-actions';
 import { SalarySummaryCompact } from './salary-summary';
 import { StatusBadges } from './status-badges';
 
-export function EmployeeListCard({ row }: { row: EmployeeListRow }) {
+export function EmployeeListCard({
+  row,
+  today,
+  month,
+  canWrite,
+}: {
+  row: EmployeeListRow;
+  today: string;
+  month: string;
+  canWrite: boolean;
+}) {
   return (
-    <li>
+    <li className="flex items-start gap-1 rounded-lg border bg-card p-4 shadow-sm">
       <Link
         href={`/dashboard/employes/${row.id}`}
-        className="flex min-h-11 items-start gap-3 rounded-lg border bg-card p-4 shadow-sm transition-colors hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex min-h-11 min-w-0 flex-1 items-start gap-3 rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <EmployeeAvatar name={row.name} />
         <div className="min-w-0 flex-1 space-y-2">
@@ -45,6 +57,12 @@ export function EmployeeListCard({ row }: { row: EmployeeListRow }) {
           />
         </div>
       </Link>
+      <EmployeeRowActions
+        row={row}
+        today={today}
+        month={month}
+        canWrite={canWrite}
+      />
     </li>
   );
 }

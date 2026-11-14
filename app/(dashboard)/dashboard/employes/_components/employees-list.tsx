@@ -13,18 +13,41 @@ import { EmployeeListCard } from './employee-list-card';
 import { EmployeeListTable } from './employee-list-table';
 import { NewEmployeeButton } from './new-employee-button';
 
-function Group({ label, rows }: { label: string; rows: EmployeeListRow[] }) {
+function Group({
+  label,
+  rows,
+  today,
+  month,
+  canWrite,
+}: {
+  label: string;
+  rows: EmployeeListRow[];
+  today: string;
+  month: string;
+  canWrite: boolean;
+}) {
   if (rows.length === 0) return null;
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-medium text-muted-foreground">{label}</h2>
       <ul className="grid gap-3 md:hidden">
         {rows.map((row) => (
-          <EmployeeListCard key={row.id} row={row} />
+          <EmployeeListCard
+            key={row.id}
+            row={row}
+            today={today}
+            month={month}
+            canWrite={canWrite}
+          />
         ))}
       </ul>
       <div className="hidden md:block">
-        <EmployeeListTable rows={rows} />
+        <EmployeeListTable
+          rows={rows}
+          today={today}
+          month={month}
+          canWrite={canWrite}
+        />
       </div>
     </section>
   );
@@ -69,8 +92,8 @@ export function EmployeesList({
       <p className="text-xs text-muted-foreground">
         Situation de {monthLabel(overview.month)}.
       </p>
-      <Group label="En poste" rows={active} />
-      <Group label="Sortis" rows={inactive} />
+      <Group label="En poste" rows={active} today={today} month={overview.month} canWrite={canWrite} />
+      <Group label="Sortis" rows={inactive} today={today} month={overview.month} canWrite={canWrite} />
     </div>
   );
 }

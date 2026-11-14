@@ -35,16 +35,19 @@ export function SalaryPaymentForm({
   employees,
   defaultMonth,
   today,
+  defaultEmployeeId,
   onSaved,
 }: {
   employees: { id: string; name: string }[];
   defaultMonth: string;
   today: string;
+  /** Employé présélectionné (ligne de la liste Employés). */
+  defaultEmployeeId?: string;
   /** Appelé après un versement enregistré (le tiroir se referme). */
   onSaved?: () => void;
 }) {
   const [draft, setDraft] = useState<Draft>({
-    employeeId: employees[0]?.id ?? '',
+    employeeId: defaultEmployeeId ?? employees[0]?.id ?? '',
     type: 'SALAIRE',
     date: today,
     month: defaultMonth,
@@ -222,7 +225,7 @@ export function SalaryPaymentForm({
 
       {error && <p className="text-sm text-destructive">{error}</p>}
       {info && (
-        <p className="text-sm text-emerald-600 dark:text-emerald-400">{info}</p>
+        <p className="text-sm text-primary">{info}</p>
       )}
 
       <Button

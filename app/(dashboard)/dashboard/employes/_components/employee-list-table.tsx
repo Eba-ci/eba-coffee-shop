@@ -14,9 +14,20 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { EmployeeAvatar } from './employee-avatar';
+import { EmployeeRowActions } from './employee-row-actions';
 import { StatusBadges } from './status-badges';
 
-export function EmployeeListTable({ rows }: { rows: EmployeeListRow[] }) {
+export function EmployeeListTable({
+  rows,
+  today,
+  month,
+  canWrite,
+}: {
+  rows: EmployeeListRow[];
+  today: string;
+  month: string;
+  canWrite: boolean;
+}) {
   return (
     <Table>
       <TableHeader>
@@ -27,6 +38,9 @@ export function EmployeeListTable({ rows }: { rows: EmployeeListRow[] }) {
           <TableHead className="text-right">Dû</TableHead>
           <TableHead className="text-right">Versé</TableHead>
           <TableHead className="text-right">Reste</TableHead>
+          <TableHead className="w-14 text-right">
+            <span className="sr-only">Actions</span>
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -62,6 +76,14 @@ export function EmployeeListTable({ rows }: { rows: EmployeeListRow[] }) {
             </TableCell>
             <TableCell className="text-right font-semibold tabular-nums">
               {money(row.month.remainingToPay)}
+            </TableCell>
+            <TableCell className="text-right">
+              <EmployeeRowActions
+                row={row}
+                today={today}
+                month={month}
+                canWrite={canWrite}
+              />
             </TableCell>
           </TableRow>
         ))}

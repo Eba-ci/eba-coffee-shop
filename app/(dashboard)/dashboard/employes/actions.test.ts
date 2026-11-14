@@ -22,6 +22,7 @@ import * as rates from '@/lib/salaries/rate-mutations';
 import {
   addSalaryRateAction,
   createEmployeeAction,
+  reactivateEmployeeAction,
   recordEmployeeExitAction,
   updateEmployeeIdentityAction,
 } from './actions';
@@ -61,6 +62,11 @@ const cases: [
     'addSalaryRateAction',
     () => addSalaryRateAction(rate),
     { fn: rates.addSalaryRate, args: [rate] },
+  ],
+  [
+    'reactivateEmployeeAction',
+    () => reactivateEmployeeAction('e1'),
+    { fn: salaries.updateEmployee, args: ['e1', { active: true, endDate: null }] },
   ],
 ];
 

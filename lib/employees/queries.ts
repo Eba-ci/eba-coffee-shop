@@ -28,6 +28,10 @@ export type EmployeeListRow = {
   endDate: string | null;
   /** Taux en vigueur aujourd'hui (dernier taux commencé), ou null. */
   currentRate: number | null;
+  /** Historique des taux, du plus récent au plus ancien (tiroir « Ajouter un taux »). */
+  rates: { monthlyAmount: number; startDate: string }[];
+  /** Note libre de la fiche. */
+  note: string | null;
   /** Situation du mois : dû, versé (salaires + acomptes + avances récupérées), reste. */
   month: {
     due: number;
@@ -116,6 +120,8 @@ export async function listEmployeesOverview(
       startDate: e.startDate,
       endDate: e.endDate,
       currentRate: currentRateOf(e.rates, today),
+      rates: e.rates,
+      note: e.note,
       month: {
         due: r?.due ?? 0,
         salariesPaid,
