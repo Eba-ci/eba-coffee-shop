@@ -5,7 +5,8 @@
 # `migrate deploy` la rejouerait (CREATE TYPE sur type existant), l'enregistrerait
 # « failed » et bloquerait tous les déploiements suivants (P3009).
 # Ici : si la baseline n'est pas au journal (absente OU en échec) et que la base
-# correspond EXACTEMENT au schéma, on la marque appliquée (aucun SQL exécuté).
+# correspond EXACTEMENT à la baseline (instantané figé dans
+# `scripts/schema-baseline.prisma`), on la marque appliquée (aucun SQL exécuté).
 # Idempotent : sans effet une fois la baseline au journal. Base vide : rien à faire.
 set -eu
 
@@ -26,16 +27,19 @@ if [ "$rc" = 0 ]; then
   exit 0
 fi
 
-# Base peuplée : elle doit correspondre exactement au schéma.
+# Base peuplée : elle doit correspondre exactement à la BASELINE, et non au
+# schéma courant. Comparer au schéma courant échouerait dès qu'une migration
+# plus récente existe — la base ne l'a pas encore, par définition — et ferait
+# échouer l'adoption au premier ajout de migration.
 rc=0
-$PRISMA migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code || rc=$?
+$PRISMA migrate diff --from-config-datasource --to-schema scripts/schema-baseline.prisma --exit-code || rc=$?
 case "$rc" in
   0)
-    echo "[adopt-baseline] base conforme au schéma : baseline marquée appliquée"
+    echo "[adopt-baseline] base conforme à la baseline : baseline marquée appliquée"
     $PRISMA migrate resolve --applied "$BASELINE"
     ;;
   2)
-    echo "[adopt-baseline] ERREUR : la base diffère du schéma (diff ci-dessus). Adoption refusée." >&2
+    echo "[adopt-baseline] ERREUR : la base diffère de la baseline (diff ci-dessus). Adoption refusée." >&2
     echo "[adopt-baseline] Corriger l'écart, puis relancer (cf. docs/migration-prisma-migrate.md)." >&2
     exit 1
     ;;
