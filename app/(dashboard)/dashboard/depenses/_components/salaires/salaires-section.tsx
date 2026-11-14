@@ -5,11 +5,11 @@
 // qu'un non-admin n'obtient ni la section, ni les données.
 
 import { requireAdmin } from '@/lib/auth-helpers';
+import { getSalaryMonthView } from '@/lib/salaries/admin-queries';
 import {
-  getSalaryMonthView,
   listSalaryAdvances,
   listSalaryEmployees,
-} from '@/lib/salaries/admin-queries';
+} from '@/lib/salaries/admin-lists';
 import { todayDateString } from '@/lib/timezone';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SalairesMonthNav } from './month-nav';
@@ -20,12 +20,12 @@ import { AdvanceManager } from './advance-manager';
 
 export async function SalairesSection({ month }: { month: string }) {
   await requireAdmin();
+  const currentMonth = todayDateString().slice(0, 7);
   const [view, employees, advances] = await Promise.all([
     getSalaryMonthView(month),
-    listSalaryEmployees(),
+    listSalaryEmployees(currentMonth),
     listSalaryAdvances(),
   ]);
-  const currentMonth = todayDateString().slice(0, 7);
   const options = employees.map((e) => ({ id: e.id, name: e.name }));
 
   return (

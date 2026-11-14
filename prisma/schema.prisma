@@ -55,6 +55,7 @@ model User {
   refundsApproved           Refund[]                @relation("RefundApprovedBy")
   refundEvents              RefundEvent[]           @relation("RefundEventActor")
   salaryPaymentsCreated     SalaryPayment[]         @relation("SalaryPaymentCreatedBy")
+  salaryAdjustmentsCreated  SalaryAdjustment[]      @relation("SalaryAdjustmentCreatedBy")
 
   @@map("user")
 }
@@ -1130,6 +1131,13 @@ enum SalaryPaymentType {
   AVANCE
 }
 
+// Nature d'un ajustement de paie : une prime augmente le dû du mois, une
+// retenue le diminue (jamais en dessous de 0).
+enum SalaryAdjustmentNature {
+  PRIME
+  RETENUE
+}
+
 // Charge fixe suivie pour le point mort (loyer, salaires, abonnements…).
 // On y porte un montant, une périodicité et une date de prise d'effet pour
 // ramener la charge à un coût par jour ouvré. `categoryId` = catégorie de dépense
@@ -1205,6 +1213,7 @@ model Employee {
 
   rates    SalaryRate[]
   payments SalaryPayment[]
+  adjustments SalaryAdjustment[]
 
   @@index([active])
   @@map("employee")
@@ -1254,6 +1263,30 @@ model SalaryPayment {
   @@index([month])
   @@index([date])
   @@map("salary_payment")
+}
+
+// Prime ou retenue DATÉE, rattachée à un mois de paie « YYYY-MM ». Le dû du
+// mois = prorata des taux + primes − retenues : une prime entre dans le point
+// mort du mois où elle est due, même non payée. Un ajustement n'est JAMAIS
+// supprimé : `canceledAt` le sort des calculs en conservant l'historique.
+model SalaryAdjustment {
+  id          String                 @id @default(cuid())
+  employeeId  String
+  employee    Employee               @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  month       String // mois concerné "YYYY-MM"
+  date        DateTime               @db.Date // jour de décision / d'effet
+  nature      SalaryAdjustmentNature
+  amount      Int // FCFA, toujours positif (la nature porte le signe)
+  note        String?
+  createdById String?
+  createdBy   User?                  @relation("SalaryAdjustmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  canceledAt  DateTime?
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@index([employeeId, month])
+  @@index([month])
+  @@map("salary_adjustment")
 }
 
 model Expense {

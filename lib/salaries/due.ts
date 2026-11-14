@@ -9,10 +9,12 @@
 //   (`roundToWholeFcfa`) : la somme des segments retombe sur l'arrondi du
 //   total exact, sans dérive.
 
+import { SALARY_RETENUE_EXCEEDS_DUE_MESSAGE } from '@/config/constants';
 import { compareStrings, eachDayOfMonth, monthBounds } from './month';
 import { roundToWholeFcfa } from './money';
 import type {
   EmployeeLike,
+  SalaryAdjustmentLike,
   SalaryDue,
   SalaryRateLike,
   SalarySegment,
@@ -39,11 +41,17 @@ export function employmentWindow(
  * jours hors fenêtre d'emploi ne comptent pas, et les jours d'emploi sans aucun
  * taux défini sont comptés dans `daysWithoutRate` (le dû reste 0 pour eux, mais
  * l'appelant peut le signaler au lieu de renvoyer un 0 silencieux).
+ *
+ * `adjustments` (facultatif) ajoute les primes et retenues du mois : le dû NET
+ * vaut `prorata + primes − retenues`. Une retenue cumulée supérieure au prorata
+ * des taux est REFUSÉE (message clair) : jamais de dû négatif silencieux. Les
+ * ajustements annulés (`canceledAt`) sont ignorés.
  */
 export function salaryDueForMonth(
   employee: EmployeeLike,
   rates: SalaryRateLike[],
-  month: string
+  month: string,
+  adjustments: SalaryAdjustmentLike[] = []
 ): SalaryDue {
   const days = eachDayOfMonth(month);
   const n = days.length;
@@ -86,6 +94,24 @@ export function salaryDueForMonth(
     amount: amounts[k],
   }));
 
-  const due = amounts.reduce((a, b) => a + b, 0);
-  return { month, due, daysEmployed, daysWithoutRate, segments };
+  const baseDue = amounts.reduce((a, b) => a + b, 0);
+  const active = adjustments.filter((a) => a.month === month && !a.canceledAt);
+  const primes = active
+    .filter((a) => a.nature === 'PRIME')
+    .reduce((a, b) => a + b.amount, 0);
+  const retenues = active
+    .filter((a) => a.nature === 'RETENUE')
+    .reduce((a, b) => a + b.amount, 0);
+  if (retenues > baseDue) throw new Error(SALARY_RETENUE_EXCEEDS_DUE_MESSAGE);
+
+  return {
+    month,
+    due: baseDue + primes - retenues,
+    baseDue,
+    primes,
+    retenues,
+    daysEmployed,
+    daysWithoutRate,
+    segments,
+  };
 }
