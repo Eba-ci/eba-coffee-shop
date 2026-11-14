@@ -129,8 +129,9 @@ if [ "$ACTION" = schema ]; then
   # En production, le relevé de départ reste un geste volontaire (bouton ou pnpm à la main).
   # Schéma : prisma migrate deploy (journal _prisma_migrations ; les migrations
   # historiques sont consolidées dans 20261113060000_baseline, marquée appliquée
-  # une fois par environnement — cf. docs/migration-prisma-migrate.md).
-  tasks="db:merge-duplicate-emails db:migrate db:trigger db:indexes"
+  # une fois par environnement — automatisé par db:adopt-baseline, cf.
+  # docs/migration-prisma-migrate.md).
+  tasks="db:merge-duplicate-emails db:adopt-baseline db:migrate db:trigger db:indexes"
   [ "$ENV_NAME" != staging ] || tasks="$tasks db:backfill-stock-baseline"
   for task in $tasks; do
     docker run --rm --add-host="host.docker.internal:$HOST_ADDR" --env-file "$ENV_FILE" \

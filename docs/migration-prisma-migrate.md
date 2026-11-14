@@ -34,7 +34,7 @@ la BDD cible (`DATABASE_URL` de l'env) :
    via un dernier déploiement en mode `db push`) :
    ```sh
    pnpm exec prisma migrate diff \
-     --from-url "$DATABASE_URL" \
+     --from-config-datasource \
      --to-schema prisma/schema.prisma
    ```
    → « No difference » attendu. Si différence : déployer master d'abord
@@ -44,6 +44,12 @@ la BDD cible (`DATABASE_URL` de l'env) :
    pnpm exec prisma migrate resolve --applied 20261113060000_baseline
    ```
 3. Les déploiements suivants appliquent uniquement les **nouvelles** migrations.
+
+> **Automatisé** : `deploy.sh` lance `db:adopt-baseline` avant `db:migrate`
+> (`scripts/db-adopt-baseline.sh`). Si la baseline n'est pas au journal (absente ou
+> « failed ») et que la base est identique au schéma, il fait l'étape 2 tout seul ;
+> sinon il échoue sans rien toucher. À retirer une fois tous les environnements
+> basculés.
 
 > Si un déploiement part avant l'étape 2 : `migrate deploy` tente d'appliquer la
 > baseline sur une BDD pleine et échoue (`CREATE TABLE` sur table existante).

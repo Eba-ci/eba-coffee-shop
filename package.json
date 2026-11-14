@@ -51,6 +51,7 @@
     "test:race": "tsx --env-file=.env scripts/stock-race/run.ts",
     "db:trigger": "prisma db execute --file prisma/sql/orders-notify-trigger.sql",
     "db:indexes": "prisma db execute --file prisma/sql/order-customer-counted-index.sql",
+    "db:adopt-baseline": "sh scripts/db-adopt-baseline.sh",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
     "prepare": "husky",
