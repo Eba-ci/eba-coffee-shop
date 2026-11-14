@@ -22,7 +22,7 @@ import {
   SalarySheetHeader,
 } from './salary-sheet';
 import { money } from '@/lib/fixed-costs/format';
-import type { SalaryAdvanceRow } from '@/lib/salaries/admin-queries';
+import type { SalaryAdvanceRow } from '@/lib/salaries/admin-lists';
 import {
   adjustSalaryAdvanceAction,
   cancelSalaryAdvanceAction,

@@ -4,7 +4,7 @@ import { History, Pencil, Wallet } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/fixed-costs/format';
-import type { SalaryEmployeeRow } from '@/lib/salaries/admin-queries';
+import type { SalaryEmployeeRow } from '@/lib/salaries/admin-lists';
 
 /** Ligne Employé : identité, taux courant et accès aux fiches. */
 export function EmployeeRow({

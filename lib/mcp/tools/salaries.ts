@@ -9,11 +9,11 @@
 // Aucune logique propre : tout vient de `lib/salaries` (aucune duplication).
 
 import { z } from 'zod';
+import { getSalaryMonthView } from '@/lib/salaries/admin-queries';
 import {
-  getSalaryMonthView,
   listSalaryAdvances,
   listSalaryEmployees,
-} from '@/lib/salaries/admin-queries';
+} from '@/lib/salaries/admin-lists';
 import { getMonthlySalaryTotal } from '@/lib/salaries/queries';
 import { isValidMonth } from '@/lib/salaries/month';
 import type { McpTool } from './types';

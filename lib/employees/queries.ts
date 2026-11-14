@@ -10,9 +10,9 @@ import prisma from '@/lib/prisma';
 import { requirePayroll } from '@/lib/auth-helpers';
 import {
   getSalaryMonthView,
-  listSalaryEmployees,
   salaryStateThrough,
 } from '@/lib/salaries/admin-queries';
+import { listSalaryEmployees } from '@/lib/salaries/admin-lists';
 import { salaryPaymentProposal } from '@/lib/salaries/arrears';
 import { toSalaryRateLike } from '@/lib/salaries/mappers';
 import { formatLocalDateOnly, todayDateString } from '@/lib/timezone';

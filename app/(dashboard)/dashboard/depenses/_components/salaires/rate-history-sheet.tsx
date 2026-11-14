@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { money } from '@/lib/fixed-costs/format';
-import type { SalaryEmployeeRow } from '@/lib/salaries/admin-queries';
+import type { SalaryEmployeeRow } from '@/lib/salaries/admin-lists';
 import {
   SALARY_SHEET_CLASS,
   SalarySheetBody,
