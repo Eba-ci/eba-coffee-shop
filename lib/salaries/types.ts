@@ -25,6 +25,8 @@ export type SalaryPaymentLike = {
   type: SalaryPaymentType;
   amount: number; // FCFA
   recoveryMonths?: number; // AVANCE : étalement (défaut 1)
+  // Versement annulé : exclu de TOUS les calculs (dû soldé, arriéré, avance).
+  canceledAt?: Date | string | null;
 };
 
 /** Prime (gagne) ou retenue (diminue) rattachée à un mois de paie. */
@@ -74,4 +76,11 @@ export type SalaryMonthSummary = {
   remainingToPay: number; // dû − versements − avances récupérées (borné à 0)
   overpaid: number; // excédent versé au-delà du dû (0 si rien de trop)
   advanceBalance: number; // solde d'avance restant après ce mois
+};
+
+/** Arriéré d'un employé : reste dû des mois CLÔTURÉS, mois courant exclu. */
+export type SalaryArrears = {
+  total: number; // somme des restes des mois clôturés, FCFA
+  oldestMonth: string | null; // plus ancien mois impayé ("YYYY-MM")
+  months: { month: string; remaining: number }[]; // du plus ancien au plus récent
 };

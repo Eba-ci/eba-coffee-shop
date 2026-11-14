@@ -48,8 +48,9 @@ export const salariesTools: McpTool[] = [
     description:
       'ADMIN uniquement. Détail par employé d’un mois civil : dû (taux ' +
       'proratisés, primes et retenues), salaires et acomptes versés, avances ' +
-      'récupérées, reste à payer et solde d’avance, plus les totaux du mois. ' +
-      'Données nominatives : jamais exposées aux autres rôles.',
+      'récupérées, reste à payer, arriéré des mois clôturés, montant proposé ' +
+      'au paiement et solde d’avance, plus les totaux du mois. Données ' +
+      'nominatives : jamais exposées aux autres rôles.',
     inputSchema: monthInput,
     readOnly: true,
     handler: (args) => getSalaryMonthView((args as { month: string }).month),
@@ -61,8 +62,8 @@ export const salariesTools: McpTool[] = [
     title: 'Lister les employés (ADMIN)',
     description:
       'ADMIN uniquement. Employés (nom, poste, entrée/sortie, actif, note), ' +
-      'historique de leurs taux mensuels et de leurs primes/retenues. Données ' +
-      'nominatives.',
+      'historique de leurs taux mensuels, primes/retenues et arriéré à ce ' +
+      'jour. Données nominatives.',
     inputSchema: z.object({}),
     readOnly: true,
     handler: () => listSalaryEmployees(),

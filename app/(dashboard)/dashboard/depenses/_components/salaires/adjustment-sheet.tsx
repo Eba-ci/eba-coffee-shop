@@ -8,6 +8,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Ban, Loader2, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -61,6 +62,8 @@ export function AdjustmentSheet({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const arrears = employee?.arrears;
+  const count = arrears?.months.length ?? 0;
   const natureLabel = (n: SalaryAdjustmentRow['nature']) =>
     SALARY_ADJUSTMENT_NATURE_LABELS[
       n as keyof typeof SALARY_ADJUSTMENT_NATURE_LABELS
@@ -121,12 +124,48 @@ export function AdjustmentSheet({
       <SheetContent side="right" className={SALARY_SHEET_CLASS}>
         <SalarySheetHeader>
           <SheetTitle>
-            {employee
-              ? `Primes et retenues de ${employee.name}`
-              : 'Primes et retenues'}
+            {employee ? `Fiche de ${employee.name}` : 'Fiche employé'}
           </SheetTitle>
         </SalarySheetHeader>
         <SalarySheetBody>
+          <section className="rounded-lg border p-3" aria-label="Arriéré">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium">Arriéré</p>
+              {count > 0 ? (
+                <Badge variant="secondary">Impayé</Badge>
+              ) : (
+                <Badge variant="outline">À jour</Badge>
+              )}
+            </div>
+            <p className="mt-1 text-lg font-semibold">
+              {money(arrears?.total ?? 0)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {count === 0
+                ? 'Aucun mois clôturé impayé.'
+                : `${count} mois concerné${count > 1 ? 's' : ''}${
+                    arrears?.oldestMonth
+                      ? ` · plus ancien : ${monthLabel(arrears.oldestMonth)}`
+                      : ''
+                  }`}
+            </p>
+            {count > 0 && (
+              <ul className="mt-2 divide-y rounded-md border text-sm">
+                {arrears!.months.map((m) => (
+                  <li
+                    key={m.month}
+                    className="flex items-center justify-between gap-2 px-3 py-2"
+                  >
+                    <span className="capitalize text-muted-foreground">
+                      {monthLabel(m.month)}
+                    </span>
+                    <span className="font-medium">{money(m.remaining)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <section className="space-y-3 rounded-lg border p-3">
             <p className="text-sm font-medium">Nouvelle prime / retenue</p>
             <div className="space-y-1.5">

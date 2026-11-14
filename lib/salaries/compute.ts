@@ -20,6 +20,7 @@
 // `ledger.ts`) ; ce fichier en est le point d'entrée stable.
 
 export * from './types';
+export { salaryArrears, salaryPaymentProposal } from './arrears';
 export { employmentWindow, salaryDueForMonth } from './due';
 export {
   advanceRecoverySchedule,

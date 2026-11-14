@@ -24,6 +24,9 @@ export function EmployeeRow({
         <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
           {e.name}
           {!e.active && <Badge variant="outline">Sorti</Badge>}
+          {e.arrears.total > 0 && (
+            <Badge variant="secondary">Impayé {money(e.arrears.total)}</Badge>
+          )}
         </p>
         <p className="text-xs text-muted-foreground">
           {e.position || 'Poste non renseigné'} · depuis {e.startDate}
@@ -41,7 +44,7 @@ export function EmployeeRow({
           variant="ghost"
           className="h-11 w-11"
           onClick={onDetails}
-          aria-label={`Primes et retenues de ${e.name}`}
+          aria-label={`Fiche de ${e.name} : arriéré, primes et retenues`}
         >
           <Wallet className="h-4 w-4" />
         </Button>

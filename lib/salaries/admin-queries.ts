@@ -1,16 +1,26 @@
 // lib/salaries/admin-queries.ts
 //
 // Lectures de l'écran admin Salaires. La logique de calcul vit dans `ledger.ts`
-// (pure) ; ici on ne fait que charger les données et l'appliquer. Rien de
-// nominatif ne franchit `getMonthlySalaryTotal` (surface des rôles non-admin,
-// `queries.ts`) : ces lectures-ci sont réservées à l'ADMIN.
+// et `arrears.ts` (pures) ; ici on ne fait que charger les données et
+// l'appliquer. Rien de nominatif ne franchit `getMonthlySalaryTotal` (surface
+// des rôles non-admin, `queries.ts`) : ces lectures-ci sont réservées à
+// l'ADMIN.
+//
+// Aucune requête N+1 : employés, taux, versements et ajustements sont chargés
+// en UNE requête par liste, le journal étant rejoué en mémoire.
 
-import type { SalaryAdjustmentNature } from '@/generated/prisma/enums';
 import prisma from '@/lib/prisma';
-import { formatLocalDateOnly } from '@/lib/timezone';
-import { summarizeSalaryMonth } from './ledger';
+import { formatLocalDateOnly, todayDateString } from '@/lib/timezone';
+import { salaryArrears, salaryPaymentProposal } from './arrears';
+import { salaryLedgerThrough } from './ledger';
 import { toEmployeeLike, toSalaryRateLike } from './mappers';
-import type { SalaryMonthSummary } from './types';
+import type { SalaryAdjustmentNature } from '@/generated/prisma/enums';
+import type {
+  SalaryAdjustmentLike,
+  SalaryArrears,
+  SalaryMonthSummary,
+  SalaryPaymentLike,
+} from './types';
 
 export type SalaryAdjustmentRow = {
   id: string;
@@ -29,6 +39,11 @@ export type SalaryEmployeeMonthRow = SalaryMonthSummary & {
   name: string;
   position: string | null;
   active: boolean;
+  arrears: SalaryArrears;
+  proposedPayment: {
+    total: number;
+    allocations: { month: string; amount: number }[];
+  };
 };
 
 export type SalaryMonthTotals = {
@@ -42,6 +57,7 @@ export type SalaryMonthTotals = {
   remainingToPay: number;
   overpaid: number;
   advanceBalance: number;
+  arrearsTotal: number;
 };
 
 export type SalaryMonthView = {
@@ -61,13 +77,35 @@ const EMPTY_TOTALS: SalaryMonthTotals = {
   remainingToPay: 0,
   overpaid: 0,
   advanceBalance: 0,
+  arrearsTotal: 0,
 };
 
+/** Journal complet d'un employé jusqu'à `month`, plus son arriéré à cette date. */
+function employeeLedger(
+  employee: { startDate: Date; endDate: Date | null },
+  rates: { monthlyAmount: number; startDate: Date }[],
+  payments: SalaryPaymentLike[],
+  adjustments: SalaryAdjustmentLike[],
+  month: string
+) {
+  const ledger = salaryLedgerThrough({
+    employee: toEmployeeLike(employee),
+    rates: rates.map(toSalaryRateLike),
+    payments,
+    adjustments,
+    month,
+  });
+  return {
+    summary: ledger[ledger.length - 1],
+    arrears: salaryArrears(ledger, month),
+  };
+}
+
 /**
- * Vue d'un mois : pour chaque employé le dû (taux + primes − retenues), le
- * versé (salaires + acomptes), le reste à payer et le solde d'avance, plus les
- * totaux du mois. Le journal complet est rejoué par employé (le solde
- * d'avance dépend des mois passés).
+ * Vue d'un mois : pour chaque employé le dû, le versé (salaires + acomptes),
+ * le reste à payer, l'arriéré et le solde d'avance, plus les totaux du mois.
+ * Le journal complet est rejoué par employé (le solde d'avance dépend des mois
+ * passés).
  */
 export async function getSalaryMonthView(
   month: string
@@ -105,18 +143,20 @@ export async function getSalaryMonthView(
   });
 
   const rows: SalaryEmployeeMonthRow[] = employees.map((e) => {
-    const summary = summarizeSalaryMonth({
-      employee: toEmployeeLike(e),
-      rates: e.rates.map(toSalaryRateLike),
-      payments: e.payments,
-      adjustments: e.adjustments,
-      month,
-    });
+    const { summary, arrears } = employeeLedger(
+      e,
+      e.rates,
+      e.payments,
+      e.adjustments,
+      month
+    );
     return {
       employeeId: e.id,
       name: e.name,
       position: e.position,
       active: e.active,
+      arrears,
+      proposedPayment: salaryPaymentProposal(summary, arrears),
       ...summary,
     };
   });
@@ -133,6 +173,7 @@ export async function getSalaryMonthView(
       remainingToPay: acc.remainingToPay + r.remainingToPay,
       overpaid: acc.overpaid + r.overpaid,
       advanceBalance: acc.advanceBalance + r.advanceBalance,
+      arrearsTotal: acc.arrearsTotal + r.arrears.total,
     }),
     { ...EMPTY_TOTALS }
   );
@@ -149,12 +190,20 @@ export type SalaryEmployeeRow = {
   active: boolean;
   note: string | null;
   rates: { monthlyAmount: number; startDate: string }[];
+  /** Arriéré à `asOfMonth` (mois clôturés non soldés, mois courant exclu). */
+  arrears: SalaryArrears;
   /** Primes et retenues, annulées comprises (historique jamais supprimé). */
   adjustments: SalaryAdjustmentRow[];
 };
 
-/** Liste des employés, avec l'historique de leurs taux et de leurs ajustements. */
-export async function listSalaryEmployees(): Promise<SalaryEmployeeRow[]> {
+/**
+ * Liste des employés avec l'historique de leurs taux, leurs ajustements et
+ * leur arriéré à `asOfMonth` (défaut : mois courant). Tout est chargé en une
+ * requête : aucun appel par employé.
+ */
+export async function listSalaryEmployees(
+  asOfMonth: string = todayDateString().slice(0, 7)
+): Promise<SalaryEmployeeRow[]> {
   const employees = await prisma.employee.findMany({
     orderBy: [{ active: 'desc' }, { name: 'asc' }],
     select: {
@@ -168,6 +217,14 @@ export async function listSalaryEmployees(): Promise<SalaryEmployeeRow[]> {
       rates: {
         select: { monthlyAmount: true, startDate: true },
         orderBy: { startDate: 'desc' },
+      },
+      payments: {
+        select: {
+          month: true,
+          type: true,
+          amount: true,
+          recoveryMonths: true,
+        },
       },
       adjustments: {
         select: {
@@ -183,27 +240,37 @@ export async function listSalaryEmployees(): Promise<SalaryEmployeeRow[]> {
       },
     },
   });
-  return employees.map((e) => ({
-    id: e.id,
-    name: e.name,
-    position: e.position,
-    startDate: formatLocalDateOnly(e.startDate),
-    endDate: e.endDate ? formatLocalDateOnly(e.endDate) : null,
-    active: e.active,
-    note: e.note,
-    rates: e.rates.map(toSalaryRateLike),
-    adjustments: e.adjustments.map((a) => ({
-      id: a.id,
-      employeeId: e.id,
-      employeeName: e.name,
-      date: formatLocalDateOnly(a.date),
-      month: a.month,
-      nature: a.nature,
-      amount: a.amount,
-      note: a.note,
-      canceledAt: a.canceledAt ? formatLocalDateOnly(a.canceledAt) : null,
-    })),
-  }));
+  return employees.map((e) => {
+    const { arrears } = employeeLedger(
+      e,
+      e.rates,
+      e.payments,
+      e.adjustments,
+      asOfMonth
+    );
+    return {
+      id: e.id,
+      name: e.name,
+      position: e.position,
+      startDate: formatLocalDateOnly(e.startDate),
+      endDate: e.endDate ? formatLocalDateOnly(e.endDate) : null,
+      active: e.active,
+      note: e.note,
+      rates: e.rates.map(toSalaryRateLike),
+      arrears,
+      adjustments: e.adjustments.map((a) => ({
+        id: a.id,
+        employeeId: e.id,
+        employeeName: e.name,
+        date: formatLocalDateOnly(a.date),
+        month: a.month,
+        nature: a.nature,
+        amount: a.amount,
+        note: a.note,
+        canceledAt: a.canceledAt ? formatLocalDateOnly(a.canceledAt) : null,
+      })),
+    };
+  });
 }
 
 export type SalaryAdvanceRow = {

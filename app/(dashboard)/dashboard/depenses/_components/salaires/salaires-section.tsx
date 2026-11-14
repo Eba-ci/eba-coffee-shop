@@ -23,7 +23,7 @@ export async function SalairesSection({ month }: { month: string }) {
   const currentMonth = todayDateString().slice(0, 7);
   const [view, employees, advances] = await Promise.all([
     getSalaryMonthView(month),
-    listSalaryEmployees(),
+    listSalaryEmployees(currentMonth),
     listSalaryAdvances(),
   ]);
   const options = employees.map((e) => ({ id: e.id, name: e.name }));

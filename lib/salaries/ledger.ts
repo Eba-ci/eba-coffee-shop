@@ -77,7 +77,9 @@ export function salaryLedger(input: {
   months: string[];
 }): SalaryMonthSummary[] {
   const { employee, rates, adjustments = [] } = input;
-  const { payments } = input;
+  // Un versement annulé ne compte NI dans le versé, NI dans l'arriéré, NI dans
+  // la récupération d'avance (ligne conservée pour l'historique).
+  const payments = input.payments.filter((p) => !p.canceledAt);
   const advances: AdvanceState[] = payments
     .filter((p) => p.type === 'AVANCE')
     .map((p) => ({
@@ -152,12 +154,14 @@ export function salaryLedgerThrough(input: {
   month: string;
 }): SalaryMonthSummary[] {
   const firstPayment = input.payments
+    .filter((p) => !p.canceledAt)
     .map((p) => p.month)
     .sort(compareStrings)[0];
   const firstRate = input.rates
     .map((r) => monthOf(r.startDate))
     .sort(compareStrings)[0];
   const firstAdjustment = (input.adjustments ?? [])
+    .filter((a) => !a.canceledAt)
     .map((a) => a.month)
     .sort(compareStrings)[0];
   // Le mois d'entrée est un candidat : un mois sans taux ni versement reste

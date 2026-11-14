@@ -1,5 +1,7 @@
 // `getMonthlySalaryTotal` est LA source du point mort (#443) : il inclut les
-// primes et retenues actives du mois, sans jamais exposer de détail nominatif.
+// primes et retenues actives du mois. Il ne charge PAS les versements : un
+// arriéré (dette de trésorerie) ne peut donc pas doubler une charge déjà
+// comptée dans son mois d'origine (#444).
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -66,5 +68,17 @@ describe('getMonthlySalaryTotal et les ajustements', () => {
       ]),
     ] as never);
     await expect(getMonthlySalaryTotal('2026-11')).resolves.toBe(280_000);
+  });
+
+  it('ne charge aucun versement : l’arriéré ne peut pas doubler le point mort', async () => {
+    vi.mocked(prisma.employee.findMany).mockResolvedValue([
+      employeeRow(),
+    ] as never);
+    await getMonthlySalaryTotal('2026-11');
+    const arg = vi.mocked(prisma.employee.findMany).mock.calls[0][0] as {
+      select: Record<string, unknown>;
+    };
+    expect(arg.select).not.toHaveProperty('payments');
+    expect(arg.select).toHaveProperty('adjustments');
   });
 });
