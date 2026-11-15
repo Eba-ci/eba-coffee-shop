@@ -52,6 +52,7 @@ function Form({
   employeeName,
   today,
   months,
+  initialAmounts,
   onClose,
   onDone,
 }: {
@@ -59,12 +60,18 @@ function Form({
   employeeName: string;
   today: string;
   months: ArrearsMonth[];
+  initialAmounts?: Record<string, number>;
   onClose: () => void;
   onDone: () => void;
 }) {
   const router = useRouter();
   const [amounts, setAmounts] = useState<Record<string, string>>(() =>
-    Object.fromEntries(months.map((m) => [m.month, String(m.remaining)]))
+    Object.fromEntries(
+      months.map((m) => [
+        m.month,
+        String(initialAmounts?.[m.month] ?? m.remaining),
+      ])
+    )
   );
   const [choice, setChoice] = useState<DateChoice>('first');
   const [custom, setCustom] = useState('');
@@ -252,6 +259,7 @@ export function ArrearsSettleDrawer({
   employeeName: string;
   today: string;
   months: ArrearsMonth[];
+  initialAmounts?: Record<string, number>;
   onDone: () => void;
 }) {
   return (
