@@ -180,8 +180,9 @@ en cours (le tampon compte pour la suivante). La caisse garde le tampon à la cr
 
 Cas limites : une commande en ligne annulée par une personne puis payée n'a jamais eu de
 tampon ; à sa reprise par le staff, `restoreLoyaltyForOrder` lui en accorde un (commande
-payée en ligne uniquement). Si l'attribution échoue au paiement, le webhook répond quand
-même 200 : une alerte staff demande l'ajustement manuel (fiche client).
+payée en ligne uniquement). L'attribution est retentée 3 fois ; si tout échoue, le webhook répond quand même 200, une
+ligne d'ajustement à 0 tampon est écrite dans le journal du client (trace durable, visible sur
+sa fiche) et une alerte staff demande l'ajustement manuel.
 
 ### Registre Jèko et paiements en écart
 
