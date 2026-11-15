@@ -67,6 +67,7 @@ export async function syncSalaryExpenses(
   const sums = await tx.salaryPayment.groupBy({
     by: ['date', 'paymentMethod'],
     where: {
+      canceledAt: null,
       OR: keys.map((k) => ({ date: k.date, paymentMethod: k.paymentMethod })),
     },
     _sum: { amount: true },
@@ -130,6 +131,7 @@ export async function syncSalaryExpenses(
     // d'abord son ancienne ligne.
     await tx.salaryPayment.updateMany({
       where: {
+        canceledAt: null,
         date: key.date,
         paymentMethod: key.paymentMethod,
         OR: [{ expenseId: null }, { expenseId: { not: expenseId } }],
@@ -183,6 +185,7 @@ export async function resyncAllSalaryExpenses(
 ): Promise<{ keys: number }> {
   const groups = await client.salaryPayment.groupBy({
     by: ['date', 'paymentMethod'],
+    where: { canceledAt: null },
   });
   // Lignes globales sans versement (données retirées à la main) : à purger.
   const orphanKeys = await client.expense.findMany({

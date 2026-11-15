@@ -17,7 +17,7 @@ import {
   salaryRateUpdateSchema,
 } from '@/lib/schemas/salary';
 import { formatLocalDateOnly, parseDateOnlyToUTC } from '@/lib/timezone';
-import { toEmployeeLike } from './mappers';
+import { ACTIVE_PAYMENT_WHERE, toEmployeeLike } from './mappers';
 import {
   draftBounds,
   paidImpactMessage,
@@ -55,7 +55,11 @@ async function loadEmployee(tx: Prisma.TransactionClient, employeeId: string) {
         },
       },
       // Mois déjà versés (salaire, acompte ou avance) : une seule lecture.
-      payments: { select: { month: true }, distinct: ['month'] },
+      payments: {
+        where: ACTIVE_PAYMENT_WHERE,
+        select: { month: true },
+        distinct: ['month'],
+      },
     },
   });
   return {

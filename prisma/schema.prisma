@@ -1257,6 +1257,12 @@ model SalaryPayment {
   createdBy      User?                @relation("SalaryPaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt      DateTime             @default(now())
 
+  // Annulation : le versement n'est JAMAIS supprimé. `canceledAt` le sort de
+  // tous les calculs (versé, arriéré, dépense globale) en gardant la trace.
+  canceledAt   DateTime?
+  canceledById String?
+  cancelReason String?
+
   // Ligne globale de masse salariale qui inclut ce versement (relation 1:N :
   // plusieurs versements du même jour et du même mode partagent une dépense).
   // RESTRICT : on ne supprime jamais une ligne encore portée par un versement.

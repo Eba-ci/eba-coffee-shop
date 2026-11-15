@@ -344,3 +344,16 @@ export const salaryBonusFromOverpaymentSchema = z.object({
   employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
   month: monthSchema,
 });
+
+// ── Annulation d'un versement (ADMIN seul) : jamais supprimé, motif obligatoire ──
+
+export const SALARY_CANCEL_REASON_MAX = 200;
+
+export const salaryPaymentCancelSchema = z.object({
+  paymentId: z.string().min(SALARY_ID_MIN_LENGTH, 'Versement requis'),
+  reason: z
+    .string()
+    .trim()
+    .min(3, 'Indiquez le motif de l’annulation')
+    .max(SALARY_CANCEL_REASON_MAX),
+});

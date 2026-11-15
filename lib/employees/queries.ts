@@ -63,6 +63,8 @@ export type Employee360Payment = {
   type: SalaryPaymentType;
   amount: number;
   note: string | null;
+  canceledAt: string | null;
+  cancelReason: string | null;
 };
 
 export type Employee360 = {
@@ -179,6 +181,8 @@ export async function getEmployee360(
           // récupérée en un mois et l'arriéré de la fiche diverge de la Paie.
           recoveryMonths: true,
           note: true,
+          canceledAt: true,
+          cancelReason: true,
         },
         orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       },
@@ -197,7 +201,7 @@ export async function getEmployee360(
   const { summary, arrears } = salaryStateThrough(
     employee,
     employee.rates,
-    employee.payments,
+    employee.payments.filter((p) => p.canceledAt === null),
     employee.adjustments,
     month
   );
@@ -225,6 +229,8 @@ export async function getEmployee360(
       type: p.type,
       amount: p.amount,
       note: p.note,
+      canceledAt: p.canceledAt ? formatLocalDateOnly(p.canceledAt) : null,
+      cancelReason: p.cancelReason,
     })),
   };
 }

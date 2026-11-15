@@ -24,6 +24,7 @@ import {
   SALARY_RATE_SELECT,
   toEmployeeLike,
   toSalaryRateLike,
+  ACTIVE_PAYMENT_WHERE,
 } from './mappers';
 import { compareStrings } from './month';
 
@@ -81,6 +82,7 @@ export async function settlePayroll(
           endDate: true,
           rates: { select: SALARY_RATE_SELECT },
           payments: {
+            where: ACTIVE_PAYMENT_WHERE,
             select: {
               month: true,
               type: true,

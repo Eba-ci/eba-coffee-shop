@@ -8,7 +8,11 @@
 import prisma from '@/lib/prisma';
 import { formatLocalDateOnly, todayDateString } from '@/lib/timezone';
 import { salaryStateThrough } from './admin-queries';
-import { SALARY_RATE_SELECT, toSalaryRateLike } from './mappers';
+import {
+  SALARY_RATE_SELECT,
+  toSalaryRateLike,
+  ACTIVE_PAYMENT_WHERE,
+} from './mappers';
 import type { SalaryAdjustmentRow } from './admin-queries';
 import type { SalaryArrears, SalaryRateLike } from './types';
 
@@ -50,6 +54,7 @@ export async function listSalaryEmployees(
         orderBy: { startDate: 'desc' },
       },
       payments: {
+        where: ACTIVE_PAYMENT_WHERE,
         select: {
           month: true,
           type: true,
@@ -118,7 +123,7 @@ export type SalaryAdvanceRow = {
 /** Avances enregistrées, les plus récentes d'abord (gestion admin). */
 export async function listSalaryAdvances(): Promise<SalaryAdvanceRow[]> {
   const payments = await prisma.salaryPayment.findMany({
-    where: { type: 'AVANCE' },
+    where: { type: 'AVANCE', ...ACTIVE_PAYMENT_WHERE },
     orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
     select: {
       id: true,

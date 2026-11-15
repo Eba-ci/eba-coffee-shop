@@ -67,6 +67,9 @@ export async function adjustSalaryAdvance(
         where: { id: d.paymentId },
       });
       assertAdvance(payment.type);
+      if (payment.canceledAt) {
+        throw new Error('Une avance annulée ne peut plus être modifiée.');
+      }
       if (d.amount !== undefined) {
         const recovered = advanceRecoveredBefore(
           {
@@ -118,9 +121,20 @@ export async function cancelSalaryAdvance(input: unknown) {
       const payment = await tx.salaryPayment.findUnique({
         where: { id: d.paymentId },
       });
-      if (!payment) return { id: d.paymentId, cancelled: true };
+      if (!payment || payment.canceledAt) {
+        return { id: d.paymentId, cancelled: true };
+      }
       assertAdvance(payment.type);
-      await tx.salaryPayment.delete({ where: { id: payment.id } });
+      // Jamais supprimée : annulée avec trace (cf. cancel-mutations.ts).
+      await tx.salaryPayment.update({
+        where: { id: payment.id },
+        data: {
+          canceledAt: new Date(),
+          canceledById: session.user.id,
+          cancelReason: 'Avance annulée',
+          expenseId: null,
+        },
+      });
       await syncSalaryExpenses(tx, [keyOf(payment)], session.user.id);
       return { id: payment.id, cancelled: true };
     })

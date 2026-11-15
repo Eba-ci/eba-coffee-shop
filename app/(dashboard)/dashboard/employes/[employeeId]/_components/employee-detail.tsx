@@ -39,7 +39,7 @@ export function EmployeeDetail({
         }}
       />
       <MonthSection employee={employee} />
-      <PaymentsSection employee={employee} />
+      <PaymentsSection employee={employee} canCancel={canSettle} />
       <CompensationSection employee={employee} today={today} />
       <DebtsSection employee={employee} canSettle={canSettle} today={today} />
       <IdentitySection employee={employee} />
