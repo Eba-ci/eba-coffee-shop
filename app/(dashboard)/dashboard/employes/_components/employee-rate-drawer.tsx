@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { money } from '@/lib/fixed-costs/format';
+import { ratePlacement } from '@/lib/salaries/rate-timeline';
 import { addSalaryRateAction } from '../actions';
 import {
   EMPLOYEE_SHEET_CLASS,
@@ -27,6 +28,12 @@ export type EmployeeWithRates = EmployeeIdentity & {
   /** Historique des taux, du plus récent au plus ancien. */
   rates: { monthlyAmount: number; startDate: string }[];
 };
+
+function yesterday(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
 
 export function EmployeeRateDrawer({
   employee,
@@ -63,6 +70,7 @@ function RateForm({
   onDone: () => void;
 }) {
   const router = useRouter();
+  const [mode, setMode] = useState<'new' | 'past'>('new');
   const [startDate, setStartDate] = useState(today);
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -70,11 +78,27 @@ function RateForm({
 
   const current = employee.rates.find((r) => r.startDate <= today) ?? null;
 
+  const placement = ratePlacement(
+    employee.rates,
+    startDate,
+    employee.startDate,
+    today
+  );
+
+  function pickMode(next: 'new' | 'past') {
+    setMode(next);
+    setError(null);
+    setStartDate(next === 'past' ? employee.startDate : today);
+  }
+
   function submit() {
     if (!startDate) return setError('La date d’effet est obligatoire');
     const value = Math.round(Number(amount));
     if (!amount.trim() || !Number.isFinite(value) || !(value > 0)) {
       return setError('Le taux doit être un montant positif');
+    }
+    if (mode === 'past' && startDate >= today) {
+      return setError('Un ancien taux doit commencer avant aujourd’hui');
     }
     setError(null);
     startTransition(async () => {
@@ -92,8 +116,12 @@ function RateForm({
   return (
     <>
       <EmployeeSheetHeader
-        title="Nouveau taux"
-        description={`Taux mensuel de ${employee.name}, applicable à partir d’une date.`}
+        title={mode === 'past' ? 'Ancien taux' : 'Nouveau taux'}
+        description={
+          mode === 'past'
+            ? `Saisir un taux déjà appliqué à ${employee.name} : il recalcule le dû des mois concernés.`
+            : `Taux mensuel de ${employee.name}, applicable à partir d’une date.`
+        }
       />
       <EmployeeSheetBody>
         <div className="rounded-lg border bg-muted/40 p-4 text-sm">
@@ -132,17 +160,50 @@ function RateForm({
         )}
 
         <div className="space-y-3 rounded-lg border p-4">
-          <p className="text-sm font-medium">Nouveau taux</p>
+          <div role="radiogroup" className="grid grid-cols-2 gap-2">
+            {(
+              [
+                ['new', 'Nouveau taux'],
+                ['past', 'Ancien taux'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={mode === value}
+                onClick={() => pickMode(value)}
+                className="min-h-11 rounded-lg border px-3 text-sm font-medium aria-checked:border-primary aria-checked:bg-primary/5"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="rate-date">À partir du</Label>
             <Input
               id="rate-date"
               className="h-11"
               type="date"
+              min={mode === 'past' ? employee.startDate : undefined}
+              max={mode === 'past' ? yesterday(today) : undefined}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
           </div>
+          {mode === 'past' && (
+            <p className="rounded-lg bg-muted/50 p-3 text-xs">
+              {placement.duplicate
+                ? 'Un taux existe déjà à cette date.'
+                : placement.beforeEmployment
+                  ? 'Cette date précède l’entrée de l’employé.'
+                  : placement.endDate
+                    ? `Ce taux couvrira la période jusqu’au ${placement.endDate}.`
+                    : 'Aucun taux plus récent : il couvrira jusqu’à aujourd’hui et au-delà.'}{' '}
+              Le dû et l’arriéré des mois concernés seront recalculés ; les
+              versements déjà saisis ne changent pas.
+            </p>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="rate-amount">Montant mensuel (FCFA)</Label>
             <Input

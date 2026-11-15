@@ -75,6 +75,10 @@ export const SALARY_END_AFTER_START_MESSAGE =
 export const SALARY_RATE_DUPLICATE_MESSAGE =
   'Un taux existe déjà à cette date : choisis une autre date pour corriger';
 
+/** Un taux ne peut pas précéder la date d'entrée de l'employé. */
+export const SALARY_RATE_BEFORE_ENTRY_MESSAGE =
+  'Ce taux précède l’entrée de l’employé : choisissez une date à partir de son entrée.';
+
 /**
  * Une retenue ne peut pas rendre le dû négatif : elle est refusée au-delà du
  * salaire dû du mois (prorata des taux), pour ne pas créer de dette silencieuse.

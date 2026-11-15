@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
-    employee: { create: vi.fn(), update: vi.fn() },
+    employee: {
+      create: vi.fn(),
+      update: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
+    },
     salaryRate: { create: vi.fn(), upsert: vi.fn() },
     salaryPayment: { findUnique: vi.fn(), create: vi.fn() },
     $transaction: vi.fn(),
@@ -17,7 +21,10 @@ vi.mock('@/generated/prisma/client', () => ({
   },
 }));
 
-import { SALARY_RATE_DUPLICATE_MESSAGE } from '@/config/constants';
+import {
+  SALARY_RATE_BEFORE_ENTRY_MESSAGE,
+  SALARY_RATE_DUPLICATE_MESSAGE,
+} from '@/config/constants';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAdmin } from '@/lib/auth-helpers';
 import {
@@ -79,6 +86,23 @@ describe('addSalaryRate : un taux ne s’écrase jamais', () => {
     vi.mocked(requireAdmin).mockResolvedValue({
       user: { id: 'admin', role: 'ADMIN' },
     } as never);
+    prismaMock.employee.findUniqueOrThrow.mockResolvedValue({
+      startDate: new Date(Date.UTC(2026, 0, 1)),
+    });
+  });
+
+  it('refuse un taux antérieur à l’entrée de l’employé', async () => {
+    await expect(
+      addSalaryRate({ ...rateInput, startDate: '2025-06-01' })
+    ).rejects.toThrow(SALARY_RATE_BEFORE_ENTRY_MESSAGE);
+    expect(prismaMock.salaryRate.create).not.toHaveBeenCalled();
+  });
+
+  it('accepte un ancien taux postérieur à l’entrée', async () => {
+    prismaMock.salaryRate.create.mockResolvedValue({ id: 'r0' });
+    await expect(
+      addSalaryRate({ ...rateInput, startDate: '2026-03-01' })
+    ).resolves.toEqual({ id: 'r0' });
   });
 
   it('crée une ligne datée (create, jamais upsert)', async () => {
