@@ -34,10 +34,7 @@ describe('planCategoryImport', () => {
 
   it('ignore « Salaires » (casse/accents repliés), même avec un montant', () => {
     const p = planCategoryImport(
-      [
-        cat('s', 'SALAIRES', 500000),
-        cat('t', 'salaire', null, null),
-      ],
+      [cat('s', 'SALAIRES', 500000), cat('t', 'salaire', null, null)],
       new Set(),
       RUN
     );

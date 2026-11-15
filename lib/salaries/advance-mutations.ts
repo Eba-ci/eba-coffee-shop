@@ -8,6 +8,7 @@
 // succès. Le journal de paie étant recalculé à la lecture (`ledger.ts`), une
 // avance ajustée ou annulée change aussitôt les soldes des mois suivants.
 
+import { keyOf, syncSalaryExpenses, withRetry } from './expense-sync';
 import {
   SALARY_ADVANCE_ONLY_MESSAGE,
   SALARY_ADVANCE_BELOW_RECOVERED_MESSAGE,
@@ -57,40 +58,52 @@ export async function adjustSalaryAdvance(
   input: unknown,
   today: string = todayDateString()
 ) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const d = salaryAdvanceAdjustSchema.parse(input);
   const currentMonth = today.slice(0, 7);
-  return prisma.$transaction(async (tx) => {
-    const payment = await tx.salaryPayment.findUniqueOrThrow({
-      where: { id: d.paymentId },
-    });
-    assertAdvance(payment.type);
-    if (d.amount !== undefined) {
-      const recovered = advanceRecoveredBefore(
-        {
-          month: payment.month,
-          amount: payment.amount,
-          recoveryMonths: payment.recoveryMonths,
-        },
-        currentMonth
-      );
-      if (d.amount < recovered) {
-        throw new Error(SALARY_ADVANCE_BELOW_RECOVERED_MESSAGE);
+  return withRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const payment = await tx.salaryPayment.findUniqueOrThrow({
+        where: { id: d.paymentId },
+      });
+      assertAdvance(payment.type);
+      if (d.amount !== undefined) {
+        const recovered = advanceRecoveredBefore(
+          {
+            month: payment.month,
+            amount: payment.amount,
+            recoveryMonths: payment.recoveryMonths,
+          },
+          currentMonth
+        );
+        if (d.amount < recovered) {
+          throw new Error(SALARY_ADVANCE_BELOW_RECOVERED_MESSAGE);
+        }
       }
-    }
-    return tx.salaryPayment.update({
-      where: { id: payment.id },
-      data: {
-        ...(d.amount !== undefined ? { amount: d.amount } : {}),
-        ...(d.date !== undefined ? { date: parseDateOnlyToUTC(d.date)! } : {}),
-        ...(d.month !== undefined ? { month: d.month } : {}),
-        ...(d.paymentMethod !== undefined
-          ? { paymentMethod: d.paymentMethod }
-          : {}),
-        ...(d.note !== undefined ? { note: d.note } : {}),
-      },
-    });
-  });
+      const updated = await tx.salaryPayment.update({
+        where: { id: payment.id },
+        data: {
+          ...(d.amount !== undefined ? { amount: d.amount } : {}),
+          ...(d.date !== undefined
+            ? { date: parseDateOnlyToUTC(d.date)! }
+            : {}),
+          ...(d.month !== undefined ? { month: d.month } : {}),
+          ...(d.paymentMethod !== undefined
+            ? { paymentMethod: d.paymentMethod }
+            : {}),
+          ...(d.note !== undefined ? { note: d.note } : {}),
+        },
+      });
+      // Montant, date ou mode modifiés : la ligne globale suit (ancienne ET
+      // nouvelle position).
+      await syncSalaryExpenses(
+        tx,
+        [keyOf(payment), keyOf(updated)],
+        session.user.id
+      );
+      return updated;
+    })
+  );
 }
 
 /**
@@ -98,15 +111,18 @@ export async function adjustSalaryAdvance(
  * inexistante) renvoie le même succès plutôt qu'une erreur de course.
  */
 export async function cancelSalaryAdvance(input: unknown) {
-  await requireAdmin();
+  const session = await requireAdmin();
   const d = salaryAdvanceCancelSchema.parse(input);
-  return prisma.$transaction(async (tx) => {
-    const payment = await tx.salaryPayment.findUnique({
-      where: { id: d.paymentId },
-    });
-    if (!payment) return { id: d.paymentId, cancelled: true };
-    assertAdvance(payment.type);
-    await tx.salaryPayment.delete({ where: { id: payment.id } });
-    return { id: payment.id, cancelled: true };
-  });
+  return withRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const payment = await tx.salaryPayment.findUnique({
+        where: { id: d.paymentId },
+      });
+      if (!payment) return { id: d.paymentId, cancelled: true };
+      assertAdvance(payment.type);
+      await tx.salaryPayment.delete({ where: { id: payment.id } });
+      await syncSalaryExpenses(tx, [keyOf(payment)], session.user.id);
+      return { id: payment.id, cancelled: true };
+    })
+  );
 }

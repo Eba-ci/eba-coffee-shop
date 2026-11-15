@@ -59,7 +59,6 @@ export default async function DepensesPage({
   // Les lignes de salaire (catégorie « Salaires ») sont réservées à l'ADMIN :
   // manager, comptable et analyste ne les voient ni dans l'historique ni dans
   // les totaux par catégorie.
-  const includeSalary = session.user.role === 'ADMIN';
   const params = await searchParams;
 
   // L'onglet Salaires a été retiré (#450) : les anciens liens et favoris
@@ -170,7 +169,6 @@ export default async function DepensesPage({
               categoryId={categoryId}
               paymentMethod={paymentMethod}
               search={search}
-              includeSalary={includeSalary}
             />
           </Suspense>
         }
@@ -184,7 +182,6 @@ export default async function DepensesPage({
               search={search}
               periodLabel={periodLabel}
               exportHref={exportHref}
-              includeSalary={includeSalary}
             />
           </Suspense>
         }

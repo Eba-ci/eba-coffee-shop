@@ -15,14 +15,12 @@ import { ExpensesByCategoryChart } from '@/components/(dashboard)/charts/expense
 export async function BreakdownsSection({
   from,
   to,
-  includeSalary,
 }: {
   from: Date;
   to: Date;
-  includeSalary?: boolean;
 }) {
   const [comparison, topProducts] = await Promise.all([
-    compareRangesCached(from, to, includeSalary),
+    compareRangesCached(from, to),
     getTopProducts(from, to),
   ]);
   const stats = comparison.current;

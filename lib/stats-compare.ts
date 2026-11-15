@@ -69,15 +69,14 @@ export type RangeComparison = {
  */
 export async function compareRanges(
   from: Date,
-  to: Date,
-  includeSalary = false
+  to: Date
 ): Promise<RangeComparison> {
   const prev = previousRange(from, to);
   const [current, previous, curExpenses, prevExpenses] = await Promise.all([
     getRangeStats(from, to),
     getRangeStats(prev.from, prev.to),
-    getExpenseSummary(from, to, { includeSalary }),
-    getExpenseSummary(prev.from, prev.to, { includeSalary }),
+    getExpenseSummary(from, to),
+    getExpenseSummary(prev.from, prev.to),
   ]);
 
   return {

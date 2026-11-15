@@ -66,7 +66,6 @@ export async function GET(req: NextRequest) {
     categoryId,
     paymentMethod,
     search,
-    includeSalary: session.user.role === 'ADMIN',
   });
 
   const headers = [

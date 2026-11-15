@@ -59,27 +59,4 @@ describe('rapport bancaire — dépenses avec détail salaires réservé à l’
     expect(res.status).toBe(403);
     expect(getExpenseSummary).not.toHaveBeenCalled();
   });
-
-  it.each(['MANAGER', 'COMPTABLE'])(
-    'passe includeSalary=false pour %s',
-    async (role) => {
-      session(role);
-      await GET(req('?from=2026-06-01&to=2026-06-30'));
-      expect(getExpenseSummary).toHaveBeenCalledWith(
-        expect.any(Date),
-        expect.any(Date),
-        expect.objectContaining({ includeSalary: false })
-      );
-    }
-  );
-
-  it('passe includeSalary=true pour l’ADMIN', async () => {
-    session('ADMIN');
-    await GET(req('?from=2026-06-01&to=2026-06-30'));
-    expect(getExpenseSummary).toHaveBeenCalledWith(
-      expect.any(Date),
-      expect.any(Date),
-      expect.objectContaining({ includeSalary: true })
-    );
-  });
 });

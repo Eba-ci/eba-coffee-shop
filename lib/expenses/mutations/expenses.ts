@@ -7,6 +7,7 @@ import {
   formatReceiptNo,
   RECEIPT_NUMBER_MAX_RETRIES,
 } from '@/lib/expense-numbering';
+import { SALARY_AGGREGATE_LOCKED_MESSAGE } from '@/lib/salaries/expense';
 import { assertLinkedPaymentAllowed } from '@/lib/fixed-costs/queries';
 import {
   expenseCreateSchema,
@@ -112,17 +113,15 @@ export async function updateExpense(id: string, input: unknown) {
       where: { id },
       select: {
         amount: true,
-        salaryPaymentId: true,
+        salaryAggregateKey: true,
         _count: { select: { items: true } },
       },
     });
     if (!existing) throw new Error('Dépense introuvable.');
-    // Une ligne de salaire est pilotée par le module salaires : la modifier ici
-    // désynchroniserait le versement lié. On refuse.
-    if (existing.salaryPaymentId) {
-      throw new Error(
-        'Cette dépense est liée à un versement de salaire : modifie le versement.'
-      );
+    // La ligne globale de masse salariale est recalculée par le module
+    // employés : la modifier ici la désynchroniserait des versements.
+    if (existing.salaryAggregateKey) {
+      throw new Error(SALARY_AGGREGATE_LOCKED_MESSAGE);
     }
 
     const itemsProvided = data.items !== undefined;
@@ -185,12 +184,10 @@ export async function updateExpense(id: string, input: unknown) {
 export async function deleteExpense(id: string) {
   const existing = await prisma.expense.findUnique({
     where: { id },
-    select: { salaryPaymentId: true },
+    select: { salaryAggregateKey: true },
   });
-  if (existing?.salaryPaymentId) {
-    throw new Error(
-      'Cette dépense est liée à un versement de salaire : supprime le versement.'
-    );
+  if (existing?.salaryAggregateKey) {
+    throw new Error(SALARY_AGGREGATE_LOCKED_MESSAGE);
   }
   return prisma.expense.delete({ where: { id } });
 }

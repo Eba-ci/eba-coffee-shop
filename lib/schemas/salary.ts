@@ -248,3 +248,41 @@ export type SalaryAdjustmentCancelInput = z.infer<
 >;
 export type SalaryAdjustmentNatureValue =
   (typeof SALARY_ADJUSTMENT_NATURES)[number];
+
+// ── Règlement d'arriéré par lot (ADMIN seul) ──
+//
+// Un geste règle plusieurs mois d'un employé : un versement SALAIRE par mois,
+// à la date choisie (par défaut le 1er du mois suivant le mois couvert), tous au
+// même mode de paiement, dans UNE transaction.
+
+export const SALARY_SETTLE_MONTHS_MAX = 36;
+
+export const salarySettleItemSchema = z.object({
+  month: monthSchema,
+  date: dateOnly,
+  amount: amountSchema,
+});
+
+export const salarySettleSchema = z
+  .object({
+    employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
+    paymentMethod: expensePaymentMethodSchema.default('WAVE'),
+    note: z.string().trim().max(SALARY_NOTE_MAX).nullable().optional(),
+    idempotencyKey: z
+      .string()
+      .trim()
+      .min(SALARY_IDEMPOTENCY_KEY_MIN)
+      .max(SALARY_IDEMPOTENCY_KEY_MAX),
+    items: z.array(salarySettleItemSchema).min(1).max(SALARY_SETTLE_MONTHS_MAX),
+  })
+  .refine((v) => new Set(v.items.map((i) => i.month)).size === v.items.length, {
+    message: 'Un mois ne peut être réglé qu’une fois par lot',
+  });
+
+export type SalarySettleInput = z.infer<typeof salarySettleSchema>;
+
+/** Trop-perçu d'un mois converti en prime (« bonus »). */
+export const salaryBonusFromOverpaymentSchema = z.object({
+  employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
+  month: monthSchema,
+});

@@ -72,7 +72,7 @@ export default async function EmployeDetailPage({
           }
         />
       </div>
-      <EmployeeDetail employee={employee} />
+      <EmployeeDetail employee={employee} canSettle={isAdmin} today={today} />
     </div>
   );
 }

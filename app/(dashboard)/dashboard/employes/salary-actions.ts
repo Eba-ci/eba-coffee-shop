@@ -14,10 +14,10 @@ import { requireAdmin } from '@/lib/auth-helpers';
 import * as salaries from '@/lib/salaries/mutations';
 import * as advances from '@/lib/salaries/advance-mutations';
 import * as adjustments from '@/lib/salaries/adjustment-mutations';
+import * as settle from '@/lib/salaries/settle-mutations';
+import * as bonus from '@/lib/salaries/bonus-mutations';
 
-export type SalaryActionResult =
-  | { ok: true }
-  | { ok: false; error: string };
+export type SalaryActionResult = { ok: true } | { ok: false; error: string };
 
 async function run(fn: () => Promise<unknown>): Promise<SalaryActionResult> {
   try {
@@ -73,4 +73,18 @@ export async function cancelSalaryAdjustmentAction(
   input: unknown
 ): Promise<SalaryActionResult> {
   return run(() => adjustments.cancelSalaryAdjustment(input));
+}
+
+// ── Arriéré par lot et trop-perçu ──
+
+export async function settleSalaryMonthsAction(
+  input: unknown
+): Promise<SalaryActionResult> {
+  return run(() => settle.settleSalaryMonths(input));
+}
+
+export async function convertOverpaymentToBonusAction(
+  input: unknown
+): Promise<SalaryActionResult> {
+  return run(() => bonus.convertOverpaymentToBonus(input));
 }

@@ -3,17 +3,8 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import {
-  SALARY_SHEET_CLASS,
-  SalarySheetBody,
-  SalarySheetHeader,
-} from './salary-sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { EMPLOYEE_SHEET_CLASS, EmployeeSheetHeader } from '../employee-sheet';
 import { SalaryPaymentForm } from './payment-form';
 
 /**
@@ -65,27 +56,19 @@ export function SalaryPaymentDrawer({
         </Button>
       )}
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="right"
-          className={`${SALARY_SHEET_CLASS} sm:max-w-lg`}
-        >
-          <SalarySheetHeader>
-            <SheetTitle>Nouveau versement</SheetTitle>
-            <SheetDescription>
-              Salaire, acompte ou avance. Le mode de paiement par défaut est
-              Wave.
-            </SheetDescription>
-          </SalarySheetHeader>
+        <SheetContent side="right" className={EMPLOYEE_SHEET_CLASS}>
+          <EmployeeSheetHeader
+            title="Nouveau versement"
+            description="Salaire, acompte ou avance. Le mode de paiement par défaut est Wave."
+          />
           {open && (
-            <SalarySheetBody>
-              <SalaryPaymentForm
-                employees={employees}
-                defaultMonth={defaultMonth}
-                today={today}
-                defaultEmployeeId={defaultEmployeeId}
-                onSaved={() => setOpen(false)}
-              />
-            </SalarySheetBody>
+            <SalaryPaymentForm
+              employees={employees}
+              defaultMonth={defaultMonth}
+              today={today}
+              defaultEmployeeId={defaultEmployeeId}
+              onSaved={() => setOpen(false)}
+            />
           )}
         </SheetContent>
       </Sheet>

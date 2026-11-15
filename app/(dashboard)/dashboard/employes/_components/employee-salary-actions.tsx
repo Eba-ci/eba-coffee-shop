@@ -14,9 +14,7 @@ import {
   SheetDescription,
   SheetTitle,
 } from '@/components/ui/sheet';
-import type {
-  SalaryAdvanceRow,
-} from '@/lib/salaries/admin-lists';
+import type { SalaryAdvanceRow } from '@/lib/salaries/admin-lists';
 import type { SalaryEmployeeRow } from '@/lib/salaries/admin-lists';
 import { AdjustmentSheet } from './paie/adjustment-sheet';
 import { AdvanceManager } from './paie/advance-manager';

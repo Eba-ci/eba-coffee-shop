@@ -87,9 +87,7 @@ describe('syncFixedCostsFromCategories', () => {
     prismaMock.fixedCost.createMany.mockResolvedValue({ count: 1 });
     await syncFixedCostsFromCategories();
     const arg = prismaMock.fixedCost.createMany.mock.calls[0][0];
-    expect(arg.data[0].startDate).toEqual(
-      new Date('2025-03-01T00:00:00.000Z')
-    );
+    expect(arg.data[0].startDate).toEqual(new Date('2025-03-01T00:00:00.000Z'));
   });
 
   it('utilise le libellé de la DERNIÈRE dépense et le montant le plus récent', async () => {

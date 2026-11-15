@@ -20,7 +20,7 @@ export async function getVariableExpenseTotal(
     where: {
       date: { gte: from, lte: to },
       fixedCostId: null,
-      salaryPaymentId: null,
+      salaryAggregateKey: null,
       category: {
         nature: 'VARIABLE',
         name: { not: SALARY_EXPENSE_CATEGORY_NAME },

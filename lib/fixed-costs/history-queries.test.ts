@@ -75,6 +75,6 @@ describe('getFixedCostHistory', () => {
 
     const arg = findMany.mock.calls[0]?.[0];
     expect(arg.where).toEqual({ nature: 'FIXED', deletedAt: null });
-    expect(arg.select.expenses.where).toEqual({ salaryPaymentId: null });
+    expect(arg.select.expenses.where).toEqual({ salaryAggregateKey: null });
   });
 });

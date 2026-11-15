@@ -6,10 +6,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   SALARY_PAYMENT_TYPE_LABELS,
   SALARY_PAYMENT_TYPES,
   type SalaryPaymentTypeValue,
 } from '@/lib/schemas/salary';
+import {
+  EmployeeSheetActions,
+  EmployeeSheetBody,
+  FieldError,
+} from '../employee-sheet';
 import { SALARY_PAYMENT_METHOD_LABELS } from './format';
 import { recordSalaryPaymentAction } from '../../salary-actions';
 
@@ -57,7 +69,6 @@ export function SalaryPaymentForm({
     note: '',
   });
   const [error, setError] = useState<string | null>(null);
-  const [info, setInfo] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const keyRef = useRef<string | null>(null);
 
@@ -70,12 +81,11 @@ export function SalaryPaymentForm({
 
   function submit() {
     const amount = Math.round(Number(draft.amount));
-    if (!draft.employeeId) return setError('Choisis un employé');
+    if (!draft.employeeId) return setError('Choisissez un employé');
     if (!(amount > 0)) return setError('Montant invalide');
     if (!/^\d{4}-\d{2}$/.test(draft.month)) return setError('Mois invalide');
     if (!draft.date) return setError('Date requise');
     setError(null);
-    setInfo(null);
     if (!keyRef.current) keyRef.current = crypto.randomUUID();
     const idempotencyKey = keyRef.current;
     startTransition(async () => {
@@ -95,7 +105,6 @@ export function SalaryPaymentForm({
       });
       if (r.ok) {
         keyRef.current = null;
-        setInfo('Versement enregistré.');
         setDraft((d) => ({ ...d, amount: '', note: '' }));
         onSaved?.();
       } else {
@@ -104,96 +113,113 @@ export function SalaryPaymentForm({
     });
   }
 
+  const employeeName = employees.find((e) => e.id === draft.employeeId)?.name;
+
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-3">
+    <>
+      <EmployeeSheetBody>
         <div className="space-y-1.5">
           <Label htmlFor="sal-emp">Employé</Label>
-          <select
-            id="sal-emp"
-            className="h-11 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          <Select
             value={draft.employeeId}
-            onChange={(e) => set('employeeId', e.target.value)}
+            onValueChange={(v) => set('employeeId', v)}
+            disabled={employees.length === 0}
           >
-            {employees.length === 0 && <option value="">Aucun employé</option>}
-            {employees.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="sal-emp" className="h-11 w-full">
+              <SelectValue placeholder="Aucun employé">
+                {employeeName}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {employees.map((e) => (
+                <SelectItem key={e.id} value={e.id}>
+                  {e.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="sal-type">Type</Label>
-          <select
-            id="sal-type"
-            className="h-11 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          <Select
             value={draft.type}
-            onChange={(e) =>
-              set('type', e.target.value as SalaryPaymentTypeValue)
-            }
+            onValueChange={(v) => set('type', v as SalaryPaymentTypeValue)}
           >
-            {SALARY_PAYMENT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {SALARY_PAYMENT_TYPE_LABELS[t]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="sal-type" className="h-11 w-full">
+              <SelectValue>
+                {SALARY_PAYMENT_TYPE_LABELS[draft.type]}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {SALARY_PAYMENT_TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {SALARY_PAYMENT_TYPE_LABELS[t]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="sal-amount">Montant (FCFA)</Label>
           <Input
             id="sal-amount"
-            className="h-11"
+            className="h-11 tabular-nums"
             type="number"
             inputMode="numeric"
             min={1}
+            step={1}
             value={draft.amount}
             onChange={(e) => set('amount', e.target.value)}
             placeholder="ex. 150000"
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="sal-date">Date du versement</Label>
-          <Input
-            id="sal-date"
-            className="h-11"
-            type="date"
-            value={draft.date}
-            onChange={(e) => set('date', e.target.value)}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="sal-month">Mois concerné</Label>
-          <Input
-            id="sal-month"
-            className="h-11"
-            type="month"
-            value={draft.month}
-            onChange={(e) => set('month', e.target.value)}
-          />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="sal-date">Date du versement</Label>
+            <Input
+              id="sal-date"
+              className="h-11"
+              type="date"
+              value={draft.date}
+              onChange={(e) => set('date', e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="sal-month">Mois concerné</Label>
+            <Input
+              id="sal-month"
+              className="h-11"
+              type="month"
+              value={draft.month}
+              onChange={(e) => set('month', e.target.value)}
+            />
+          </div>
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="sal-method">Mode de paiement</Label>
-          <select
-            id="sal-method"
-            className="h-11 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          <Select
             value={draft.paymentMethod}
-            onChange={(e) =>
-              set('paymentMethod', e.target.value as Draft['paymentMethod'])
+            onValueChange={(v) =>
+              set('paymentMethod', v as Draft['paymentMethod'])
             }
           >
-            {METHODS.map((m) => (
-              <option key={m} value={m}>
-                {SALARY_PAYMENT_METHOD_LABELS[m]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="sal-method" className="h-11 w-full">
+              <SelectValue>
+                {SALARY_PAYMENT_METHOD_LABELS[draft.paymentMethod]}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {METHODS.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {SALARY_PAYMENT_METHOD_LABELS[m]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {draft.type === 'AVANCE' && (
@@ -203,15 +229,20 @@ export function SalaryPaymentForm({
               id="sal-recovery"
               className="h-11"
               type="number"
+              inputMode="numeric"
               min={1}
               max={60}
               value={draft.recoveryMonths}
               onChange={(e) => set('recoveryMonths', e.target.value)}
             />
+            <p className="text-xs text-muted-foreground">
+              L’avance est récupérée automatiquement sur les paies suivantes,
+              réparties sur ce nombre de mois.
+            </p>
           </div>
         )}
 
-        <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+        <div className="space-y-1.5">
           <Label htmlFor="sal-note">Note (facultatif)</Label>
           <Input
             id="sal-note"
@@ -221,25 +252,24 @@ export function SalaryPaymentForm({
             placeholder="ex. paie de juin, deuxième tranche"
           />
         </div>
-      </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {info && (
-        <p className="text-sm text-primary">{info}</p>
-      )}
+        {error && <FieldError>{error}</FieldError>}
+      </EmployeeSheetBody>
 
-      <Button
-        className="h-11"
-        onClick={submit}
-        disabled={pending || employees.length === 0}
-      >
-        {pending ? (
-          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-        ) : (
-          <Plus className="mr-1.5 h-4 w-4" />
-        )}
-        Enregistrer le versement
-      </Button>
-    </div>
+      <EmployeeSheetActions>
+        <Button
+          className="h-11 w-full"
+          onClick={submit}
+          disabled={pending || employees.length === 0}
+        >
+          {pending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Plus className="size-4" />
+          )}
+          Enregistrer le versement
+        </Button>
+      </EmployeeSheetActions>
+    </>
   );
 }

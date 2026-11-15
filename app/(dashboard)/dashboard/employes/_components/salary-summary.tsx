@@ -6,10 +6,15 @@
 
 import {
   AlertCircle,
+  BadgeCheck,
   CheckCircle2,
+  Hourglass,
+  PiggyBank,
+  Wallet,
   TriangleAlert,
   type LucideIcon,
 } from 'lucide-react';
+import { KpiCard } from '@/components/(dashboard)/kpi-card';
 import { Badge } from '@/components/ui/badge';
 import { money } from '@/lib/fixed-costs/format';
 import {
@@ -96,7 +101,7 @@ export function SalarySummaryBand({
   return (
     <section
       aria-label="Synthèse de la paie"
-      className="rounded-lg border bg-card p-5 shadow-sm"
+      className="rounded-xl border bg-card p-4"
     >
       <div className="flex items-start gap-3">
         <EmployeeAvatar name={employee.name} className="size-12" />
@@ -118,26 +123,28 @@ export function SalarySummaryBand({
         </div>
       </div>
 
-      <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 border-t pt-4 sm:grid-cols-3">
-        <Value label="Dû du mois" value={values.due} />
-        <Value label="Versé" value={values.paid} />
-        <Value
+      <div className="mt-4 grid grid-cols-2 gap-3 border-t pt-4 sm:grid-cols-3">
+        <KpiCard label="Dû du mois" value={money(values.due)} Icon={Wallet} />
+        <KpiCard label="Versé" value={money(values.paid)} Icon={BadgeCheck} />
+        <KpiCard
           label="Reste à payer"
-          value={values.remainingToPay}
-          strong
+          value={money(values.remainingToPay)}
+          Icon={Hourglass}
           hint={SETTLEMENT_STATE_LABELS[state]}
         />
-        <Value
+        <KpiCard
           label="Arriéré"
-          value={values.arrearsTotal}
+          value={money(values.arrearsTotal)}
+          Icon={TriangleAlert}
           hint={values.arrearsTotal > 0 ? 'Mois clôturés' : 'À jour'}
         />
-        <Value
+        <KpiCard
           label="Solde d’avance"
-          value={values.advanceBalance}
+          value={money(values.advanceBalance)}
+          Icon={PiggyBank}
           hint={values.advanceBalance > 0 ? 'À récupérer' : 'Aucune avance'}
         />
-      </dl>
+      </div>
     </section>
   );
 }

@@ -92,8 +92,20 @@ export function EmployeesList({
       <p className="text-xs text-muted-foreground">
         Situation de {monthLabel(overview.month)}.
       </p>
-      <Group label="En poste" rows={active} today={today} month={overview.month} canWrite={canWrite} />
-      <Group label="Sortis" rows={inactive} today={today} month={overview.month} canWrite={canWrite} />
+      <Group
+        label="En poste"
+        rows={active}
+        today={today}
+        month={overview.month}
+        canWrite={canWrite}
+      />
+      <Group
+        label="Sortis"
+        rows={inactive}
+        today={today}
+        month={overview.month}
+        canWrite={canWrite}
+      />
     </div>
   );
 }
