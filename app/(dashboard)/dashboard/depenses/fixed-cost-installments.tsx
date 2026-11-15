@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FIXED_COST_MAX_INSTALLMENTS } from '@/config/constants';
+import { FixedCostSplit } from './fixed-cost-split';
 import { MONTHS, WEEKDAYS_MONDAY_FIRST, money } from '@/lib/fixed-costs/format';
 import type { FixedCostPeriodicityValue } from '@/lib/schemas/fixed-cost';
 
@@ -86,6 +87,14 @@ export function FixedCostInstallments({
           Ajouter une échéance
         </Button>
       </div>
+
+      <FixedCostSplit
+        periodicity={periodicity}
+        amount={amount}
+        startDay={startDay}
+        hasInstallments={installments.length > 0}
+        onApply={onChange}
+      />
 
       {installments.map((it, i) => (
         <div key={i} className="flex flex-wrap items-end gap-2">
