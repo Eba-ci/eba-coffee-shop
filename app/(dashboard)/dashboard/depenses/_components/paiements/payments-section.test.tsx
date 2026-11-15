@@ -13,6 +13,8 @@ vi.mock('../point-mort/month-nav', () => ({
 vi.mock('@/lib/fixed-costs/queries', () => ({
   getPaymentsView: vi.fn(async () => ({ month: [], week: [], late: [] })),
 }));
+// Composant serveur asynchrone imbriqué : rendu à part, non testable ici.
+vi.mock('./history-grid-section', () => ({ HistoryGridSection: () => null }));
 vi.mock('@/lib/fixed-costs/links-queries', () => ({
   getReconciliation: vi.fn(async () => ({
     month: '2026-11',
