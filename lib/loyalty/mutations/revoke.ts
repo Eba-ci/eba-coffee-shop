@@ -145,7 +145,18 @@ export async function restoreLoyaltyForOrder(
   }
 ): Promise<void> {
   const { net, everEarned } = await orderStampBalance(tx, args.orderId);
-  if (!everEarned || net > 0) return;
+  if (net > 0) return;
+  if (!everEarned) {
+    // Commande en ligne payée mais jamais créditée : le tampon n'est accordé
+    // qu'au paiement validé, et une commande annulée par une personne avant ce
+    // paiement n'en a donc jamais eu. À sa reprise, il lui revient.
+    // staff-visibility: exempt — lecture d'état de paiement d'une commande reprise
+    const order = await tx.order.findUnique({
+      where: { id: args.orderId },
+      select: { isPaid: true, onlineFee: true },
+    });
+    if (!order?.isPaid || order.onlineFee === null) return;
+  }
   await awardLoyaltyForOrder(tx, {
     customerId: args.customerId,
     orderId: args.orderId,

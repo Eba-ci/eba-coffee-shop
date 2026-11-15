@@ -178,6 +178,11 @@ paiement validé (`awardLoyaltyOnPayment`, `lib/jeko/loyalty-on-paid.ts`), y com
 paiement tardif validé. Conséquence : pas de récompense auto-appliquée à la commande en ligne
 en cours (le tampon compte pour la suivante). La caisse garde le tampon à la création.
 
+Cas limites : une commande en ligne annulée par une personne puis payée n'a jamais eu de
+tampon ; à sa reprise par le staff, `restoreLoyaltyForOrder` lui en accorde un (commande
+payée en ligne uniquement). Si l'attribution échoue au paiement, le webhook répond quand
+même 200 : une alerte staff demande l'ajustement manuel (fiche client).
+
 ### Registre Jèko et paiements en écart
 
 Le registre (`lib/jeko/ledger.ts`, page `/dashboard/jeko`) ne compte que les commandes

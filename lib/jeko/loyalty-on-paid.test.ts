@@ -5,7 +5,9 @@ const m = vi.hoisted(() => ({
   ledger: vi.fn(),
   award: vi.fn(),
   restore: vi.fn(),
+  alert: vi.fn(),
 }));
+vi.mock('./settle-alerts', () => ({ alertStaff: m.alert }));
 vi.mock('@/lib/prisma', () => ({
   default: {
     order: { findUnique: m.order },
@@ -23,7 +25,11 @@ import { awardLoyaltyOnPayment } from './loyalty-on-paid';
 describe('awardLoyaltyOnPayment', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    m.order.mockResolvedValue({ customerId: 'c1', total: 3000 });
+    m.order.mockResolvedValue({
+      customerId: 'c1',
+      total: 3000,
+      dailyNumber: 7,
+    });
     m.ledger.mockResolvedValue(null);
   });
 
@@ -55,5 +61,10 @@ describe('awardLoyaltyOnPayment', () => {
     m.award.mockRejectedValue(new Error('boom'));
     vi.spyOn(console, 'error').mockImplementation(() => {});
     await expect(awardLoyaltyOnPayment('o1')).resolves.toBeUndefined();
+    expect(m.alert).toHaveBeenCalledWith(
+      'o1',
+      7,
+      expect.stringContaining('tampon')
+    );
   });
 });
