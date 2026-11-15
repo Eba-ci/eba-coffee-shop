@@ -6,12 +6,14 @@
 // `role="checkbox"`, la saisie vit dans le tiroir monté à l'ouverture.
 
 import { useMemo, useState } from 'react';
-import { Check, HandCoins } from 'lucide-react';
+import { CalendarClock, Check, HandCoins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/fixed-costs/format';
 import { monthLabel } from '@/lib/fixed-costs/month';
 import { cn } from '@/lib/utils';
+import { allocateOldestFirst } from '@/lib/salaries/installments';
 import { ArrearsSettleDrawer } from './arrears-settle-drawer';
+import { InstalmentProposalDrawer } from './instalment-proposal-drawer';
 import { splitArrears, type ArrearsMonth } from './settle-plan';
 
 function MonthRow({
@@ -67,6 +69,8 @@ export function ArrearsSettle({
   );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
+  const [proposalOpen, setProposalOpen] = useState(false);
+  const [prefill, setPrefill] = useState<Record<string, number> | null>(null);
 
   if (months.length === 0) return null;
 
@@ -79,6 +83,7 @@ export function ArrearsSettle({
     });
   const chosen = months.filter((m) => selected.has(m.month));
   const total = chosen.reduce((a, m) => a + m.remaining, 0);
+  const grandTotal = months.reduce((a, m) => a + m.remaining, 0);
   const allSelected = chosen.length === months.length;
 
   const group = (title: string, hint: string, rows: ArrearsMonth[]) =>
@@ -122,6 +127,17 @@ export function ArrearsSettle({
         >
           {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
         </Button>
+        {grandTotal > 0 && (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11"
+            onClick={() => setProposalOpen(true)}
+          >
+            <CalendarClock className="size-4" aria-hidden="true" />
+            Échelonner
+          </Button>
+        )}
         <Button
           type="button"
           className="h-11"
@@ -134,14 +150,34 @@ export function ArrearsSettle({
             : `Régler ${chosen.length} mois · ${money(total)}`}
         </Button>
       </div>
+      <InstalmentProposalDrawer
+        open={proposalOpen}
+        onOpenChange={setProposalOpen}
+        total={grandTotal}
+        currentMonth={currentMonth}
+        onPrepare={(first) => {
+          const alloc = allocateOldestFirst(first, months);
+          setSelected(new Set(Object.keys(alloc)));
+          setPrefill(alloc);
+          setProposalOpen(false);
+          setOpen(true);
+        }}
+      />
       <ArrearsSettleDrawer
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(o) => {
+          setOpen(o);
+          if (!o) setPrefill(null);
+        }}
+        initialAmounts={prefill ?? undefined}
         employeeId={employeeId}
         employeeName={employeeName}
         today={today}
         months={chosen}
-        onDone={() => setSelected(new Set())}
+        onDone={() => {
+          setSelected(new Set());
+          setPrefill(null);
+        }}
       />
     </div>
   );
