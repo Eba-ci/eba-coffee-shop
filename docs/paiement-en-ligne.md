@@ -171,6 +171,20 @@ aussi en local ; en test, changer l'en-tête `x-forwarded-for` suffit.
 - **Pas de remboursement automatique** : aucune API de remboursement n'a été repérée,
   il se fait à la main depuis le Dashboard Jèko.
 
+### Registre Jèko et paiements en écart
+
+Le registre (`lib/jeko/ledger.ts`, page `/dashboard/jeko`) ne compte que les commandes
+dont `paymentTransactionId` est renseigné. Or `settleJekoTransaction` ne l'écrit qu'**avec**
+`isPaid`, donc **pas** pour un paiement `amount_mismatch` : la commande n'est qu'« sortie
+de l'attente » (`paymentExpiresAt` nul) et rien ne mémorise le montant réellement reçu.
+Les compter exigerait une nouvelle colonne (montant reçu) et une règle de rapprochement :
+nous avons choisi de **ne pas** le faire, au risque d'inventer des chiffres.
+
+Conséquence : un paiement en écart (et un paiement tardif remboursé, déjà déduit à part)
+n'apparaît pas dans le solde affiché, alors que l'argent est chez Jèko. Le staff est alerté
+(« Montant reçu X F au lieu de Y F ») et tranche : **vérifier le solde réel dans le Dashboard
+Jèko** (`lib/jeko/balance.ts` lit le solde réel du compte) avant tout retrait.
+
 ## Retour arrière d'urgence
 
 Le déploiement exécute `pnpm db:push` (`.github/workflows/cd.yml`). Le schéma de cette

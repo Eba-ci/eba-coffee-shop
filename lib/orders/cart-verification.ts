@@ -15,6 +15,7 @@ import { effectiveMax, effectiveMin } from '@/lib/supplements';
 export type CartMismatchReason =
   | 'empty_cart'
   | 'product_unknown'
+  | 'product_unavailable'
   | 'supplement_unknown'
   | 'supplement_invalid'
   | 'price_changed'
@@ -44,16 +45,26 @@ export function assertCartMatchesMenu(
     throw new CartMismatchError('empty_cart', 'Panier vide');
   }
 
+  // `getMenuAdmin` renvoie aussi les produits en pause et les catégories
+  // désactivées : on les écarte ici pour les distinguer d'un produit inconnu.
   const products = new Map(
-    menu.flatMap((c) => c.products).map((p) => [p.id, p])
+    menu.flatMap((c) => c.products.map((p) => [p.id, { p, cat: c }] as const))
   );
 
   for (const item of items) {
-    const product = products.get(item.productId);
-    if (!product) {
+    const entry = products.get(item.productId);
+    const product = entry?.p;
+    if (!entry || !product) {
       throw new CartMismatchError(
         'product_unknown',
         `Produit introuvable : ${item.productName}`
+      );
+    }
+    // `=== false` : seul un refus explicite bloque (comme `group.available`).
+    if (product.available === false || entry.cat.available === false) {
+      throw new CartMismatchError(
+        'product_unavailable',
+        `« ${product.name} » n'est plus disponible`
       );
     }
     if (item.basePrice !== product.price) {

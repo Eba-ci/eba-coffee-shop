@@ -110,4 +110,40 @@ describe('assertCartMatchesMenu', () => {
       'total_mismatch'
     );
   });
+
+  describe('disponibilité du produit', () => {
+    const withFlags = (product: boolean | undefined, category?: boolean) =>
+      [
+        {
+          ...(menu as never as Record<string, unknown>[])[0],
+          available: category,
+          products: (
+            menu as never as { products: Record<string, unknown>[] }[]
+          )[0].products.map((p) =>
+            p.id === 'p2' ? { ...p, available: product } : p
+          ),
+        },
+      ] as never;
+    const cart = [item({ productId: 'p2', basePrice: 2000 })];
+    const reasonOf = (m: never) => {
+      try {
+        assertCartMatchesMenu(cart, m, 2000);
+      } catch (e) {
+        return (e as CartMismatchError).reason;
+      }
+      return null;
+    };
+
+    it('refuse un produit mis en pause (available: false)', () => {
+      expect(reasonOf(withFlags(false, true))).toBe('product_unavailable');
+    });
+
+    it('refuse un produit dont la catégorie est désactivée', () => {
+      expect(reasonOf(withFlags(true, false))).toBe('product_unavailable');
+    });
+
+    it('accepte un produit et une catégorie disponibles', () => {
+      expect(reasonOf(withFlags(true, true))).toBeNull();
+    });
+  });
 });
