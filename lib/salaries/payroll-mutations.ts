@@ -9,7 +9,7 @@
 // une lecture des clés d'idempotence, une lecture de tous les employés avec
 // taux/versements/ajustements (journal rejoué en mémoire), un `createMany`.
 
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireSalaryAdmin } from './admin-guard';
 import prisma from '@/lib/prisma';
 import { salaryPayrollSchema } from '@/lib/schemas/salary';
 import {
@@ -35,7 +35,7 @@ export async function settlePayroll(
   input: unknown,
   today: string = todayDateString()
 ) {
-  const session = await requireAdmin();
+  const session = await requireSalaryAdmin();
   const d = salaryPayrollSchema.parse(input);
   const asOf = [today.slice(0, 7), d.month].sort(compareStrings)[1];
   const ids = d.items.map((i) => i.employeeId).sort(compareStrings);

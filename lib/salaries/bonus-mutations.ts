@@ -7,7 +7,7 @@
 // Idempotent : une fois le dû relevé, le trop-perçu vaut 0 et l'appel est un
 // no-op.
 
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireSalaryAdmin } from './admin-guard';
 import prisma from '@/lib/prisma';
 import { salaryBonusFromOverpaymentSchema } from '@/lib/schemas/salary';
 import { todayDateString } from '@/lib/timezone';
@@ -26,7 +26,7 @@ export async function convertOverpaymentToBonus(
   input: unknown,
   today: string = todayDateString()
 ) {
-  const session = await requireAdmin();
+  const session = await requireSalaryAdmin();
   const d = salaryBonusFromOverpaymentSchema.parse(input);
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "employee" WHERE "id" = ${d.employeeId} FOR UPDATE`;

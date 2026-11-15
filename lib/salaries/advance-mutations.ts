@@ -14,7 +14,7 @@ import {
   SALARY_ADVANCE_BELOW_RECOVERED_MESSAGE,
 } from '@/config/constants';
 import type { SalaryPaymentType } from '@/generated/prisma/enums';
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireSalaryAdmin } from './admin-guard';
 import prisma from '@/lib/prisma';
 import {
   salaryAdvanceAdjustSchema,
@@ -34,7 +34,7 @@ function assertAdvance(type: SalaryPaymentType): void {
  * Idempotent : reposer la même valeur ne réécrit rien.
  */
 export async function updateAdvanceRecovery(input: unknown) {
-  await requireAdmin();
+  await requireSalaryAdmin();
   const d = salaryAdvanceRecoverySchema.parse(input);
   return prisma.$transaction(async (tx) => {
     const payment = await tx.salaryPayment.findUniqueOrThrow({
@@ -58,7 +58,7 @@ export async function adjustSalaryAdvance(
   input: unknown,
   today: string = todayDateString()
 ) {
-  const session = await requireAdmin();
+  const session = await requireSalaryAdmin();
   const d = salaryAdvanceAdjustSchema.parse(input);
   const currentMonth = today.slice(0, 7);
   return withRetry(() =>
@@ -114,7 +114,7 @@ export async function adjustSalaryAdvance(
  * inexistante) renvoie le même succès plutôt qu'une erreur de course.
  */
 export async function cancelSalaryAdvance(input: unknown) {
-  const session = await requireAdmin();
+  const session = await requireSalaryAdmin();
   const d = salaryAdvanceCancelSchema.parse(input);
   return withRetry(() =>
     prisma.$transaction(async (tx) => {
