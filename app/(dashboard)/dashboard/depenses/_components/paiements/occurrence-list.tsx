@@ -22,7 +22,7 @@ export function OccurrenceStatusBadge({
   return (
     <span
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+        'inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium',
         meta.badge
       )}
     >
@@ -50,7 +50,7 @@ export function OccurrenceRow({
   const body = (
     <>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{label}</p>
+        <p className="break-words text-sm font-medium">{label}</p>
         <p className="text-xs tabular-nums text-muted-foreground">
           {showDay ? `${formatDay(dueDate)} · ` : ''}
           {money(amount)}
@@ -79,13 +79,15 @@ export function OccurrenceRow({
     );
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-      <div className="flex min-w-0 flex-1 items-center gap-2">{body}</div>
+    <li className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center">
+        {body}
+      </div>
       {canPay && (
         <Button
           size="sm"
           variant="outline"
-          className="h-11 sm:h-9"
+          className="h-11 w-full shrink-0 sm:h-9 sm:w-auto"
           onClick={() => pay.openPay(occurrence)}
         >
           Enregistrer le paiement
