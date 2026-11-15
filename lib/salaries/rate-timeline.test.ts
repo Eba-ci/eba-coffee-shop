@@ -1,0 +1,53 @@
+import { describe, expect, it } from 'vitest';
+import { buildRateTimeline } from './rate-timeline';
+
+const rates = [
+  { monthlyAmount: 100_000, startDate: '2026-11-01' },
+  { monthlyAmount: 75_000, startDate: '2026-01-01' },
+];
+
+describe('buildRateTimeline', () => {
+  it('ordonne du plus ancien au plus récent avec écart et période', () => {
+    const t = buildRateTimeline(rates, null, '2026-11-15');
+    expect(t.map((s) => s.monthlyAmount)).toEqual([75_000, 100_000]);
+    expect(t[0]).toMatchObject({
+      delta: null,
+      deltaPct: null,
+      endDate: '2026-10-31',
+    });
+    expect(t[1]).toMatchObject({
+      delta: 25_000,
+      deltaPct: 33,
+      endDate: null,
+      current: true,
+    });
+    expect(t[0].current).toBe(false);
+  });
+
+  it('un taux futur est « à venir », l’ancien reste en vigueur', () => {
+    const t = buildRateTimeline(rates, null, '2026-06-01');
+    expect(t[0].current).toBe(true);
+    expect(t[1]).toMatchObject({ upcoming: true, current: false });
+  });
+
+  it('une baisse donne un écart négatif ; la sortie borne le dernier taux', () => {
+    const t = buildRateTimeline(
+      [
+        { monthlyAmount: 100_000, startDate: '2026-01-01' },
+        { monthlyAmount: 80_000, startDate: '2026-06-01' },
+      ],
+      '2026-08-31',
+      '2026-11-15'
+    );
+    expect(t[1]).toMatchObject({
+      delta: -20_000,
+      deltaPct: -20,
+      endDate: '2026-08-31',
+      current: false,
+    });
+  });
+
+  it('aucun taux : frise vide', () => {
+    expect(buildRateTimeline([], null, '2026-11-15')).toEqual([]);
+  });
+});

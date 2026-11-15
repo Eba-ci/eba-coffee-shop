@@ -40,7 +40,7 @@ export function EmployeeDetail({
       />
       <MonthSection employee={employee} />
       <PaymentsSection employee={employee} />
-      <CompensationSection employee={employee} />
+      <CompensationSection employee={employee} today={today} />
       <DebtsSection employee={employee} canSettle={canSettle} today={today} />
       <IdentitySection employee={employee} />
     </div>
