@@ -166,7 +166,10 @@ export async function PointMortSection({ month }: { month: string }) {
           <CardTitle className="text-base">Historique détecté</CardTitle>
         </CardHeader>
         <CardContent>
-          <FixedCostHistory rows={fixedCostHistory} />
+          <FixedCostHistory
+            rows={fixedCostHistory}
+            categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+          />
         </CardContent>
       </Card>
 

@@ -73,12 +73,35 @@ describe('FixedCostHistory (écran de détection, lecture seule)', () => {
     expect(html).toContain('Déjà convertie');
   });
 
-  it('ne contient ni formulaire ni bouton (aucune écriture)', () => {
+  it('sans catégories, aucune action d’écriture n’est proposée', () => {
     const html = renderToStaticMarkup(<FixedCostHistory rows={[row()]} />);
-
-    expect(html).not.toContain('<form');
     expect(html).not.toContain('<button');
-    expect(html).not.toContain('<input');
+    expect(html).not.toContain('<form');
+  });
+
+  it('propose la création depuis l’historique, ou la correction si déjà convertie', () => {
+    const cats = [{ id: 'loyer', name: 'Loyer' }];
+    const created = renderToStaticMarkup(
+      <FixedCostHistory rows={[row()]} categories={cats} />
+    );
+    expect(created).toContain('Créer la charge depuis l’historique');
+    const fixed = renderToStaticMarkup(
+      <FixedCostHistory
+        rows={[row({ alreadyConverted: true })]}
+        categories={cats}
+      />
+    );
+    expect(fixed).toContain('Corriger la prise d’effet');
+  });
+
+  it('ne propose rien pour une dépense unique', () => {
+    const html = renderToStaticMarkup(
+      <FixedCostHistory
+        rows={[row({ confidence: 'single' })]}
+        categories={[{ id: 'loyer', name: 'Loyer' }]}
+      />
+    );
+    expect(html).not.toContain('depuis l’historique');
   });
 
   it('affiche un état vide lisible', () => {

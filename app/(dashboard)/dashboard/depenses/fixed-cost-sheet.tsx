@@ -190,10 +190,13 @@ export function FixedCostSheetPanel({
   draft,
   set,
   error,
+  notice,
   pending,
   onCancel,
   onSubmit,
 }: {
+  /** Information non bloquante, affichée au-dessus des champs. */
+  notice?: string | null;
   title: string;
   description: string;
   submitLabel: string;
@@ -213,6 +216,11 @@ export function FixedCostSheetPanel({
       </SheetHeader>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        {notice && (
+          <p className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+            {notice}
+          </p>
+        )}
         <FixedCostFields draft={draft} set={set} categories={categories} />
         {error && (
           <p

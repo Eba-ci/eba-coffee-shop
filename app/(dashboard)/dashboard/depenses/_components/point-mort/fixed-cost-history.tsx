@@ -1,13 +1,15 @@
 // Écran de détection de l'historique des catégories fixes (#451).
 //
-// LECTURE SEULE : ce composant ne contient aucun formulaire, bouton d'action ni
-// appel de mutation. Il se contente d'afficher le résultat de
-// `detectFixedCostHistory` (via `getFixedCostHistory`). Le backfill est #452.
+// La détection est en lecture seule ; seule l'action « Créer la charge depuis
+// l'historique » (#452, `backfill-action.tsx`) écrit, et uniquement une prise
+// d'effet : aucune dépense n'est créée ni liée.
 
 import { AlertTriangle, CheckCircle2, CircleHelp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { money } from '@/lib/fixed-costs/format';
 import { shiftMonth, monthLabel } from '@/lib/fixed-costs/month';
+import { suggestBackfill } from '@/lib/fixed-costs/backfill-suggestion';
+import { BackfillAction } from './backfill-action';
 import type {
   CategoryHistory,
   HistoryConfidence,
@@ -46,7 +48,13 @@ const plural = (count: number, one: string, many: string) =>
  * bornes, ses totaux RÉELS par mois, ses trous et la proposition (prise
  * d'effet, périodicité, confiance) sans déclencher aucune écriture.
  */
-export function FixedCostHistory({ rows }: { rows: CategoryHistory[] }) {
+export function FixedCostHistory({
+  rows,
+  categories = [],
+}: {
+  rows: CategoryHistory[];
+  categories?: { id: string; name: string }[];
+}) {
   if (rows.length === 0) {
     return (
       <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
@@ -58,20 +66,26 @@ export function FixedCostHistory({ rows }: { rows: CategoryHistory[] }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Lecture seule : ces propositions ne créent, ne modifient et ne lient
-        rien. Les montants sont les totaux réels des dépenses, jamais une
-        estimation.
+        Ces propositions ne créent aucune dépense et ne lient rien : seule la
+        prise d’effet de la charge est posée, après ta confirmation. Les
+        montants sont les totaux réels des dépenses, jamais une estimation.
       </p>
       <ul className="divide-y rounded-lg border">
         {rows.map((row) => (
-          <HistoryRow key={row.categoryId} row={row} />
+          <HistoryRow key={row.categoryId} row={row} categories={categories} />
         ))}
       </ul>
     </div>
   );
 }
 
-function HistoryRow({ row }: { row: CategoryHistory }) {
+function HistoryRow({
+  row,
+  categories,
+}: {
+  row: CategoryHistory;
+  categories: { id: string; name: string }[];
+}) {
   const confidence = CONFIDENCE_META[row.confidence];
   const trailingStart =
     row.trailingGaps.length > 0
@@ -148,6 +162,12 @@ function HistoryRow({ row }: { row: CategoryHistory }) {
           </>
         )}
       </p>
+      {row.confidence !== 'single' && categories.length > 0 && (
+        <BackfillAction
+          suggestion={suggestBackfill(row)}
+          categories={categories}
+        />
+      )}
     </li>
   );
 }
