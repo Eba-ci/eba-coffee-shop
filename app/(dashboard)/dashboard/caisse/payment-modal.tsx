@@ -89,7 +89,9 @@ export function PaymentModal({
       isOpen={isOpen}
       onClose={handleClose}
       placement="center"
+      scrollBehavior="inside"
       size={isSplit ? 'md' : 'sm'}
+      classNames={{ base: 'mx-3 my-3 max-h-[calc(100dvh-1.5rem)] sm:mx-6' }}
       isDismissable={!isSubmitting}
       hideCloseButton={isSubmitting}
     >
@@ -155,8 +157,9 @@ export function PaymentModal({
 
           {error && <p className="text-sm text-destructive">{error}</p>}
         </ModalBody>
-        <ModalFooter>
+        <ModalFooter className="flex-col-reverse gap-2 sm:flex-row">
           <Button
+            className="w-full sm:w-auto"
             color="default"
             variant="light"
             onPress={handleClose}
@@ -165,6 +168,7 @@ export function PaymentModal({
             Annuler
           </Button>
           <Button
+            className="w-full sm:w-auto"
             color="primary"
             onPress={
               creditOnly
