@@ -57,17 +57,13 @@ function PayLine({ row }: { row: SalaryEmployeeMonthRow }) {
           {money(row.remainingToPay)}
         </dd>
         <dt className="text-muted-foreground">Arriéré</dt>
-        <dd className="text-right tabular-nums">
-          {money(row.arrears.total)}
-        </dd>
+        <dd className="text-right tabular-nums">{money(row.arrears.total)}</dd>
         <dt className="text-muted-foreground">À payer (avec arriéré)</dt>
         <dd className="text-right font-semibold tabular-nums">
           {money(row.proposedPayment.total)}
         </dd>
         <dt className="text-muted-foreground">Solde d’avance</dt>
-        <dd className="text-right tabular-nums">
-          {money(row.advanceBalance)}
-        </dd>
+        <dd className="text-right tabular-nums">{money(row.advanceBalance)}</dd>
       </dl>
     </li>
   );
@@ -89,7 +85,10 @@ function TotalsMobile({ view }: { view: SalaryMonthView }) {
           ],
           ['Reste à payer', totals.remainingToPay],
           ['Arriéré', totals.arrearsTotal],
-          ['À payer (avec arriéré)', totals.remainingToPay + totals.arrearsTotal],
+          [
+            'À payer (avec arriéré)',
+            totals.remainingToPay + totals.arrearsTotal,
+          ],
           ['Solde d’avance', totals.advanceBalance],
         ].map(([label, value]) => (
           <div key={label as string} className="flex justify-between gap-3">

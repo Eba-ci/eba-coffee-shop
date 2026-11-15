@@ -53,14 +53,17 @@ describe('Paie du mois : garde', () => {
     expect(getSalaryMonthView).not.toHaveBeenCalled();
   });
 
-  it.each(['ADMIN', 'COMPTABLE'])('lit la vue du mois pour %s', async (role) => {
-    vi.mocked(requirePayroll).mockResolvedValue({
-      user: { id: 'u1', role },
-    } as never);
-    vi.mocked(getSalaryMonthView).mockResolvedValue(view);
-    await expect(PaiePage(params)).resolves.toBeTruthy();
-    expect(getSalaryMonthView).toHaveBeenCalledWith(
-      expect.stringMatching(/^\d{4}-\d{2}$/)
-    );
-  });
+  it.each(['ADMIN', 'COMPTABLE'])(
+    'lit la vue du mois pour %s',
+    async (role) => {
+      vi.mocked(requirePayroll).mockResolvedValue({
+        user: { id: 'u1', role },
+      } as never);
+      vi.mocked(getSalaryMonthView).mockResolvedValue(view);
+      await expect(PaiePage(params)).resolves.toBeTruthy();
+      expect(getSalaryMonthView).toHaveBeenCalledWith(
+        expect.stringMatching(/^\d{4}-\d{2}$/)
+      );
+    }
+  );
 });

@@ -5,9 +5,11 @@
 // double clic rejoué avec la même clé et le MÊME contenu renvoie le versement
 // existant ; un contenu différent lève un conflit.
 //
-// Chaque versement est matérialisé par UNE dépense liée (catégorie « Salaires »)
-// créée, mise à jour ou supprimée DANS LA MÊME TRANSACTION — jamais de dépense
-// orpheline. Toutes les écritures sont réservées à l'ADMIN.
+// Les versements d'un même jour et d'un même mode sont additionnés dans UNE
+// ligne globale de dépense (catégorie « Salaires », sans détail d'employé),
+// recalculée par `syncSalaryExpenses` DANS LA MÊME TRANSACTION — jamais de
+// ligne orpheline ni de versement sans ligne. Toutes les écritures sont
+// réservées à l'ADMIN.
 
 import { SALARY_END_AFTER_START_MESSAGE } from '@/config/constants';
 import { Prisma } from '@/generated/prisma/client';
@@ -22,11 +24,8 @@ import {
   salaryRateCreateSchema,
 } from '@/lib/schemas/salary';
 import { formatLocalDateOnly, parseDateOnlyToUTC } from '@/lib/timezone';
-import {
-  getSalaryCategoryId,
-  salaryExpenseFields,
-  type SalaryPaymentForExpense,
-} from './expense';
+import { RECEIPT_NUMBER_MAX_RETRIES } from '@/lib/expense-numbering';
+import { keyOf, syncSalaryExpenses, withRetry } from './expense-sync';
 import {
   assertSameSalaryPayment,
   type SalaryPaymentIdentity,
@@ -158,23 +157,6 @@ function paymentWriteData(d: {
   };
 }
 
-/** Crée la dépense miroir d'un versement (catégorie « Salaires », sans reçu). */
-async function createSalaryExpense(
-  tx: Prisma.TransactionClient,
-  payment: SalaryPaymentForExpense & { id: string },
-  createdById: string | null
-) {
-  const categoryId = await getSalaryCategoryId(tx);
-  return tx.expense.create({
-    data: {
-      ...salaryExpenseFields(payment),
-      categoryId,
-      salaryPaymentId: payment.id,
-      createdById,
-    },
-  });
-}
-
 /**
  * Enregistre un versement. Avec une `idempotencyKey`, un rejeu (double clic)
  * renvoie le versement déjà créé si le contenu est identique, et lève un
@@ -202,41 +184,50 @@ export async function recordSalaryPayment(input: unknown) {
     }
   }
 
-  try {
-    return await prisma.$transaction(async (tx) => {
-      const payment = await tx.salaryPayment.create({
-        data: {
-          employeeId: d.employeeId,
-          date: date(d.date),
-          month: d.month,
-          amount: d.amount,
-          type: d.type,
-          // Défaut WAVE posé par le schéma (paiement par Wave en pratique).
-          paymentMethod: d.paymentMethod,
-          recoveryMonths: d.recoveryMonths ?? 1,
-          note: d.note ?? null,
-          idempotencyKey: d.idempotencyKey ?? null,
-          createdById: session.user.id,
-        },
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const payment = await tx.salaryPayment.create({
+          data: {
+            employeeId: d.employeeId,
+            date: date(d.date),
+            month: d.month,
+            amount: d.amount,
+            type: d.type,
+            // Défaut WAVE posé par le schéma (paiement par Wave en pratique).
+            paymentMethod: d.paymentMethod,
+            recoveryMonths: d.recoveryMonths ?? 1,
+            note: d.note ?? null,
+            idempotencyKey: d.idempotencyKey ?? null,
+            createdById: session.user.id,
+          },
+        });
+        await syncSalaryExpenses(tx, [keyOf(payment)], session.user.id);
+        return payment;
       });
-      await createSalaryExpense(tx, payment, session.user.id);
-      return payment;
-    });
-  } catch (err) {
-    // Course entre deux clics simultanés : le second relit la ligne créée et
-    // vérifie le contenu (un contenu différent reste un conflit).
-    if (
-      d.idempotencyKey &&
-      err instanceof Prisma.PrismaClientKnownRequestError &&
-      err.code === 'P2002'
-    ) {
-      const existing = await prisma.salaryPayment.findUniqueOrThrow({
-        where: { idempotencyKey: d.idempotencyKey },
-      });
-      assertSameSalaryPayment(toIdentity(existing), desired);
-      return existing;
+    } catch (err) {
+      if (
+        !(
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002'
+        )
+      ) {
+        throw err;
+      }
+      // Course entre deux clics simultanés : le second relit la ligne créée et
+      // vérifie le contenu (un contenu différent reste un conflit).
+      if (d.idempotencyKey) {
+        const existing = await prisma.salaryPayment.findUnique({
+          where: { idempotencyKey: d.idempotencyKey },
+        });
+        if (existing) {
+          assertSameSalaryPayment(toIdentity(existing), desired);
+          return existing;
+        }
+      }
+      // Sinon : conflit de numéro de reçu ou de clé de ligne globale.
+      if (attempt >= RECEIPT_NUMBER_MAX_RETRIES - 1) throw err;
     }
-    throw err;
   }
 }
 
@@ -248,38 +239,40 @@ export async function recordSalaryPayment(input: unknown) {
 export async function updateSalaryPayment(id: string, input: unknown) {
   const session = await requireAdmin();
   const d = salaryPaymentUpdateSchema.parse(input);
-  return prisma.$transaction(async (tx) => {
-    const payment = await tx.salaryPayment.update({
-      where: { id },
-      data: paymentWriteData(d),
-    });
-    // `upsert` sur le lien unique : que la dépense existe déjà ou qu'il
-    // s'agisse d'un versement hérité sans dépense, une seule requête suffit —
-    // deux corrections concurrentes ne lèvent pas de P2002.
-    const fields = salaryExpenseFields(payment);
-    const categoryId = await getSalaryCategoryId(tx);
-    await tx.expense.upsert({
-      where: { salaryPaymentId: id },
-      create: {
-        ...fields,
-        categoryId,
-        salaryPaymentId: id,
-        createdById: session.user.id,
-      },
-      update: { ...fields, categoryId },
-    });
-    return payment;
-  });
+  return withRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const before = await tx.salaryPayment.findUniqueOrThrow({
+        where: { id },
+        select: { date: true, paymentMethod: true },
+      });
+      const payment = await tx.salaryPayment.update({
+        where: { id },
+        data: paymentWriteData(d),
+      });
+      // Ancienne ET nouvelle position : un versement qui change de jour ou de
+      // mode quitte une ligne globale pour une autre.
+      await syncSalaryExpenses(
+        tx,
+        [keyOf(before), keyOf(payment)],
+        session.user.id
+      );
+      return payment;
+    })
+  );
 }
 
-/**
- * Supprime un versement ET sa dépense liée dans la même transaction. La
- * suppression est toujours possible même sans dépense liée (donnée héritée).
- */
 export async function deleteSalaryPayment(id: string) {
-  await requireAdmin();
-  return prisma.$transaction(async (tx) => {
-    await tx.expense.deleteMany({ where: { salaryPaymentId: id } });
-    return tx.salaryPayment.delete({ where: { id } });
-  });
+  const session = await requireAdmin();
+  return withRetry(() =>
+    prisma.$transaction(async (tx) => {
+      const payment = await tx.salaryPayment.findUnique({
+        where: { id },
+        select: { date: true, paymentMethod: true },
+      });
+      if (!payment) return null;
+      const deleted = await tx.salaryPayment.delete({ where: { id } });
+      await syncSalaryExpenses(tx, [keyOf(payment)], session.user.id);
+      return deleted;
+    })
+  );
 }

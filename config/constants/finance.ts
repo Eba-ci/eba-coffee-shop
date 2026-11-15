@@ -90,7 +90,7 @@ export const SALARY_ADJUSTMENT_NOTE_MAX = SALARY_NOTE_MAX;
 /**
  * Catégorie de dépense qui matérialise les versements de salaire. Réservée à
  * l'ADMIN : les lignes rattachées sont masquées aux autres rôles (le lien
- * `Expense.salaryPaymentId` fait foi, pas le nom seul).
+ * `Expense.salaryAggregateKey` fait foi, pas le nom seul).
  */
 export const SALARY_EXPENSE_CATEGORY_NAME = 'Salaires';
 

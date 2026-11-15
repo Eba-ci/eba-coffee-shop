@@ -15,7 +15,13 @@ const { tx, prismaMock } = vi.hoisted(() => {
 vi.mock('@/lib/prisma', () => ({ default: prismaMock }));
 vi.mock('@/lib/auth-helpers', () => ({ requireAdmin: vi.fn() }));
 
+vi.mock('./expense-sync', async (orig) => ({
+  ...(await orig<typeof import('./expense-sync')>()),
+  syncSalaryExpenses: vi.fn(),
+}));
+
 import { requireAdmin } from '@/lib/auth-helpers';
+import { syncSalaryExpenses } from './expense-sync';
 import {
   adjustSalaryAdvance,
   cancelSalaryAdvance,
@@ -91,6 +97,8 @@ describe('mutations d’avance (ADMIN seul, idempotentes)', () => {
       where: { id: 'adv1' },
       data: { amount: 25_000, month: '2026-07', note: 'corrigé' },
     });
+    // La ligne globale suit : ancienne ET nouvelle position.
+    expect(syncSalaryExpenses).toHaveBeenCalledTimes(1);
   });
 
   it('refuse de réduire le montant sous ce qui a déjà été récupéré', async () => {
@@ -138,6 +146,7 @@ describe('mutations d’avance (ADMIN seul, idempotentes)', () => {
     expect(tx.salaryPayment.delete).toHaveBeenCalledWith({
       where: { id: 'adv1' },
     });
+    expect(syncSalaryExpenses).toHaveBeenCalledTimes(1);
 
     // Rejeu (double clic) : la ligne n'existe plus, on renvoie le même succès.
     tx.salaryPayment.findUnique.mockResolvedValue(null);

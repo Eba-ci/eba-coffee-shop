@@ -34,23 +34,4 @@ describe('export CSV des dépenses — détail salaires réservé à l’ADMIN',
     expect(res.status).toBe(403);
     expect(listExpenses).not.toHaveBeenCalled();
   });
-
-  it.each(['MANAGER', 'COMPTABLE'])(
-    'passe includeSalary=false pour %s',
-    async (role) => {
-      session(role);
-      await GET(req('?from=2026-06-01&to=2026-06-30'));
-      expect(listExpenses).toHaveBeenCalledWith(
-        expect.objectContaining({ includeSalary: false })
-      );
-    }
-  );
-
-  it('passe includeSalary=true pour l’ADMIN', async () => {
-    session('ADMIN');
-    await GET(req('?from=2026-06-01&to=2026-06-30'));
-    expect(listExpenses).toHaveBeenCalledWith(
-      expect.objectContaining({ includeSalary: true })
-    );
-  });
 });

@@ -58,7 +58,7 @@ export async function syncFixedCostsFromCategories(): Promise<CategorySyncResult
     categoryIds.length === 0
       ? []
       : await prisma.expense.findMany({
-          where: { categoryId: { in: categoryIds }, salaryPaymentId: null },
+          where: { categoryId: { in: categoryIds }, salaryAggregateKey: null },
           select: { categoryId: true, date: true, amount: true, note: true },
           orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
         });
@@ -79,9 +79,7 @@ export async function syncFixedCostsFromCategories(): Promise<CategorySyncResult
         ...c,
         lastAmount: l?.amount ?? null,
         lastNote: l?.note ?? null,
-        firstExpenseMonth: f
-          ? formatLocalDateOnly(f.date).slice(0, 7)
-          : null,
+        firstExpenseMonth: f ? formatLocalDateOnly(f.date).slice(0, 7) : null,
       };
     }),
     new Set(linked.map((l) => l.importedCategoryId!)),

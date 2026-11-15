@@ -1254,14 +1254,17 @@ model SalaryPayment {
   createdBy      User?                @relation("SalaryPaymentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt      DateTime             @default(now())
 
-  // Dépense miroir du versement (catégorie « Salaires », sans numéro de reçu).
-  // Relation 1:1 : la dépense porte `Expense.salaryPaymentId` et tombe avec le
-  // versement (ON DELETE CASCADE) — jamais de dépense orpheline.
-  expense        Expense?             @relation("SalaryPaymentExpense")
+  // Ligne globale de masse salariale qui inclut ce versement (relation 1:N :
+  // plusieurs versements du même jour et du même mode partagent une dépense).
+  // RESTRICT : on ne supprime jamais une ligne encore portée par un versement.
+  expenseId      String?
+  expense        Expense?             @relation("SalaryPaymentExpense", fields: [expenseId], references: [id], onDelete: Restrict)
 
   @@index([employeeId, month])
   @@index([month])
   @@index([date])
+  @@index([expenseId])
+  @@index([date, paymentMethod])
   @@map("salary_payment")
 }
 
@@ -1325,13 +1328,12 @@ model Expense {
   // rejouer le même lot renvoie la dépense déjà créée au lieu d'un doublon.
   idempotencyKey String? @unique
 
-  // Versement de salaire matérialisé par cette ligne (réservé à l'ADMIN). Le
-  // lien explicite identifie les lignes de salaire pour les masquer aux autres
-  // rôles ; il n'y a JAMAIS de dépense orpheline (supprimer le versement
-  // supprime la ligne, ON DELETE CASCADE). Ces lignes n'ont pas de numéro de
-  // reçu : la séquence DEP n'est pas consommée par les salaires.
-  salaryPaymentId String?        @unique
-  salaryPayment   SalaryPayment? @relation("SalaryPaymentExpense", fields: [salaryPaymentId], references: [id], onDelete: Cascade)
+  // Ligne GLOBALE de masse salariale : une par jour de versement et par mode
+  // de paiement (`YYYY-MM-DD:MODE`), recalculée par `syncSalaryExpenses`. Non
+  // nulle = ligne générée, non modifiable à la main, visible de tous les rôles
+  // sans aucun détail d'employé. Elle porte un numéro de reçu normal.
+  salaryAggregateKey String?         @unique
+  salaryPayments     SalaryPayment[] @relation("SalaryPaymentExpense")
 
   categoryId String
   category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)

@@ -1,33 +1,41 @@
-// Tests du lien versement de salaire ↔ dépense : champs de la dépense miroir
-// (aucun reçu, aucun nom d'employé) et résolution de la catégorie « Salaires ».
+// Tests de la ligne globale de masse salariale : champs (mention automatique,
+// aucun nom d'employé) et résolution de la catégorie « Salaires ».
 
 import { describe, expect, it, vi } from 'vitest';
 import type { Prisma } from '@/generated/prisma/client';
 import { SALARY_EXPENSE_CATEGORY_NAME } from '@/config/constants';
-import { getSalaryCategoryId, salaryExpenseFields } from './expense';
+import {
+  SALARY_AGGREGATE_NOTE,
+  getSalaryCategoryId,
+  salaryAggregateFields,
+  salaryAggregateKey,
+} from './expense';
 
-describe('salaryExpenseFields', () => {
-  it('ne porte aucun numéro de reçu (la séquence DEP reste continue)', () => {
-    const fields = salaryExpenseFields({
-      date: new Date(Date.UTC(2026, 5, 30)),
-      amount: 250_000,
-      paymentMethod: 'WAVE',
-    });
-    expect(fields.receiptNo).toBeNull();
-    expect(fields.receiptPeriod).toBeNull();
-    expect(fields.receiptSeq).toBeNull();
-    expect(fields.paymentMethod).toBe('WAVE');
-    expect(fields.amount).toBe(250_000);
+describe('salaryAggregateFields', () => {
+  const day = new Date(Date.UTC(2026, 10, 1));
+
+  it('porte la mention automatique et la clé jour:mode', () => {
+    const f = salaryAggregateFields(day, 'WAVE', 450_000);
+    expect(f.note).toBe(SALARY_AGGREGATE_NOTE);
+    expect(f.salaryAggregateKey).toBe('2026-11-01:WAVE');
+    expect(f.amount).toBe(450_000);
+    expect(f.paymentMethod).toBe('WAVE');
   });
 
-  it('ne porte aucun nom d’employé (ni note, ni fournisseur)', () => {
-    const fields = salaryExpenseFields({
-      date: new Date(Date.UTC(2026, 5, 30)),
-      amount: 100_000,
-      paymentMethod: 'CASH',
-    });
-    expect(fields.supplier).toBeNull();
-    expect(fields.note).toBeNull();
+  it('ne porte aucun nom d’employé ni fournisseur ni justificatif', () => {
+    const f = salaryAggregateFields(day, 'CASH', 100_000);
+    expect(f.supplier).toBeNull();
+    expect(f.receiptUrl).toBeNull();
+    expect(JSON.stringify(f)).not.toMatch(/employ/i);
+  });
+
+  it('la clé distingue le jour et le mode', () => {
+    expect(salaryAggregateKey(day, 'WAVE')).not.toBe(
+      salaryAggregateKey(day, 'CASH')
+    );
+    expect(salaryAggregateKey(day, 'WAVE')).not.toBe(
+      salaryAggregateKey(new Date(Date.UTC(2026, 10, 2)), 'WAVE')
+    );
   });
 });
 

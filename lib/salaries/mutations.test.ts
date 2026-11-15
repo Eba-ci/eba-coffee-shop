@@ -1,6 +1,6 @@
-// Tests des écritures de versement : le versement et sa dépense liée naissent,
-// changent et disparaissent ENSEMBLE (même transaction), sans jamais laisser
-// de dépense orpheline, et l'idempotence est conservée.
+// Tests des écritures de versement : la ligne globale est recalculée DANS la
+// même transaction (ancienne ET nouvelle position), et l'idempotence est
+// conservée.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,7 +12,13 @@ vi.mock('@/lib/prisma', () => ({
   },
 }));
 
+vi.mock('./expense-sync', async (orig) => ({
+  ...(await orig<typeof import('./expense-sync')>()),
+  syncSalaryExpenses: vi.fn(),
+}));
+
 import { requireAdmin } from '@/lib/auth-helpers';
+import { syncSalaryExpenses } from './expense-sync';
 import prisma from '@/lib/prisma';
 import { SalaryIdempotencyConflictError } from './errors';
 import {
@@ -45,15 +51,7 @@ function txMock(overrides: Record<string, unknown> = {}) {
           Promise.resolve({ ...paymentRow, ...data })
         ),
       delete: vi.fn().mockResolvedValue(paymentRow),
-    },
-    expenseCategory: {
-      upsert: vi.fn().mockResolvedValue({ id: 'cat-sal' }),
-      aggregate: vi.fn().mockResolvedValue({ _max: { sortOrder: null } }),
-    },
-    expense: {
-      create: vi.fn().mockResolvedValue({ id: 'x1' }),
-      upsert: vi.fn().mockResolvedValue({ id: 'x1' }),
-      deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findUniqueOrThrow: vi.fn().mockResolvedValue(paymentRow),
     },
     ...overrides,
   };
@@ -84,7 +82,7 @@ const createInput = {
 };
 
 describe('recordSalaryPayment', () => {
-  it('crée la dépense liée dans la même transaction, sans numéro de reçu', async () => {
+  it('crée le versement puis recalcule la ligne globale (même transaction)', async () => {
     const tx = withTransaction(txMock());
 
     await recordSalaryPayment(createInput);
@@ -98,30 +96,23 @@ describe('recordSalaryPayment', () => {
         createdById: 'admin-1',
       }),
     });
-    expect(tx.expense.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        amount: 200_000,
-        paymentMethod: 'WAVE',
-        categoryId: 'cat-sal',
-        salaryPaymentId: 'p1',
-        createdById: 'admin-1',
-        receiptNo: null,
-        receiptPeriod: null,
-        receiptSeq: null,
-        supplier: null,
-        note: null,
-      }),
-    });
+    expect(syncSalaryExpenses).toHaveBeenCalledWith(
+      tx,
+      [{ date: expect.any(Date), paymentMethod: 'WAVE' }],
+      'admin-1'
+    );
   });
 
   it('respecte le mode de paiement explicite (espèces)', async () => {
-    const tx = withTransaction(txMock());
+    withTransaction(txMock());
 
     await recordSalaryPayment({ ...createInput, paymentMethod: 'CASH' });
 
-    expect(tx.expense.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ paymentMethod: 'CASH' }),
-    });
+    expect(syncSalaryExpenses).toHaveBeenCalledWith(
+      expect.anything(),
+      [expect.objectContaining({ paymentMethod: 'CASH' })],
+      'admin-1'
+    );
   });
 
   it('rejeu idempotent : contenu identique → versement existant, sans écriture', async () => {
@@ -153,53 +144,48 @@ describe('recordSalaryPayment', () => {
 });
 
 describe('updateSalaryPayment', () => {
-  it('met à jour la dépense liée dans la même transaction (upsert)', async () => {
+  it('recalcule l’ancienne ET la nouvelle ligne (jour ou mode changé)', async () => {
     const tx = withTransaction(txMock());
 
     await updateSalaryPayment('p1', { amount: 300_000, paymentMethod: 'CASH' });
 
     expect(tx.salaryPayment.update).toHaveBeenCalled();
-    expect(tx.expense.upsert).toHaveBeenCalledWith({
-      where: { salaryPaymentId: 'p1' },
-      create: expect.objectContaining({
-        salaryPaymentId: 'p1',
-        categoryId: 'cat-sal',
-        receiptNo: null,
-      }),
-      update: expect.objectContaining({
-        amount: 300_000,
-        paymentMethod: 'CASH',
-        receiptNo: null,
-      }),
-    });
-  });
-
-  it('un versement hérité sans dépense est rattrapé par le create de l’upsert', async () => {
-    const tx = withTransaction(txMock());
-
-    await updateSalaryPayment('p1', { note: 'correction' });
-
-    // Une seule requête atomique : pas de findUnique+create (course → P2002).
-    expect(tx.expense.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { salaryPaymentId: 'p1' },
-        create: expect.objectContaining({ salaryPaymentId: 'p1' }),
-      })
+    expect(syncSalaryExpenses).toHaveBeenCalledWith(
+      tx,
+      [
+        { date: paymentRow.date, paymentMethod: 'WAVE' },
+        expect.objectContaining({ paymentMethod: 'CASH' }),
+      ],
+      'admin-1'
     );
   });
 });
 
 describe('deleteSalaryPayment', () => {
-  it('supprime la dépense liée PUIS le versement, sans orphelin', async () => {
+  it('supprime le versement PUIS recalcule sa ligne, sans orphelin', async () => {
     const tx = withTransaction(txMock());
+    tx.salaryPayment.findUnique = vi.fn().mockResolvedValue(paymentRow);
 
     await deleteSalaryPayment('p1');
 
-    expect(tx.expense.deleteMany).toHaveBeenCalledWith({
-      where: { salaryPaymentId: 'p1' },
-    });
     expect(tx.salaryPayment.delete).toHaveBeenCalledWith({
       where: { id: 'p1' },
     });
+    expect(syncSalaryExpenses).toHaveBeenCalledWith(
+      tx,
+      [{ date: paymentRow.date, paymentMethod: 'WAVE' }],
+      'admin-1'
+    );
+    const deleteOrder = tx.salaryPayment.delete.mock.invocationCallOrder[0];
+    const syncOrder = vi.mocked(syncSalaryExpenses).mock.invocationCallOrder[0];
+    expect(deleteOrder).toBeLessThan(syncOrder);
+  });
+
+  it('un versement déjà supprimé est un no-op', async () => {
+    const tx = withTransaction(txMock());
+    tx.salaryPayment.findUnique = vi.fn().mockResolvedValue(null);
+
+    await expect(deleteSalaryPayment('p1')).resolves.toBeNull();
+    expect(syncSalaryExpenses).not.toHaveBeenCalled();
   });
 });

@@ -13,7 +13,15 @@ import { IdentitySection } from './sections/identity-section';
 import { MonthSection } from './sections/month-section';
 import { PaymentsSection } from './sections/payments-section';
 
-export function EmployeeDetail({ employee }: { employee: Employee360 }) {
+export function EmployeeDetail({
+  employee,
+  canSettle = false,
+  today,
+}: {
+  employee: Employee360;
+  canSettle?: boolean;
+  today?: string;
+}) {
   return (
     <div className="space-y-6">
       <SalarySummaryBand
@@ -33,7 +41,7 @@ export function EmployeeDetail({ employee }: { employee: Employee360 }) {
       <MonthSection employee={employee} />
       <PaymentsSection employee={employee} />
       <CompensationSection employee={employee} />
-      <DebtsSection employee={employee} />
+      <DebtsSection employee={employee} canSettle={canSettle} today={today} />
       <IdentitySection employee={employee} />
     </div>
   );

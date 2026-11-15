@@ -15,7 +15,7 @@ import {
 
 /**
  * Catégories FIXED non supprimées et leurs dépenses réelles, versées à la
- * détection. `salaryPaymentId: null` exclut les lignes de salaire ; la
+ * détection. `salaryAggregateKey: null` exclut les lignes de salaire ; la
  * catégorie « Salaires » est écartée en aval par le prédicat partagé.
  *
  * `referenceMonth` sert uniquement aux mois sans dépense APRÈS le dernier mois
@@ -32,7 +32,7 @@ export async function getFixedCostHistory(
       name: true,
       fixedCosts: { select: { id: true } },
       expenses: {
-        where: { salaryPaymentId: null },
+        where: { salaryAggregateKey: null },
         select: { date: true, amount: true },
         orderBy: { date: 'asc' },
       },

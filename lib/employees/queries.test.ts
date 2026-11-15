@@ -111,6 +111,18 @@ describe('getEmployee360 : données réelles, cas incomplets', () => {
     expect(result?.arrears.total).toBeGreaterThan(0);
     expect(result?.arrears.months.every((m) => m.month < '2026-11')).toBe(true);
   });
+
+  it('lit l’étalement des avances (sinon l’arriéré de la fiche diverge de la Paie)', async () => {
+    prismaMock.employee.findUnique.mockResolvedValue(
+      employeeRow({
+        startDate: day(2026, 9, 1),
+        rates: [{ monthlyAmount: 100_000, startDate: day(2026, 9, 1) }],
+      }) as never
+    );
+    await getEmployee360('e1', '2026-11');
+    const select = prismaMock.employee.findUnique.mock.calls[0][0].select;
+    expect(select.payments.select.recoveryMonths).toBe(true);
+  });
 });
 
 describe('listEmployeesOverview : jointure et ordre', () => {

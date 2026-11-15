@@ -66,7 +66,10 @@ const cases: [
   [
     'reactivateEmployeeAction',
     () => reactivateEmployeeAction('e1'),
-    { fn: salaries.updateEmployee, args: ['e1', { active: true, endDate: null }] },
+    {
+      fn: salaries.updateEmployee,
+      args: ['e1', { active: true, endDate: null }],
+    },
   ],
 ];
 

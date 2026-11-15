@@ -33,13 +33,13 @@ describe('export CSV des articles de dépense — pas de ligne de salaire', () =
     expect(prisma.expenseItem.findMany).not.toHaveBeenCalled();
   });
 
-  it('exclut toujours les lignes rattachées à un versement de salaire', async () => {
+  it('exclut la ligne globale de masse salariale', async () => {
     session('MANAGER');
     await GET(req('?from=2026-06-01&to=2026-06-30'));
     expect(prisma.expenseItem.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          expense: expect.objectContaining({ salaryPaymentId: null }),
+          expense: expect.objectContaining({ salaryAggregateKey: null }),
         }),
       })
     );

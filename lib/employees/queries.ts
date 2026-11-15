@@ -171,6 +171,9 @@ export async function getEmployee360(
           month: true,
           type: true,
           amount: true,
+          // Indispensable au journal : sans l'étalement, une avance est
+          // récupérée en un mois et l'arriéré de la fiche diverge de la Paie.
+          recoveryMonths: true,
           note: true,
         },
         orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],

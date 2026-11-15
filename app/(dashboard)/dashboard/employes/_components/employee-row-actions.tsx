@@ -175,15 +175,17 @@ export function EmployeeRowActions({
         </p>
       )}
 
-      {canWrite && <SalaryPaymentDrawer
-        employees={[{ id: row.id, name: row.name }]}
-        defaultMonth={month}
-        today={today}
-        defaultEmployeeId={row.id}
-        open={payOpen}
-        onOpenChange={setPayOpen}
-        hideTrigger
-      />}
+      {canWrite && (
+        <SalaryPaymentDrawer
+          employees={[{ id: row.id, name: row.name }]}
+          defaultMonth={month}
+          today={today}
+          defaultEmployeeId={row.id}
+          open={payOpen}
+          onOpenChange={setPayOpen}
+          hideTrigger
+        />
+      )}
 
       {canWrite && (
         <>

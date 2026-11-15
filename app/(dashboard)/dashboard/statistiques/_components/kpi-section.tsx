@@ -16,17 +16,9 @@ import { KpiCard } from '@/components/(dashboard)/kpi-card';
 
 const priceFormatter = new Intl.NumberFormat('fr-FR');
 
-export async function KpiSection({
-  from,
-  to,
-  includeSalary,
-}: {
-  from: Date;
-  to: Date;
-  includeSalary?: boolean;
-}) {
+export async function KpiSection({ from, to }: { from: Date; to: Date }) {
   const [comparison, adjustmentSummary] = await Promise.all([
-    compareRangesCached(from, to, includeSalary),
+    compareRangesCached(from, to),
     getRevenueAdjustmentSummary(from, to),
   ]);
 
