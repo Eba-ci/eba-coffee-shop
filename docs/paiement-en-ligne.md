@@ -171,6 +171,13 @@ aussi en local ; en test, changer l'en-tête `x-forwarded-for` suffit.
 - **Pas de remboursement automatique** : aucune API de remboursement n'a été repérée,
   il se fait à la main depuis le Dashboard Jèko.
 
+### Fidélité
+
+Pour une commande payée en ligne, le tampon n'est plus accordé à la création mais au
+paiement validé (`awardLoyaltyOnPayment`, `lib/jeko/loyalty-on-paid.ts`), y compris après un
+paiement tardif validé. Conséquence : pas de récompense auto-appliquée à la commande en ligne
+en cours (le tampon compte pour la suivante). La caisse garde le tampon à la création.
+
 ### Registre Jèko et paiements en écart
 
 Le registre (`lib/jeko/ledger.ts`, page `/dashboard/jeko`) ne compte que les commandes

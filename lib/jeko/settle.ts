@@ -14,6 +14,7 @@ import {
   StockShortageError,
   setOrderPayment,
 } from '@/lib/order-mutations';
+import { awardLoyaltyOnPayment } from './loyalty-on-paid';
 import { announcePaidOrder } from './notify-paid';
 import { jekoMethodToPaymentMode } from './payment-mode';
 import { parseJekoReference } from './reference';
@@ -188,6 +189,9 @@ export async function settleJekoTransaction(
   // client) avant l'arrivée du paiement : encaissé, mais pas remis en cuisine. Le
   // staff la reprend par le flux existant (qui restitue le tampon) ou la rembourse
   // — on ne reconsomme pas une récompense à l'aveugle.
+  // Tampon accordé au paiement validé (pas pour une annulée par une personne :
+  // la reprise par le staff le restitue).
+  if (!late) await awardLoyaltyOnPayment(order.id);
   if (shortage) {
     alertStaff(
       order.id,
