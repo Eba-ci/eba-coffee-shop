@@ -40,7 +40,14 @@ export function installmentsError(
     if (seen.has(key)) return 'Deux échéances le même jour';
     seen.add(key);
   }
-  if (installmentsTotal(installments) !== amount)
-    return 'Le total des échéances doit égaler le montant de la charge';
+  const gap = amount - installmentsTotal(installments);
+  if (gap !== 0) {
+    const f =
+      new Intl.NumberFormat('fr-FR').format(Math.abs(gap)).replace(/\s/g, ' ') +
+      ' F';
+    return gap > 0
+      ? `Le total des échéances doit égaler le montant de la charge : il manque ${f}`
+      : `Le total des échéances doit égaler le montant de la charge : excédent de ${f}`;
+  }
   return null;
 }
