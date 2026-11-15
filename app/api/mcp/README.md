@@ -246,6 +246,11 @@ réduite, voire vide, ce n'est pas une erreur.
 | `get_fixed_cost_schedule`          | finance    | lecture  | Échéancier d’un mois : échéances, payé/reste, statut (à venir/payée/partielle/en retard)                            |
 | `get_break_even`                   | finance    | lecture  | Point mort jour par jour (charges + total salaires global, seuil de CA, reste à faire, résultat)                    |
 | `get_missing_fixed_costs`          | finance    | lecture  | Échéances échues non entièrement réglées (sans dépense liée ou partielles)                                          |
+| `detect_fixed_cost_history`        | finance    | lecture  | Historique détecté des catégories FIXED (mois couverts, trous, prise d’effet proposée, confiance)                   |
+| `list_unlinked_fixed_expenses`     | finance    | lecture  | Dépenses d’une catégorie non liées à une échéance (hors salaires), sur une plage                                    |
+| `propose_fixed_cost_links`         | finance    | lecture  | Propositions dépense ↔ échéance (score, écart de montant), sans rien écrire                                         |
+| `link_expense_to_occurrence`       | finance    | écriture | Lier une dépense à une échéance (simulation par défaut, `confirmer: true` exécute)                                  |
+| `unlink_expense`                   | finance    | écriture | Délier une dépense de son échéance (simulation par défaut, `confirmer: true` exécute)                               |
 | `list_refunds`                     | finance    | lecture  | Lister les remboursements (statut, canal, commande, plage de demande)                                               |
 | `get_refund`                       | finance    | lecture  | Détail d'un remboursement (lignes, journal, commande)                                                               |
 | `get_refund_summary`               | finance    | lecture  | Stats : montant, taux du CA, motifs, canaux, échecs Jèko, délai de validation                                       |
@@ -510,6 +515,16 @@ Les outils **clôture de caisse** (espèces, une clôture par jour civil) :
 `save_cash_closing` l'enregistre (la caisse théorique et l'écart sont
 recalculés : fond + ventes espèces − dépenses espèces ; écart = comptées −
 théorique).
+
+Les outils **historique et rapprochement des charges fixes** (#455) :
+`detect_fixed_cost_history` (même détection que l'écran « Historique détecté »),
+`list_unlinked_fixed_expenses` et `propose_fixed_cost_links` (lecture : une
+proposition n'écrit jamais), `link_expense_to_occurrence` et `unlink_expense`
+(écriture, **simulation par défaut**, `confirmer: true` exécute et trace l'acteur
+dans `FixedCostLinkEvent`). Une dépense doit être de la catégorie de la charge,
+ne régler qu'une seule échéance et ne pas être un salaire ; plusieurs dépenses
+peuvent régler la même échéance. ANALYSTE : lecture seule. La création d'une
+charge avec prise d'effet passée reste `create_fixed_cost`.
 
 Les outils **charges fixes / point mort** : `list_fixed_costs` (avec
 `installments`, les échéances de paiement d'une charge) et
