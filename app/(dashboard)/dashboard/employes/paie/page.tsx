@@ -84,6 +84,7 @@ export default async function PaiePage({
                     id: e.employeeId,
                     name: e.name,
                     remaining: e.remainingToPay,
+                    arrears: e.arrears.total,
                   }))}
               />
             )}
@@ -97,6 +98,12 @@ export default async function PaiePage({
                   }))}
                 month={month}
                 today={today}
+                situations={Object.fromEntries(
+                  view.employees.map((e) => [
+                    e.employeeId,
+                    { remaining: e.remainingToPay, arrears: e.arrears.total },
+                  ])
+                )}
               />
             )}
           </>

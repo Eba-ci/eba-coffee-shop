@@ -23,6 +23,11 @@ import {
   FieldError,
 } from '../employee-sheet';
 import { SALARY_PAYMENT_METHOD_LABELS } from './format';
+import { PartialNotice } from './partial-notice';
+import {
+  salaryPaymentWarning,
+  type PaymentSituation,
+} from '@/lib/salaries/partial-warning';
 import { recordSalaryPaymentAction } from '../../salary-actions';
 
 const METHODS = ['CASH', 'WAVE', 'BANK', 'OTHER'] as const;
@@ -48,6 +53,7 @@ export function SalaryPaymentForm({
   defaultMonth,
   today,
   defaultEmployeeId,
+  situations,
   onSaved,
 }: {
   employees: { id: string; name: string }[];
@@ -55,6 +61,8 @@ export function SalaryPaymentForm({
   today: string;
   /** Employé présélectionné (ligne de la liste Employés). */
   defaultEmployeeId?: string;
+  /** Situation du mois par défaut de chaque employé (reste, arriéré), issue du ledger. */
+  situations?: Record<string, PaymentSituation>;
   /** Appelé après un versement enregistré (le tiroir se referme). */
   onSaved?: () => void;
 }) {
@@ -113,6 +121,11 @@ export function SalaryPaymentForm({
     });
   }
 
+  const situation = situations?.[draft.employeeId];
+  const warning =
+    situation && draft.type === 'SALAIRE' && draft.month === defaultMonth
+      ? salaryPaymentWarning(Number(draft.amount), situation)
+      : null;
   const employeeName = employees.find((e) => e.id === draft.employeeId)?.name;
 
   return (
@@ -174,6 +187,7 @@ export function SalaryPaymentForm({
             onChange={(e) => set('amount', e.target.value)}
             placeholder="ex. 150000"
           />
+          <PartialNotice warning={warning} month={draft.month} />
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

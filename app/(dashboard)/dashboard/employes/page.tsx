@@ -47,6 +47,15 @@ export default async function EmployesPage() {
                     }))}
                   month={overview.month}
                   today={today}
+                  situations={Object.fromEntries(
+                    overview.employees.map((e) => [
+                      e.id,
+                      {
+                        remaining: e.month.remainingToPay,
+                        arrears: e.arrearsTotal,
+                      },
+                    ])
+                  )}
                 />
               </>
             )}

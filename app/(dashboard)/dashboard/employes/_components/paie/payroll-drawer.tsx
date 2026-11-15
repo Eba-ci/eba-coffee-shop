@@ -30,10 +30,11 @@ import {
   FieldError,
 } from '../employee-sheet';
 import { SALARY_PAYMENT_METHOD_LABELS } from './format';
+import { PayrollLine, type PayrollRow } from './payroll-line';
 
 const METHODS = ['WAVE', 'CASH', 'BANK', 'OTHER'] as const;
 
-export type PayrollRow = { id: string; name: string; remaining: number };
+export type { PayrollRow };
 
 function Form({
   month,
@@ -54,8 +55,16 @@ function Form({
   const [pending, startTransition] = useTransition();
   const keyRef = useRef(crypto.randomUUID());
 
+  // Montant par ligne : le reste entier par défaut, modifiable (≤ reste).
+  const [amounts, setAmounts] = useState<Record<string, number>>({});
+  const amountOf = (r: PayrollRow) => amounts[r.id] ?? r.remaining;
+
   const chosen = rows.filter((r) => selected.has(r.id));
-  const total = chosen.reduce((a, r) => a + r.remaining, 0);
+  const total = chosen.reduce((a, r) => a + amountOf(r), 0);
+  const unpaidTotal = chosen.reduce(
+    (a, r) => a + Math.max(0, r.remaining - amountOf(r)),
+    0
+  );
   const touch = () => {
     keyRef.current = crypto.randomUUID();
     setError(null);
@@ -71,8 +80,19 @@ function Form({
     touch();
   }
 
+  function setAmount(id: string, value: string) {
+    setAmounts((a) => ({ ...a, [id]: Math.round(Number(value)) || 0 }));
+    touch();
+  }
+
   function submit() {
     if (chosen.length === 0) return setError('Aucun employé sélectionné');
+    const bad = chosen.find((c) => !(amountOf(c) > 0));
+    if (bad) return setError(`${bad.name} : montant invalide`);
+    const over = chosen.find((c) => amountOf(c) > c.remaining);
+    if (over) {
+      return setError(`${over.name} : le montant dépasse le reste à payer`);
+    }
     if (!date) return setError('Choisissez la date du versement');
     startTransition(async () => {
       const r = await settlePayrollAction({
@@ -80,7 +100,7 @@ function Form({
         date,
         paymentMethod: method,
         idempotencyKey: keyRef.current,
-        items: chosen.map((c) => ({ employeeId: c.id, amount: c.remaining })),
+        items: chosen.map((c) => ({ employeeId: c.id, amount: amountOf(c) })),
       });
       if (r.ok) {
         onClose();
@@ -134,19 +154,15 @@ function Form({
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">Employés à payer</legend>
           {rows.map((r) => (
-            <label
+            <PayrollLine
               key={r.id}
-              className="flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2 text-sm"
-            >
-              <input
-                type="checkbox"
-                className="size-5 accent-primary"
-                checked={selected.has(r.id)}
-                onChange={(e) => toggle(r.id, e.target.checked)}
-              />
-              <span className="min-w-0 flex-1 truncate">{r.name}</span>
-              <span className="tabular-nums">{money(r.remaining)}</span>
-            </label>
+              row={r}
+              month={month}
+              checked={selected.has(r.id)}
+              amount={amountOf(r)}
+              onToggle={(on) => toggle(r.id, on)}
+              onAmount={(v) => setAmount(r.id, v)}
+            />
           ))}
         </fieldset>
 
@@ -155,6 +171,12 @@ function Form({
           <span className="font-medium">
             1 dépense « Masse salariale » de {money(total)}
           </span>
+          {unpaidTotal > 0 && (
+            <span className="mt-1 block text-amber-900 dark:text-amber-200">
+              Il restera {money(unpaidTotal)} d’impayé sur {monthLabel(month)}{' '}
+              après ce lot.
+            </span>
+          )}
         </p>
         {error && <FieldError>{error}</FieldError>}
       </EmployeeSheetBody>
