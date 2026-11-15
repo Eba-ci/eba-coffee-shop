@@ -159,32 +159,32 @@ export async function fetchPreparationQueue(): Promise<PreparationOrder[]> {
   );
 
   const mapped = visible.map((o) => ({
-      id: o.id,
-      reference: o.reference,
-      dailyNumber: o.dailyNumber,
-      customerName: o.customerName,
-      customerPhone: o.customerPhone,
-      customerId: o.customerId,
-      pickupTime: o.pickupTime,
-      orderType: o.orderType,
-      items: o.items as CartItem[],
-      note: o.note,
-      total: o.total,
-      source: o.source,
-      status: o.status as 'NEW' | 'PREPARING' | 'READY',
-      isPaid: o.isPaid,
-      depositPaid: o.depositPaid ?? 0,
-      driverRequested: o.driverRequested,
-      driverName: o.driverName,
-      driverPhone: o.driverPhone,
-      createdAt: o.createdAt,
-      preparingStartedAt: o.preparingStartedAt,
-      readyAt: o.readyAt,
-      stockReservedAt: o.stockReservedAt,
-      ...(holdDetails.has(o.id)
-        ? { stockHold: toSummary(holdDetails.get(o.id)!) }
-        : {}),
-    }));
+    id: o.id,
+    reference: o.reference,
+    dailyNumber: o.dailyNumber,
+    customerName: o.customerName,
+    customerPhone: o.customerPhone,
+    customerId: o.customerId,
+    pickupTime: o.pickupTime,
+    orderType: o.orderType,
+    items: o.items as CartItem[],
+    note: o.note,
+    total: o.total,
+    source: o.source,
+    status: o.status as 'NEW' | 'PREPARING' | 'READY',
+    isPaid: o.isPaid,
+    depositPaid: o.depositPaid ?? 0,
+    driverRequested: o.driverRequested,
+    driverName: o.driverName,
+    driverPhone: o.driverPhone,
+    createdAt: o.createdAt,
+    preparingStartedAt: o.preparingStartedAt,
+    readyAt: o.readyAt,
+    stockReservedAt: o.stockReservedAt,
+    ...(holdDetails.has(o.id)
+      ? { stockHold: toSummary(holdDetails.get(o.id)!) }
+      : {}),
+  }));
 
   return mapped.sort(compareKitchenFifo);
 }

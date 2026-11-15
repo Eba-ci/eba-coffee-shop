@@ -1090,9 +1090,9 @@ model ExpenseSettings {
 }
 
 model ExpenseCategory {
-  id         String             @id @default(cuid())
-  name       String             @unique
-  sortOrder  Int                @default(0)
+  id         String        @id @default(cuid())
+  name       String        @unique
+  sortOrder  Int           @default(0)
   // Soft delete : `deletedAt` non nul = catégorie « supprimée » (retirée des
   // listes/sélecteurs) mais conservée — les dépenses rattachées gardent leur
   // libellé. Recréer une catégorie du même nom « ressuscite » la version
@@ -1101,11 +1101,11 @@ model ExpenseCategory {
   // Nature comptable : FIXED (loyer, salaires, abonnements…) ou VARIABLE
   // (achats courants). Défaut VARIABLE — l'admin reclasse les catégories fixes
   // dans l'UI. Alimente les statistiques de fréquence/récurrence des dépenses.
-  nature     ExpenseNature      @default(VARIABLE)
+  nature     ExpenseNature @default(VARIABLE)
   expenses   Expense[]
   fixedCosts FixedCost[]
-  createdAt  DateTime           @default(now())
-  updatedAt  DateTime           @updatedAt
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   @@index([deletedAt])
   @@map("expense_category")
@@ -1211,8 +1211,8 @@ model Employee {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  rates    SalaryRate[]
-  payments SalaryPayment[]
+  rates       SalaryRate[]
+  payments    SalaryPayment[]
   adjustments SalaryAdjustment[]
 
   @@index([active])
@@ -1223,12 +1223,15 @@ model Employee {
 // jusqu'au taux suivant. Un changement en cours de mois est proratisé au jour
 // calendaire (cf. lib/salaries/compute.ts).
 model SalaryRate {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   employeeId    String
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   monthlyAmount Int // FCFA
-  startDate     DateTime @db.Date // prise d'effet (incluse)
-  createdAt     DateTime @default(now())
+  startDate     DateTime  @db.Date // prise d'effet (incluse) : 1er d'un mois
+  // Fin d'effet (incluse) : dernier jour d'un mois ; null = en cours. Deux taux
+  // d'un même employé ne se chevauchent jamais (contrôle applicatif pur).
+  endDate       DateTime? @db.Date
+  createdAt     DateTime  @default(now())
 
   @@unique([employeeId, startDate])
   @@map("salary_rate")
@@ -1257,8 +1260,8 @@ model SalaryPayment {
   // Ligne globale de masse salariale qui inclut ce versement (relation 1:N :
   // plusieurs versements du même jour et du même mode partagent une dépense).
   // RESTRICT : on ne supprime jamais une ligne encore portée par un versement.
-  expenseId      String?
-  expense        Expense?             @relation("SalaryPaymentExpense", fields: [expenseId], references: [id], onDelete: Restrict)
+  expenseId String?
+  expense   Expense? @relation("SalaryPaymentExpense", fields: [expenseId], references: [id], onDelete: Restrict)
 
   @@index([employeeId, month])
   @@index([month])

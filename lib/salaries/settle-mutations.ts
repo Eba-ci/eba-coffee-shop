@@ -22,7 +22,11 @@ import { monthLabel } from '@/lib/fixed-costs/month';
 import { keyOf, syncSalaryExpenses, withRetry } from './expense-sync';
 import { SalaryIdempotencyConflictError } from './errors';
 import { salaryLedgerThrough } from './ledger';
-import { toEmployeeLike, toSalaryRateLike } from './mappers';
+import {
+  SALARY_RATE_SELECT,
+  toEmployeeLike,
+  toSalaryRateLike,
+} from './mappers';
 import { compareStrings } from './month';
 
 const itemKey = (batchKey: string, month: string) => `${batchKey}:${month}`;
@@ -76,7 +80,7 @@ export async function settleSalaryMonths(
         select: {
           startDate: true,
           endDate: true,
-          rates: { select: { monthlyAmount: true, startDate: true } },
+          rates: { select: SALARY_RATE_SELECT },
           payments: {
             select: {
               month: true,

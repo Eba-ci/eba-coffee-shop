@@ -32,7 +32,8 @@ const admin = { user: { id: 'u1', role: 'ADMIN' } } as never;
 const rate = {
   employeeId: 'e1',
   monthlyAmount: 150_000,
-  startDate: '2026-11-01',
+  startMonth: '2026-12',
+  endMonth: null,
 };
 
 const cases: [
@@ -131,14 +132,14 @@ describe('écritures Employés : ADMIN', () => {
     expect(rates.addSalaryRate).not.toHaveBeenCalled();
   });
 
-  it('refuse un taux sans date sans écrire', async () => {
+  it('refuse un taux sans mois de début sans écrire', async () => {
     await expect(
-      addSalaryRateAction({ ...rate, startDate: '' })
-    ).resolves.toEqual({ ok: false, error: 'Date d’effet requise' });
+      addSalaryRateAction({ ...rate, startMonth: '' })
+    ).resolves.toEqual({ ok: false, error: 'Mois de début requis' });
     expect(rates.addSalaryRate).not.toHaveBeenCalled();
   });
 
-  it('refuse proprement une date de taux déjà utilisée', async () => {
+  it('refuse proprement un mois de taux déjà utilisé', async () => {
     vi.mocked(rates.addSalaryRate).mockRejectedValue(
       new Error(SALARY_RATE_DUPLICATE_MESSAGE)
     );

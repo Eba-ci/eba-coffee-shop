@@ -83,3 +83,23 @@ describe('ratePlacement', () => {
     ).toBeNull();
   });
 });
+
+describe('buildRateTimeline : fin saisie', () => {
+  it('la fin explicite prime sur la veille du taux suivant (trou possible)', () => {
+    const t = buildRateTimeline(
+      [
+        {
+          monthlyAmount: 75_000,
+          startDate: '2026-01-01',
+          endDate: '2026-03-31',
+        },
+        { monthlyAmount: 100_000, startDate: '2026-06-01' },
+      ],
+      null,
+      '2026-11-15'
+    );
+    expect(t[0].endDate).toBe('2026-03-31');
+    expect(t[0].current).toBe(false);
+    expect(t[1].current).toBe(true);
+  });
+});

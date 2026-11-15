@@ -12,7 +12,11 @@ import { revalidatePath } from 'next/cache';
 import { ZodError } from 'zod';
 import { requireAdmin } from '@/lib/auth-helpers';
 import { employeeExitSchema, salaryRateAddSchema } from '@/lib/schemas/salary';
-import { addSalaryRate } from '@/lib/salaries/rate-mutations';
+import {
+  addSalaryRate,
+  deleteSalaryRate,
+  updateSalaryRate,
+} from '@/lib/salaries/rate-mutations';
 import { createEmployee, updateEmployee } from '@/lib/salaries/mutations';
 
 export type EmployeActionResult = { ok: true } | { ok: false; error: string };
@@ -66,7 +70,7 @@ export async function recordEmployeeExitAction(
   });
 }
 
-/** Nouveau taux daté : jamais d'écrasement (date déjà utilisée → refus). */
+/** Taux en mois entiers : jamais de chevauchement ni de mois déjà versé touché. */
 export async function addSalaryRateAction(
   input: unknown
 ): Promise<EmployeActionResult> {
@@ -74,6 +78,18 @@ export async function addSalaryRateAction(
     salaryRateAddSchema.parse(input);
     return addSalaryRate(input);
   });
+}
+
+export async function updateSalaryRateAction(
+  input: unknown
+): Promise<EmployeActionResult> {
+  return run(() => updateSalaryRate(input));
+}
+
+export async function deleteSalaryRateAction(
+  input: unknown
+): Promise<EmployeActionResult> {
+  return run(() => deleteSalaryRate(input));
 }
 
 /**

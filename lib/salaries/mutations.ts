@@ -21,7 +21,6 @@ import {
   employeeUpdateSchema,
   salaryPaymentCreateSchema,
   salaryPaymentUpdateSchema,
-  salaryRateCreateSchema,
 } from '@/lib/schemas/salary';
 import { formatLocalDateOnly, parseDateOnlyToUTC } from '@/lib/timezone';
 import { RECEIPT_NUMBER_MAX_RETRIES } from '@/lib/expense-numbering';
@@ -92,25 +91,6 @@ export async function updateEmployee(id: string, input: unknown) {
         ...(d.note !== undefined ? { note: d.note } : {}),
       },
     });
-  });
-}
-
-/**
- * Pose le taux mensuel d'un employé à partir d'une date. Idempotent : rejouer
- * la même (employé, date) met à jour le montant au lieu de créer un doublon.
- */
-export async function setSalaryRate(input: unknown) {
-  await requireAdmin();
-  const d = salaryRateCreateSchema.parse(input);
-  const startDate = date(d.startDate);
-  return prisma.salaryRate.upsert({
-    where: { employeeId_startDate: { employeeId: d.employeeId, startDate } },
-    create: {
-      employeeId: d.employeeId,
-      monthlyAmount: d.monthlyAmount,
-      startDate,
-    },
-    update: { monthlyAmount: d.monthlyAmount },
   });
 }
 

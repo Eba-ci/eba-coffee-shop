@@ -14,7 +14,11 @@ import {
 } from '@/lib/schemas/salary';
 import { parseDateOnlyToUTC } from '@/lib/timezone';
 import { salaryDueForMonth } from './due';
-import { toEmployeeLike, toSalaryRateLike } from './mappers';
+import {
+  SALARY_RATE_SELECT,
+  toEmployeeLike,
+  toSalaryRateLike,
+} from './mappers';
 
 /**
  * Crée une prime ou une retenue. Refusée si les retenues cumulées du mois
@@ -29,7 +33,7 @@ export async function createSalaryAdjustment(input: unknown) {
       select: {
         startDate: true,
         endDate: true,
-        rates: { select: { monthlyAmount: true, startDate: true } },
+        rates: { select: SALARY_RATE_SELECT },
         adjustments: {
           where: { month: d.month, canceledAt: null },
           select: { month: true, nature: true, amount: true, canceledAt: true },

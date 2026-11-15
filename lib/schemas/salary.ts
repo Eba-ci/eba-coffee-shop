@@ -87,17 +87,40 @@ export const salaryRateCreateSchema = z.object({
 });
 
 /**
- * Ajout d'un taux depuis la fiche employé : jamais d'écrasement (voir
- * `addSalaryRate`). Messages dédiés pour rester lisibles dans le tiroir.
+ * Taux depuis la fiche employé : des MOIS ENTIERS (début le 1er, fin le dernier
+ * jour du mois ; fin vide = en cours). Jamais d'écrasement ni de chevauchement
+ * (voir `rate-mutations.ts`). Messages dédiés pour rester lisibles dans le tiroir.
  */
-export const salaryRateAddSchema = z.object({
-  employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
+const rateFields = {
   monthlyAmount: z
     .number({ error: 'Montant requis' })
     .int('Montant entier (FCFA)')
     .positive('Le taux doit être un montant positif')
     .max(EXPENSE_AMOUNT_MAX, 'Montant trop élevé'),
-  startDate: requiredDateOnly('Date d’effet requise'),
+  startMonth: z
+    .string()
+    .min(1, 'Mois de début requis')
+    .refine(isValidMonth, 'Mois attendu au format YYYY-MM'),
+  endMonth: z
+    .string()
+    .refine(isValidMonth, 'Mois attendu au format YYYY-MM')
+    .nullable()
+    .optional()
+    .transform((v) => v ?? null),
+};
+
+export const salaryRateAddSchema = z.object({
+  employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
+  ...rateFields,
+});
+
+export const salaryRateUpdateSchema = z.object({
+  rateId: z.string().min(SALARY_ID_MIN_LENGTH, 'Taux requis'),
+  ...rateFields,
+});
+
+export const salaryRateDeleteSchema = z.object({
+  rateId: z.string().min(SALARY_ID_MIN_LENGTH, 'Taux requis'),
 });
 
 /** « Enregistrer une sortie » : la date est obligatoire. */
