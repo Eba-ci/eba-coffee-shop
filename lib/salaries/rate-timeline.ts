@@ -58,3 +58,37 @@ export function buildRateTimeline(
     };
   });
 }
+
+export type RatePlacement = {
+  /** Où tombe la date d'effet par rapport à aujourd'hui. */
+  kind: 'past' | 'current' | 'future';
+  /** Dernier jour couvert (veille du taux suivant) ; null = jusqu'à aujourd'hui et au-delà. */
+  endDate: string | null;
+  /** La date précède l'entrée de l'employé : aucun jour ne serait couvert. */
+  beforeEmployment: boolean;
+  /** La date est déjà prise par un taux existant. */
+  duplicate: boolean;
+};
+
+/**
+ * Où se placerait un taux saisi (pur) : sert à l'aperçu du tiroir « Ancien
+ * taux » (période couverte, avertissements) avant tout envoi au serveur.
+ */
+export function ratePlacement(
+  rates: { startDate: string }[],
+  startDate: string,
+  employeeStartDate: string,
+  today: string
+): RatePlacement {
+  const later = rates
+    .map((r) => r.startDate)
+    .filter((d) => d > startDate)
+    .sort(compareStrings)[0];
+  return {
+    kind:
+      startDate < today ? 'past' : startDate === today ? 'current' : 'future',
+    endDate: later ? dayBefore(later) : null,
+    beforeEmployment: startDate < employeeStartDate,
+    duplicate: rates.some((r) => r.startDate === startDate),
+  };
+}
