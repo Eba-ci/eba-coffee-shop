@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 vi.mock('../../salary-actions', () => ({ recordSalaryPaymentAction: vi.fn() }));
 
 import { SalaryPaymentForm } from './payment-form';
+import { SALARY_PAYMENT_METHOD_LABELS } from './format';
 
 /**
  * Décision produit : en pratique la paie se fait par Wave, le mode de paiement
@@ -20,7 +21,7 @@ describe('formulaire de versement — mode de paiement par défaut', () => {
         today: '2026-11-11',
       })
     );
-    expect(html).toContain('value="WAVE" selected');
-    expect(html).not.toContain('value="CASH" selected');
+    expect(html).toContain(SALARY_PAYMENT_METHOD_LABELS.WAVE);
+    expect(html).not.toContain(SALARY_PAYMENT_METHOD_LABELS.CASH);
   });
 });

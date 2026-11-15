@@ -23,7 +23,7 @@ export function EmployeeListCard({
   canWrite: boolean;
 }) {
   return (
-    <li className="flex items-start gap-1 rounded-lg border bg-card p-4 shadow-sm">
+    <li className="flex items-start gap-1 rounded-xl border bg-card p-4">
       <Link
         href={`/dashboard/employes/${row.id}`}
         className="flex min-h-11 min-w-0 flex-1 items-start gap-3 rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
