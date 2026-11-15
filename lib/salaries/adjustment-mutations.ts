@@ -6,7 +6,7 @@
 // MÊME transaction que l'écriture. Un ajustement n'est jamais supprimé :
 // `cancelAdjustment` pose `canceledAt` et conserve la ligne.
 
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireSalaryAdmin } from './admin-guard';
 import prisma from '@/lib/prisma';
 import {
   salaryAdjustmentCancelSchema,
@@ -25,7 +25,7 @@ import {
  * dépassent le prorata des taux (`SALARY_RETENUE_EXCEEDS_DUE_MESSAGE`).
  */
 export async function createSalaryAdjustment(input: unknown) {
-  const session = await requireAdmin();
+  const session = await requireSalaryAdmin();
   const d = salaryAdjustmentCreateSchema.parse(input);
   return prisma.$transaction(async (tx) => {
     const employee = await tx.employee.findUniqueOrThrow({
@@ -69,7 +69,7 @@ export async function createSalaryAdjustment(input: unknown) {
  * rejouer l'annulation laisse la date d'annulation d'origine.
  */
 export async function cancelSalaryAdjustment(input: unknown) {
-  await requireAdmin();
+  await requireSalaryAdmin();
   const d = salaryAdjustmentCancelSchema.parse(input);
   return prisma.$transaction(async (tx) => {
     const current = await tx.salaryAdjustment.findUniqueOrThrow({

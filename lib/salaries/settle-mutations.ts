@@ -10,7 +10,7 @@
 // rejoué en mémoire), un `createMany`, puis la synchronisation (une requête de
 // sommes pour toutes les clés).
 
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireSalaryAdmin } from './admin-guard';
 import prisma from '@/lib/prisma';
 import { salarySettleSchema } from '@/lib/schemas/salary';
 import {
@@ -36,7 +36,7 @@ export async function settleSalaryMonths(
   input: unknown,
   today: string = todayDateString()
 ) {
-  const session = await requireAdmin();
+  const session = await requireSalaryAdmin();
   const d = salarySettleSchema.parse(input);
   const asOf = [today.slice(0, 7), ...d.items.map((i) => i.month)].sort(
     compareStrings

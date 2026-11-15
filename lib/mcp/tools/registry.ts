@@ -33,6 +33,7 @@ import { tiktokTools } from './tiktok';
 import { refundsTools } from './refunds';
 import { fixedCostsTools } from './fixed-costs';
 import { salariesTools } from './salaries';
+import { salariesWriteTools } from './salaries-write';
 
 export const tools: McpTool[] = [
   ...menuReadTools,
@@ -46,6 +47,7 @@ export const tools: McpTool[] = [
   ...revenueAdjustmentsTools,
   ...fixedCostsTools,
   ...salariesTools,
+  ...salariesWriteTools,
   ...refundsTools,
   ...cashClosingTools,
   ...ordersTools,

@@ -9,7 +9,7 @@
 
 import { SALARY_RATE_DUPLICATE_MESSAGE } from '@/config/constants';
 import { Prisma } from '@/generated/prisma/client';
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireSalaryAdmin } from './admin-guard';
 import prisma from '@/lib/prisma';
 import {
   salaryRateAddSchema,
@@ -108,7 +108,7 @@ const duplicate = (err: unknown) =>
   err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002';
 
 export async function addSalaryRate(input: unknown) {
-  await requireAdmin();
+  await requireSalaryAdmin();
   const d = salaryRateAddSchema.parse(input);
   try {
     return await prisma.$transaction((tx) =>
@@ -125,7 +125,7 @@ export async function addSalaryRate(input: unknown) {
 }
 
 export async function updateSalaryRate(input: unknown) {
-  await requireAdmin();
+  await requireSalaryAdmin();
   const d = salaryRateUpdateSchema.parse(input);
   const rate = await prisma.salaryRate.findUniqueOrThrow({
     where: { id: d.rateId },
@@ -148,7 +148,7 @@ export async function updateSalaryRate(input: unknown) {
 
 /** Supprime un taux, sauf s'il porte le dû d'un mois déjà versé. */
 export async function deleteSalaryRate(input: unknown) {
-  await requireAdmin();
+  await requireSalaryAdmin();
   const d = salaryRateDeleteSchema.parse(input);
   const rate = await prisma.salaryRate.findUnique({
     where: { id: d.rateId },

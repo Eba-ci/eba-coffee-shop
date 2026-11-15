@@ -14,7 +14,7 @@
 import { SALARY_END_AFTER_START_MESSAGE } from '@/config/constants';
 import { Prisma } from '@/generated/prisma/client';
 import type { SalaryPaymentType } from '@/generated/prisma/enums';
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireSalaryAdmin } from './admin-guard';
 import prisma from '@/lib/prisma';
 import {
   employeeCreateSchema,
@@ -33,7 +33,7 @@ import {
 const date = (v: string) => parseDateOnlyToUTC(v)!;
 
 export async function createEmployee(input: unknown) {
-  await requireAdmin();
+  await requireSalaryAdmin();
   const d = employeeCreateSchema.parse(input);
   return prisma.employee.create({
     data: {
@@ -64,7 +64,7 @@ export async function createEmployee(input: unknown) {
  * contrôle et la mise à jour.
  */
 export async function updateEmployee(id: string, input: unknown) {
-  await requireAdmin();
+  await requireSalaryAdmin();
   const d = employeeUpdateSchema.parse(input);
   return prisma.$transaction(async (tx) => {
     if (d.startDate !== undefined || d.endDate !== undefined) {
@@ -144,7 +144,7 @@ function paymentWriteData(d: {
  * un simple `create`. Le versement et sa dépense liée naissent ensemble.
  */
 export async function recordSalaryPayment(input: unknown) {
-  const session = await requireAdmin();
+  const session = await requireSalaryAdmin();
   const d = salaryPaymentCreateSchema.parse(input);
   const desired: SalaryPaymentIdentity = {
     employeeId: d.employeeId,
@@ -217,7 +217,7 @@ export async function recordSalaryPayment(input: unknown) {
  * jamais de versement sans sa ligne de dépense.
  */
 export async function updateSalaryPayment(id: string, input: unknown) {
-  const session = await requireAdmin();
+  const session = await requireSalaryAdmin();
   const d = salaryPaymentUpdateSchema.parse(input);
   return withRetry(() =>
     prisma.$transaction(async (tx) => {
@@ -245,7 +245,7 @@ export async function updateSalaryPayment(id: string, input: unknown) {
 }
 
 export async function deleteSalaryPayment(id: string) {
-  const session = await requireAdmin();
+  const session = await requireSalaryAdmin();
   return withRetry(() =>
     prisma.$transaction(async (tx) => {
       const payment = await tx.salaryPayment.findUnique({

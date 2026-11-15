@@ -8,6 +8,7 @@ import {
   READ_ONLY_TOOL_NAMES,
 } from '@/lib/mcp/tools';
 import type { UserRole } from '@/generated/prisma/client';
+import { runWithMcpActor } from '@/lib/mcp/actor-context';
 import { intersectAllowedTools, resolveToolsetParam } from './toolset';
 
 const MCP_ROLES: UserRole[] = ['ADMIN', 'MANAGER', 'COMPTABLE', 'ANALYSTE'];
@@ -57,9 +58,12 @@ export function withRoleGuard(
     const toolset = resolveToolsetParam(req);
     if (toolset instanceof Response) return toolset;
 
-    return handler(
-      req,
-      intersectAllowedTools(roleAllowedTools, toolset.allowedTools)
+    // L'acteur authentifié suit l'appel jusqu'aux outils d'écriture de paie.
+    return runWithMcpActor({ userId: session.userId, role: user.role }, () =>
+      handler(
+        req,
+        intersectAllowedTools(roleAllowedTools, toolset.allowedTools)
+      )
     );
   });
 }

@@ -8,7 +8,7 @@
 // Idempotent : rejouer l'annulation d'un versement déjà annulé ne change rien
 // (ni second horodatage, ni second recalcul).
 
-import { requireAdmin } from '@/lib/auth-helpers';
+import { requireSalaryAdmin } from './admin-guard';
 import prisma from '@/lib/prisma';
 import { salaryPaymentCancelSchema } from '@/lib/schemas/salary';
 import { formatLocalDateOnly } from '@/lib/timezone';
@@ -18,7 +18,7 @@ export const SALARY_CANCEL_CLOSED_DAY_MESSAGE =
   'La caisse de ce jour est déjà clôturée : annuler ce versement en espèces fausserait la clôture. Enregistrez un versement de correction.';
 
 export async function cancelSalaryPayment(input: unknown) {
-  const session = await requireAdmin();
+  const session = await requireSalaryAdmin();
   const d = salaryPaymentCancelSchema.parse(input);
 
   return withRetry(() =>
