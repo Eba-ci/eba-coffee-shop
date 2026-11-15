@@ -5,12 +5,12 @@
 // pas. Confirmation par un second appui (pas de dialogue modal pour un geste
 // aussi léger).
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Gift, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/fixed-costs/format';
 import { monthLabel } from '@/lib/fixed-costs/month';
+import { useServerAction } from '@/lib/hooks/use-server-action';
 import { convertOverpaymentToBonusAction } from '../../salary-actions';
 import { FieldError } from '../employee-sheet';
 
@@ -23,18 +23,12 @@ export function OverpaidBonusButton({
   month: string;
   overpaid: number;
 }) {
-  const router = useRouter();
   const [confirm, setConfirm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending, error } = useServerAction();
 
-  function run() {
-    startTransition(async () => {
-      const r = await convertOverpaymentToBonusAction({ employeeId, month });
-      if (r.ok) router.refresh();
-      else setError(r.error);
-      setConfirm(false);
-    });
+  function submit() {
+    run(() => convertOverpaymentToBonusAction({ employeeId, month }));
+    setConfirm(false);
   }
 
   return (
@@ -52,7 +46,7 @@ export function OverpaidBonusButton({
         variant={confirm ? 'default' : 'outline'}
         className="h-11"
         disabled={pending}
-        onClick={() => (confirm ? run() : setConfirm(true))}
+        onClick={() => (confirm ? submit() : setConfirm(true))}
       >
         {pending ? (
           <Loader2 className="size-4 animate-spin" />

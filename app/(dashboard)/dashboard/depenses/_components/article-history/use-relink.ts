@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { relinkExpenseItemAction } from '../../actions';
 import type { ArticleOption } from './types';
 
 export function useRelink(articleId: string, articlesMeta: ArticleOption[]) {
-  const router = useRouter();
   const [relinkingId, setRelinkingId] = useState<string | null>(null);
   const [relinkTarget, setRelinkTarget] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +28,7 @@ export function useRelink(articleId: string, articlesMeta: ArticleOption[]) {
         return;
       }
       setRelinkingId(null);
-      // La ligne re-rattachée doit disparaître : on redemande le rendu serveur.
-      router.refresh();
+      // La ligne re-rattachée disparaît : l'action revalide /dashboard/depenses.
     });
   }
 

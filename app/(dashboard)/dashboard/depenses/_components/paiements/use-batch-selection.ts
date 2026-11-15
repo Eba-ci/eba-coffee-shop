@@ -1,9 +1,9 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRef, useState } from 'react';
 import type { Occurrence } from '@/lib/fixed-costs/schedule';
 import type { BatchLineResult } from '@/lib/fixed-costs/batch-payments';
+import { useServerAction } from '@/lib/hooks/use-server-action';
 import { payOccurrencesBatchAction } from './batch-actions';
 
 export const occKey = (o: { costId: string; dueDate: string }) =>
@@ -11,12 +11,10 @@ export const occKey = (o: { costId: string; dueDate: string }) =>
 
 /** Sélection d'échéances + envoi en lot ; la sélection survit à une erreur. */
 export function useBatchSelection(selectable: Occurrence[]) {
-  const router = useRouter();
   const [active, setActive] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [results, setResults] = useState<BatchLineResult[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending, error, clearError } = useServerAction();
   // Stable pendant toute la session de sélection : rejouer ne double rien.
   const batchKey = useRef<string | null>(null);
 
@@ -42,28 +40,25 @@ export function useBatchSelection(selectable: Occurrence[]) {
     setActive(false);
     setSelected(new Set());
     setResults(null);
-    setError(null);
+    clearError();
     batchKey.current = null;
   }
 
   function submit() {
     if (pending || chosen.length === 0) return;
-    setError(null);
-    startTransition(async () => {
+    // L'action revalide /dashboard/depenses : aucun second rendu côté client.
+    run(async () => {
       const res = await payOccurrencesBatchAction({
         targets: chosen.map((o) => ({ costId: o.costId, dueDate: o.dueDate })),
         batchKey: (batchKey.current ??= crypto.randomUUID()),
       });
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
+      if (!res.ok) return res;
       setResults(res.results);
       const failed = res.results.filter((r) => r.status === 'failed');
       // Réglées ou déjà réglées : on les retire ; les échecs restent cochés.
       setSelected(new Set(failed.map(occKey)));
       if (failed.length === 0) batchKey.current = null;
-      router.refresh();
+      return res;
     });
   }
 

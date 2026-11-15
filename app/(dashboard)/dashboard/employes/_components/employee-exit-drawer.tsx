@@ -5,7 +5,6 @@
 // lisibles. Réutilisable (props `employee`, `open`, `onOpenChange`).
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { CalendarX2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +55,6 @@ function ExitForm({
   today: string;
   onDone: () => void;
 }) {
-  const router = useRouter();
   const [endDate, setEndDate] = useState(today);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -71,7 +69,6 @@ function ExitForm({
       const result = await recordEmployeeExitAction(employee.id, { endDate });
       if (!result.ok) return setError(result.error);
       onDone();
-      router.refresh();
     });
   }
 

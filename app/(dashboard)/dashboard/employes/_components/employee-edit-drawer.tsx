@@ -6,7 +6,6 @@
 // monté dans le `SheetContent` : il est démonté à la fermeture.
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,7 +55,6 @@ function EditForm({
   employee: EmployeeIdentity;
   onDone: () => void;
 }) {
-  const router = useRouter();
   const [name, setName] = useState(employee.name);
   const [position, setPosition] = useState(employee.position ?? '');
   const [startDate, setStartDate] = useState(employee.startDate);
@@ -77,7 +75,6 @@ function EditForm({
       });
       if (!result.ok) return setError(result.error);
       onDone();
-      router.refresh();
     });
   }
 
