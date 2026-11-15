@@ -20,6 +20,8 @@ import { listExpenseCategories } from '@/lib/expenses';
 import { loadArticleOptions } from '../article-options';
 import { OccurrenceList } from './occurrence-list';
 import { PayDrawerProvider } from './pay-drawer';
+import { getReconciliation } from '@/lib/fixed-costs/links-queries';
+import { ReconciliationPanel } from './reconciliation-panel';
 
 export async function PaymentsSection({
   month,
@@ -30,13 +32,18 @@ export async function PaymentsSection({
 }) {
   const today = todayDateString();
   const currentMonth = today.slice(0, 7);
-  const [{ month: monthOcc, week, late }, categories, articles] =
-    await Promise.all([
-      getPaymentsView(month),
-      // Le drawer de paiement n'existe pas en lecture seule : rien à charger.
-      readOnly ? Promise.resolve([]) : listExpenseCategories(),
-      readOnly ? Promise.resolve([]) : loadArticleOptions(),
-    ]);
+  const [
+    { month: monthOcc, week, late },
+    categories,
+    articles,
+    reconciliation,
+  ] = await Promise.all([
+    getPaymentsView(month),
+    // Le drawer de paiement n'existe pas en lecture seule : rien à charger.
+    readOnly ? Promise.resolve([]) : listExpenseCategories(),
+    readOnly ? Promise.resolve([]) : loadArticleOptions(),
+    getReconciliation(month),
+  ]);
   const weekToPay = unpaid(week);
   const summary = summarizeOccurrences(monthOcc);
   const bounds = weekBounds(today);
@@ -123,6 +130,17 @@ export async function PaymentsSection({
             selectable
             emptyLabel="Rien à payer cette semaine."
           />
+        </CardContent>
+      </Card>
+
+      <Card id="rapprochement">
+        <CardHeader>
+          <CardTitle className="text-base">
+            Rapprochement des dépenses
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ReconciliationPanel view={reconciliation} readOnly={readOnly} />
         </CardContent>
       </Card>
     </div>
