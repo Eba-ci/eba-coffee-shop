@@ -15,6 +15,7 @@ import {
   SALARY_RATE_SELECT,
   toEmployeeLike,
   toSalaryRateLike,
+  ACTIVE_PAYMENT_WHERE,
 } from './mappers';
 import { salaryLedgerThrough } from './ledger';
 import { parseDateOnlyToUTC } from '@/lib/timezone';
@@ -36,6 +37,7 @@ export async function convertOverpaymentToBonus(
         endDate: true,
         rates: { select: SALARY_RATE_SELECT },
         payments: {
+          where: ACTIVE_PAYMENT_WHERE,
           select: {
             month: true,
             type: true,

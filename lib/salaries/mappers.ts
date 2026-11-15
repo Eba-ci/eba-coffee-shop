@@ -40,6 +40,12 @@ export function toSalaryRateLike(rate: SalaryRateRow): SalaryRateLike {
  * `endDate` ferait ignorer silencieusement la fin d'un taux. Une seule
  * définition, importée par chaque requête.
  */
+/**
+ * Un versement annulé sort de TOUS les calculs. Toute lecture qui rejoue le
+ * journal filtre ses versements par ce prédicat (une seule définition).
+ */
+export const ACTIVE_PAYMENT_WHERE = { canceledAt: null } as const;
+
 export const SALARY_RATE_SELECT = {
   id: true,
   monthlyAmount: true,

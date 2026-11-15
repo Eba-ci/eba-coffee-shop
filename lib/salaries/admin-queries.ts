@@ -16,6 +16,7 @@ import {
   SALARY_RATE_SELECT,
   toEmployeeLike,
   toSalaryRateLike,
+  ACTIVE_PAYMENT_WHERE,
 } from './mappers';
 import type { SalaryAdjustmentNature } from '@/generated/prisma/enums';
 import type {
@@ -131,6 +132,7 @@ export async function getSalaryMonthView(
         orderBy: { startDate: 'asc' },
       },
       payments: {
+        where: ACTIVE_PAYMENT_WHERE,
         select: {
           month: true,
           type: true,

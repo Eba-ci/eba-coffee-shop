@@ -223,8 +223,11 @@ export async function updateSalaryPayment(id: string, input: unknown) {
     prisma.$transaction(async (tx) => {
       const before = await tx.salaryPayment.findUniqueOrThrow({
         where: { id },
-        select: { date: true, paymentMethod: true },
+        select: { date: true, paymentMethod: true, canceledAt: true },
       });
+      if (before.canceledAt) {
+        throw new Error('Un versement annulé ne peut plus être modifié.');
+      }
       const payment = await tx.salaryPayment.update({
         where: { id },
         data: paymentWriteData(d),

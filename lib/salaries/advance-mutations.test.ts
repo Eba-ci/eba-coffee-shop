@@ -143,18 +143,28 @@ describe('mutations d’avance (ADMIN seul, idempotentes)', () => {
       id: 'adv1',
       cancelled: true,
     });
-    expect(tx.salaryPayment.delete).toHaveBeenCalledWith({
+    // Jamais supprimée : annulée avec trace, détachée de sa ligne globale.
+    expect(tx.salaryPayment.delete).not.toHaveBeenCalled();
+    expect(tx.salaryPayment.update).toHaveBeenCalledWith({
       where: { id: 'adv1' },
+      data: expect.objectContaining({
+        canceledAt: expect.any(Date),
+        expenseId: null,
+      }),
     });
     expect(syncSalaryExpenses).toHaveBeenCalledTimes(1);
 
-    // Rejeu (double clic) : la ligne n'existe plus, on renvoie le même succès.
-    tx.salaryPayment.findUnique.mockResolvedValue(null);
+    // Rejeu (double clic) : déjà annulée, même succès sans second recalcul.
+    tx.salaryPayment.findUnique.mockResolvedValue({
+      id: 'adv1',
+      canceledAt: new Date(),
+    });
     await expect(cancelSalaryAdvance({ paymentId: 'adv1' })).resolves.toEqual({
       id: 'adv1',
       cancelled: true,
     });
-    expect(tx.salaryPayment.delete).toHaveBeenCalledTimes(1);
+    expect(tx.salaryPayment.update).toHaveBeenCalledTimes(1);
+    expect(syncSalaryExpenses).toHaveBeenCalledTimes(1);
   });
 
   it('un ajustement sans champ est refusé par le schéma', async () => {
