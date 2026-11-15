@@ -15,6 +15,7 @@ import * as salaries from '@/lib/salaries/mutations';
 import * as advances from '@/lib/salaries/advance-mutations';
 import * as adjustments from '@/lib/salaries/adjustment-mutations';
 import * as settle from '@/lib/salaries/settle-mutations';
+import * as payroll from '@/lib/salaries/payroll-mutations';
 import * as bonus from '@/lib/salaries/bonus-mutations';
 
 export type SalaryActionResult = { ok: true } | { ok: false; error: string };
@@ -87,4 +88,10 @@ export async function convertOverpaymentToBonusAction(
   input: unknown
 ): Promise<SalaryActionResult> {
   return run(() => bonus.convertOverpaymentToBonus(input));
+}
+
+export async function settlePayrollAction(
+  input: unknown
+): Promise<SalaryActionResult> {
+  return run(() => payroll.settlePayroll(input));
 }

@@ -16,6 +16,7 @@ import { todayDateString } from '@/lib/timezone';
 import { NewPaymentButton } from '../_components/new-payment-button';
 import { SalairesMonthNav } from '../_components/paie/month-nav';
 import { SalaryMonthView } from '../_components/paie/month-view';
+import { PayrollDrawer } from '../_components/paie/payroll-drawer';
 import { PageHeader } from '../_components/page-header';
 import { loadPaieParams } from '../_components/paie/search-params';
 
@@ -74,6 +75,18 @@ export default async function PaiePage({
                 Employés
               </Link>
             </Button>
+            {isAdmin && (
+              <PayrollDrawer
+                month={month}
+                rows={view.employees
+                  .filter((e) => e.remainingToPay > 0)
+                  .map((e) => ({
+                    id: e.employeeId,
+                    name: e.name,
+                    remaining: e.remainingToPay,
+                  }))}
+              />
+            )}
             {isAdmin && (
               <NewPaymentButton
                 employees={view.employees
