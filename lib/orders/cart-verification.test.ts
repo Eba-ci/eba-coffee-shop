@@ -142,6 +142,61 @@ describe('assertCartMatchesMenu', () => {
       expect(reasonOf(withFlags(true, false))).toBe('product_unavailable');
     });
 
+    const withProduct = (patch: Record<string, unknown>) =>
+      [
+        {
+          ...(menu as never as Record<string, unknown>[])[0],
+          products: (
+            menu as never as { products: Record<string, unknown>[] }[]
+          )[0].products.map((p) => (p.id === 'p2' ? { ...p, ...patch } : p)),
+        },
+      ] as never;
+    const reasonAt = (m: never, now: Date) => {
+      try {
+        assertCartMatchesMenu(cart, m, 2000, now);
+      } catch (e) {
+        return (e as CartMismatchError).reason;
+      }
+      return null;
+    };
+    // 2026-11-18 = mercredi (Abidjan = UTC).
+    const wed = new Date('2026-11-18T10:00:00Z');
+
+    it('refuse un produit en pause (unavailableUntil dans le futur)', () => {
+      const m = withProduct({
+        unavailableUntil: new Date('2026-11-19T00:00:00Z'),
+      });
+      expect(reasonAt(m, wed)).toBe('product_unavailable');
+    });
+
+    it('accepte un produit dont la pause est terminée', () => {
+      const m = withProduct({
+        unavailableUntil: new Date('2026-11-17T00:00:00Z'),
+      });
+      expect(reasonAt(m, wed)).toBeNull();
+    });
+
+    it('refuse un produit hors de ses jours de la semaine', () => {
+      expect(reasonAt(withProduct({ availableDays: [1, 2] }), wed)).toBe(
+        'product_unavailable'
+      );
+      expect(reasonAt(withProduct({ availableDays: [3] }), wed)).toBeNull();
+      expect(reasonAt(withProduct({ availableDays: [] }), wed)).toBeNull();
+    });
+
+    it('refuse une spécialité de la semaine hors de sa fenêtre', () => {
+      const out = [
+        { id: 'w', startDate: '2026-12-01', endDate: '2026-12-07', note: null },
+      ];
+      const inn = [
+        { id: 'w', startDate: '2026-11-16', endDate: '2026-11-22', note: null },
+      ];
+      expect(reasonAt(withProduct({ weeklySpecials: out }), wed)).toBe(
+        'product_unavailable'
+      );
+      expect(reasonAt(withProduct({ weeklySpecials: inn }), wed)).toBeNull();
+    });
+
     it('accepte un produit et une catégorie disponibles', () => {
       expect(reasonOf(withFlags(true, true))).toBeNull();
     });

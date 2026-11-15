@@ -10,7 +10,13 @@
 import type { CartItem } from '@/lib/cart-store';
 import type { AdminMenuCategory } from '@/lib/menu';
 import { computeItemsTotal } from '@/lib/orders/totals';
-import { effectiveMax, effectiveMin } from '@/lib/supplements';
+import {
+  effectiveMax,
+  effectiveMin,
+  isAvailableToday,
+  isPausedNow,
+  isWithinAnyPeriod,
+} from '@/lib/supplements';
 
 export type CartMismatchReason =
   | 'empty_cart'
@@ -39,7 +45,8 @@ export class CartMismatchError extends Error {
 export function assertCartMatchesMenu(
   items: CartItem[],
   menu: AdminMenuCategory[],
-  clientTotal: number
+  clientTotal: number,
+  now: Date = new Date()
 ): number {
   if (items.length === 0) {
     throw new CartMismatchError('empty_cart', 'Panier vide');
@@ -61,7 +68,21 @@ export function assertCartMatchesMenu(
       );
     }
     // `=== false` : seul un refus explicite bloque (comme `group.available`).
-    if (product.available === false || entry.cat.available === false) {
+    // Mêmes règles que l'écran (`isOrderableNow`, hors épuisement : le stock a
+    // son propre contrôle) : pause en cours, jours de la semaine (planning du
+    // produit ∩ catégorie ; liste vide = tous les jours), fenêtres « spécialité
+    // de la semaine ».
+    const days = product.availableDays?.length ? product.availableDays : null;
+    const periods = product.weeklySpecials?.length
+      ? product.weeklySpecials
+      : null;
+    if (
+      product.available === false ||
+      entry.cat.available === false ||
+      isPausedNow(product.unavailableUntil, now) ||
+      !isAvailableToday(days, now) ||
+      !isWithinAnyPeriod(periods, now)
+    ) {
       throw new CartMismatchError(
         'product_unavailable',
         `« ${product.name} » n'est plus disponible`
