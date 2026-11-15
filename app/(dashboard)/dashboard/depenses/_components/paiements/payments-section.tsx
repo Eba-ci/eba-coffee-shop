@@ -85,6 +85,7 @@ export async function PaymentsSection({
               month={month}
               readOnly={readOnly}
               selectable
+              groupByMonth
               emptyLabel="Aucun retard."
             />
           </CardContent>
