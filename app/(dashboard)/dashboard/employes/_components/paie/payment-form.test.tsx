@@ -25,3 +25,29 @@ describe('formulaire de versement — mode de paiement par défaut', () => {
     expect(html).not.toContain(SALARY_PAYMENT_METHOD_LABELS.CASH);
   });
 });
+
+describe('formulaire de versement — montant par défaut', () => {
+  const render = (
+    situations?: Record<string, { remaining: number; arrears: number }>
+  ) =>
+    renderToStaticMarkup(
+      React.createElement(SalaryPaymentForm, {
+        employees: [{ id: 'e1', name: 'Aïcha' }],
+        defaultMonth: '2026-11',
+        today: '2026-11-11',
+        situations,
+      })
+    );
+
+  it('propose le reste du mois, jamais l’arriéré (1 mois au plus)', () => {
+    const html = render({ e1: { remaining: 60000, arrears: 120000 } });
+    expect(html).toContain('value="60000"');
+    expect(html).not.toContain('180000');
+  });
+
+  it('laisse le champ vide quand il ne reste rien', () => {
+    expect(render({ e1: { remaining: 0, arrears: 50000 } })).not.toContain(
+      'value="50000"'
+    );
+  });
+});

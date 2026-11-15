@@ -66,15 +66,29 @@ export function SalaryPaymentForm({
   /** Appelé après un versement enregistré (le tiroir se referme). */
   onSaved?: () => void;
 }) {
-  const [draft, setDraft] = useState<Draft>({
-    employeeId: defaultEmployeeId ?? employees[0]?.id ?? '',
-    type: 'SALAIRE',
-    date: today,
-    month: defaultMonth,
-    amount: '',
-    paymentMethod: 'WAVE',
-    recoveryMonths: '1',
-    note: '',
+  // Montant proposé : le reste à payer du mois par défaut, pour un salaire.
+  // Il suit l'employé / le type / le mois tant que l'utilisateur n'a pas saisi.
+  function suggestAmount(d: Pick<Draft, 'employeeId' | 'type' | 'month'>) {
+    const remaining = situations?.[d.employeeId]?.remaining ?? 0;
+    return d.type === 'SALAIRE' && d.month === defaultMonth && remaining > 0
+      ? String(remaining)
+      : '';
+  }
+  const amountTouched = useRef(false);
+  const [draft, setDraft] = useState<Draft>(() => {
+    const base = {
+      employeeId: defaultEmployeeId ?? employees[0]?.id ?? '',
+      type: 'SALAIRE' as SalaryPaymentTypeValue,
+      month: defaultMonth,
+    };
+    return {
+      ...base,
+      date: today,
+      amount: suggestAmount(base),
+      paymentMethod: 'WAVE',
+      recoveryMonths: '1',
+      note: '',
+    };
   });
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -84,7 +98,17 @@ export function SalaryPaymentForm({
     // Toute modification invalide la clé en cours : la prochaine soumission
     // part avec un contenu différent, donc une nouvelle clé.
     keyRef.current = null;
-    setDraft((d) => ({ ...d, [k]: v }));
+    if (k === 'amount') amountTouched.current = true;
+    setDraft((d) => {
+      const next = { ...d, [k]: v };
+      if (
+        !amountTouched.current &&
+        (k === 'employeeId' || k === 'type' || k === 'month')
+      ) {
+        next.amount = suggestAmount(next);
+      }
+      return next;
+    });
   }
 
   function submit() {
@@ -113,6 +137,7 @@ export function SalaryPaymentForm({
       });
       if (r.ok) {
         keyRef.current = null;
+        amountTouched.current = false;
         setDraft((d) => ({ ...d, amount: '', note: '' }));
         onSaved?.();
       } else {
