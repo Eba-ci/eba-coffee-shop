@@ -304,6 +304,41 @@ export const salarySettleSchema = z
 
 export type SalarySettleInput = z.infer<typeof salarySettleSchema>;
 
+// ── Paie de toute la masse salariale d'un mois (ADMIN seul) ──
+//
+// Un geste règle le mois choisi pour plusieurs employés : un versement SALAIRE
+// par employé, même date, même mode, une transaction, UNE ligne de dépense.
+
+export const SALARY_PAYROLL_EMPLOYEES_MAX = 200;
+
+export const salaryPayrollSchema = z
+  .object({
+    month: monthSchema,
+    date: dateOnly,
+    paymentMethod: expensePaymentMethodSchema.default('WAVE'),
+    note: z.string().trim().max(SALARY_NOTE_MAX).nullable().optional(),
+    idempotencyKey: z
+      .string()
+      .trim()
+      .min(SALARY_IDEMPOTENCY_KEY_MIN)
+      .max(SALARY_IDEMPOTENCY_KEY_MAX),
+    items: z
+      .array(
+        z.object({
+          employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
+          amount: amountSchema,
+        })
+      )
+      .min(1)
+      .max(SALARY_PAYROLL_EMPLOYEES_MAX),
+  })
+  .refine(
+    (v) => new Set(v.items.map((i) => i.employeeId)).size === v.items.length,
+    { message: 'Un employé ne peut être payé qu’une fois par lot' }
+  );
+
+export type SalaryPayrollInput = z.infer<typeof salaryPayrollSchema>;
+
 /** Trop-perçu d'un mois converti en prime (« bonus »). */
 export const salaryBonusFromOverpaymentSchema = z.object({
   employeeId: z.string().min(SALARY_ID_MIN_LENGTH, 'Employé requis'),
