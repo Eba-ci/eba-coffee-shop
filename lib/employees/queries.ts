@@ -14,10 +14,14 @@ import {
 } from '@/lib/salaries/admin-queries';
 import { listSalaryEmployees } from '@/lib/salaries/admin-lists';
 import { salaryPaymentProposal } from '@/lib/salaries/arrears';
-import { toSalaryRateLike } from '@/lib/salaries/mappers';
+import { SALARY_RATE_SELECT, toSalaryRateLike } from '@/lib/salaries/mappers';
 import { formatLocalDateOnly, todayDateString } from '@/lib/timezone';
 import type { SalaryPaymentType } from '@/generated/prisma/enums';
-import type { SalaryArrears, SalaryMonthSummary } from '@/lib/salaries/types';
+import type {
+  SalaryArrears,
+  SalaryMonthSummary,
+  SalaryRateLike,
+} from '@/lib/salaries/types';
 
 export type EmployeeListRow = {
   id: string;
@@ -29,7 +33,7 @@ export type EmployeeListRow = {
   /** Taux en vigueur aujourd'hui (dernier taux commencé), ou null. */
   currentRate: number | null;
   /** Historique des taux, du plus récent au plus ancien (tiroir « Ajouter un taux »). */
-  rates: { monthlyAmount: number; startDate: string }[];
+  rates: SalaryRateLike[];
   /** Note libre de la fiche. */
   note: string | null;
   /** Situation du mois : dû, versé (salaires + acomptes + avances récupérées), reste. */
@@ -50,7 +54,7 @@ export type EmployeesOverview = {
   employees: EmployeeListRow[];
 };
 
-export type Employee360Rate = { monthlyAmount: number; startDate: string };
+export type Employee360Rate = SalaryRateLike;
 
 export type Employee360Payment = {
   id: string;
@@ -161,7 +165,7 @@ export async function getEmployee360(
       active: true,
       note: true,
       rates: {
-        select: { monthlyAmount: true, startDate: true },
+        select: SALARY_RATE_SELECT,
         orderBy: { startDate: 'desc' },
       },
       payments: {

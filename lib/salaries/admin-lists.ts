@@ -8,9 +8,9 @@
 import prisma from '@/lib/prisma';
 import { formatLocalDateOnly, todayDateString } from '@/lib/timezone';
 import { salaryStateThrough } from './admin-queries';
-import { toSalaryRateLike } from './mappers';
+import { SALARY_RATE_SELECT, toSalaryRateLike } from './mappers';
 import type { SalaryAdjustmentRow } from './admin-queries';
-import type { SalaryArrears } from './types';
+import type { SalaryArrears, SalaryRateLike } from './types';
 
 export type SalaryEmployeeRow = {
   id: string;
@@ -20,7 +20,7 @@ export type SalaryEmployeeRow = {
   endDate: string | null;
   active: boolean;
   note: string | null;
-  rates: { monthlyAmount: number; startDate: string }[];
+  rates: SalaryRateLike[];
   /** Arriéré à `asOfMonth` (mois clôturés non soldés, mois courant exclu). */
   arrears: SalaryArrears;
   /** Primes et retenues, annulées comprises (historique jamais supprimé). */
@@ -46,7 +46,7 @@ export async function listSalaryEmployees(
       active: true,
       note: true,
       rates: {
-        select: { monthlyAmount: true, startDate: true },
+        select: SALARY_RATE_SELECT,
         orderBy: { startDate: 'desc' },
       },
       payments: {

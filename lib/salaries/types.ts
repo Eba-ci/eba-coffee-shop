@@ -11,8 +11,10 @@ import type {
 } from '@/generated/prisma/enums';
 
 export type SalaryRateLike = {
+  id?: string; // présent quand le taux vient de la base (édition / suppression)
   monthlyAmount: number; // FCFA/mois
   startDate: string; // prise d'effet, incluse (YYYY-MM-DD)
+  endDate?: string | null; // fin d'effet, incluse ; absent/null = en cours
 };
 
 export type EmployeeLike = {

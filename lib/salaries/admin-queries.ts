@@ -12,7 +12,11 @@
 import prisma from '@/lib/prisma';
 import { salaryArrears, salaryPaymentProposal } from './arrears';
 import { salaryLedgerThrough } from './ledger';
-import { toEmployeeLike, toSalaryRateLike } from './mappers';
+import {
+  SALARY_RATE_SELECT,
+  toEmployeeLike,
+  toSalaryRateLike,
+} from './mappers';
 import type { SalaryAdjustmentNature } from '@/generated/prisma/enums';
 import type {
   SalaryAdjustmentLike,
@@ -123,7 +127,7 @@ export async function getSalaryMonthView(
       startDate: true,
       endDate: true,
       rates: {
-        select: { monthlyAmount: true, startDate: true },
+        select: SALARY_RATE_SELECT,
         orderBy: { startDate: 'asc' },
       },
       payments: {

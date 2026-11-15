@@ -29,7 +29,11 @@ function dayBefore(day: string): string {
 }
 
 export function buildRateTimeline(
-  rates: { monthlyAmount: number; startDate: string }[],
+  rates: {
+    monthlyAmount: number;
+    startDate: string;
+    endDate?: string | null;
+  }[],
   employeeEndDate: string | null,
   today: string
 ): RateStep[] {
@@ -44,7 +48,9 @@ export function buildRateTimeline(
       prev && prev.monthlyAmount > 0
         ? Math.round((delta! / prev.monthlyAmount) * 100)
         : null;
-    const endDate = next ? dayBefore(next.startDate) : employeeEndDate;
+    // Fin saisie > veille du taux suivant > sortie de l'employé.
+    const endDate =
+      rate.endDate ?? (next ? dayBefore(next.startDate) : employeeEndDate);
     const started = rate.startDate <= today;
     const ended = endDate !== null && endDate < today;
     return {
