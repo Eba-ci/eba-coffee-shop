@@ -64,7 +64,7 @@ export async function listFixedCosts(): Promise<FixedCostRow[]> {
 }
 
 /** Dépenses liées à une occurrence de charge fixe dont l'échéance est dans la plage. */
-async function listLinkedPayments(
+export async function listLinkedPayments(
   from: string,
   to: string
 ): Promise<LinkedPayment[]> {
