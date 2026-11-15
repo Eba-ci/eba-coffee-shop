@@ -114,10 +114,23 @@ export async function updateExpense(id: string, input: unknown) {
       select: {
         amount: true,
         salaryAggregateKey: true,
+        categoryId: true,
+        fixedCostId: true,
         _count: { select: { items: true } },
       },
     });
     if (!existing) throw new Error('Dépense introuvable.');
+    // Une dépense qui règle une échéance de charge fixe doit rester dans la
+    // catégorie de cette charge (rapprochement #453, jamais inter-catégories).
+    if (
+      existing.fixedCostId &&
+      data.categoryId !== undefined &&
+      data.categoryId !== existing.categoryId
+    ) {
+      throw new Error(
+        'Cette dépense règle une échéance de charge fixe : délie-la (Paiements › Rapprochement) avant de changer sa catégorie.'
+      );
+    }
     // La ligne globale de masse salariale est recalculée par le module
     // employés : la modifier ici la désynchroniserait des versements.
     if (existing.salaryAggregateKey) {
