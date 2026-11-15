@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { OCCURRENCE_STATUS_META, money } from './status';
 import { usePayOccurrence } from './pay-drawer';
 import { BatchBar } from './batch-bar';
+import { MonthAccordions } from './month-accordions';
 import { occKey, useBatchSelection } from './use-batch-selection';
 
 export function OccurrenceStatusBadge({
@@ -103,6 +104,7 @@ export function OccurrenceList({
   showDay = true,
   readOnly = false,
   selectable = false,
+  groupByMonth = false,
 }: {
   occurrences: Occurrence[];
   /** Conservé pour les appelants ; le drawer n'en a plus besoin. */
@@ -112,10 +114,30 @@ export function OccurrenceList({
   readOnly?: boolean;
   /** Active « Sélectionner » + règlement en lot (ignoré en lecture seule). */
   selectable?: boolean;
+  /** Retards : un accordéon par mois d'échéance (#458). */
+  groupByMonth?: boolean;
 }) {
   const open = occurrences.filter((o) => o.remaining > 0);
   const batch = useBatchSelection(open);
   const canSelect = selectable && !readOnly && open.length > 1;
+
+  const renderRow = (o: Occurrence) => (
+    <OccurrenceRow
+      key={occKey(o)}
+      occurrence={o}
+      showDay={showDay}
+      readOnly={readOnly}
+      selection={
+        batch.active && canSelect
+          ? {
+              checked: batch.selected.has(occKey(o)),
+              disabled: batch.pending || o.remaining <= 0,
+              onToggle: () => batch.toggle(o),
+            }
+          : undefined
+      }
+    />
+  );
 
   if (occurrences.length === 0)
     return (
@@ -146,25 +168,13 @@ export function OccurrenceList({
           )}
         </div>
       )}
-      <ul className="divide-y rounded-lg border">
-        {occurrences.map((o) => (
-          <OccurrenceRow
-            key={occKey(o)}
-            occurrence={o}
-            showDay={showDay}
-            readOnly={readOnly}
-            selection={
-              batch.active && canSelect
-                ? {
-                    checked: batch.selected.has(occKey(o)),
-                    disabled: batch.pending || o.remaining <= 0,
-                    onToggle: () => batch.toggle(o),
-                  }
-                : undefined
-            }
-          />
-        ))}
-      </ul>
+      {groupByMonth ? (
+        <MonthAccordions occurrences={occurrences} renderRow={renderRow} />
+      ) : (
+        <ul className="divide-y rounded-lg border">
+          {occurrences.map(renderRow)}
+        </ul>
+      )}
       {batch.active && canSelect && (
         <BatchBar
           count={batch.chosen.length}
