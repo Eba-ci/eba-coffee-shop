@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { EMPLOYEE_SHEET_CLASS, EmployeeSheetHeader } from '../employee-sheet';
+import type { PaymentSituation } from '@/lib/salaries/partial-warning';
 import { SalaryPaymentForm } from './payment-form';
 
 /**
@@ -21,6 +22,7 @@ export function SalaryPaymentDrawer({
   defaultMonth,
   today,
   defaultEmployeeId,
+  situations,
   open: controlledOpen,
   onOpenChange,
   hideTrigger = false,
@@ -31,6 +33,8 @@ export function SalaryPaymentDrawer({
   today: string;
   /** Employé présélectionné (action « Payer un salaire » d'une ligne). */
   defaultEmployeeId?: string;
+  /** Reste du mois et arriéré par employé (avertissement de paiement partiel). */
+  situations?: Record<string, PaymentSituation>;
   /** Mode piloté : l'état vit chez l'appelant. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -67,6 +71,7 @@ export function SalaryPaymentDrawer({
               defaultMonth={defaultMonth}
               today={today}
               defaultEmployeeId={defaultEmployeeId}
+              situations={situations}
               onSaved={() => setOpen(false)}
             />
           )}

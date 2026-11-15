@@ -181,6 +181,12 @@ export function EmployeeRowActions({
           defaultMonth={month}
           today={today}
           defaultEmployeeId={row.id}
+          situations={{
+            [row.id]: {
+              remaining: row.month.remainingToPay,
+              arrears: row.arrearsTotal,
+            },
+          }}
           open={payOpen}
           onOpenChange={setPayOpen}
           hideTrigger
