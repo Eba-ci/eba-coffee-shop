@@ -11,7 +11,11 @@ import { requireAdmin } from '@/lib/auth-helpers';
 import prisma from '@/lib/prisma';
 import { salaryBonusFromOverpaymentSchema } from '@/lib/schemas/salary';
 import { todayDateString } from '@/lib/timezone';
-import { toEmployeeLike, toSalaryRateLike } from './mappers';
+import {
+  SALARY_RATE_SELECT,
+  toEmployeeLike,
+  toSalaryRateLike,
+} from './mappers';
 import { salaryLedgerThrough } from './ledger';
 import { parseDateOnlyToUTC } from '@/lib/timezone';
 
@@ -30,7 +34,7 @@ export async function convertOverpaymentToBonus(
       select: {
         startDate: true,
         endDate: true,
-        rates: { select: { monthlyAmount: true, startDate: true } },
+        rates: { select: SALARY_RATE_SELECT },
         payments: {
           select: {
             month: true,

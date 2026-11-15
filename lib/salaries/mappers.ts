@@ -10,7 +10,12 @@ import type { EmployeeLike, SalaryRateLike } from './types';
 
 type EmployeeRow = { startDate: Date; endDate: Date | null };
 
-type SalaryRateRow = { monthlyAmount: number; startDate: Date };
+type SalaryRateRow = {
+  id?: string;
+  monthlyAmount: number;
+  startDate: Date;
+  endDate?: Date | null;
+};
 
 /** Ligne `Employee` → `EmployeeLike` (dates au format « YYYY-MM-DD »). */
 export function toEmployeeLike(employee: EmployeeRow): EmployeeLike {
@@ -23,7 +28,21 @@ export function toEmployeeLike(employee: EmployeeRow): EmployeeLike {
 /** Ligne `SalaryRate` → `SalaryRateLike` (date au format « YYYY-MM-DD »). */
 export function toSalaryRateLike(rate: SalaryRateRow): SalaryRateLike {
   return {
+    ...(rate.id ? { id: rate.id } : {}),
     monthlyAmount: rate.monthlyAmount,
     startDate: formatLocalDateOnly(rate.startDate),
+    endDate: rate.endDate ? formatLocalDateOnly(rate.endDate) : null,
   };
 }
+
+/**
+ * Colonnes d'un taux à lire PARTOUT où l'on rejoue le journal : oublier
+ * `endDate` ferait ignorer silencieusement la fin d'un taux. Une seule
+ * définition, importée par chaque requête.
+ */
+export const SALARY_RATE_SELECT = {
+  id: true,
+  monthlyAmount: true,
+  startDate: true,
+  endDate: true,
+} as const;

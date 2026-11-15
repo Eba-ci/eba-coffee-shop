@@ -73,7 +73,7 @@ export const SALARY_END_AFTER_START_MESSAGE =
  * distinct de l'`upsert` historique de l'onglet Salaires).
  */
 export const SALARY_RATE_DUPLICATE_MESSAGE =
-  'Un taux existe déjà à cette date : choisis une autre date pour corriger';
+  'Un taux existe déjà pour ce mois : modifiez-le plutôt que d’en ajouter un second.';
 
 /**
  * Une retenue ne peut pas rendre le dû négatif : elle est refusée au-delà du

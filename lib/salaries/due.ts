@@ -68,10 +68,12 @@ export function salaryDueForMonth(
     for (const day of days) {
       if (day < from || day > to) continue;
       daysEmployed += 1;
+      // Dernier taux commencé ce jour-là ET non terminé (fin incluse).
       let idx = -1;
       for (let r = 0; r < sorted.length; r++) {
-        if (sorted[r].startDate <= day) idx = r;
-        else break;
+        if (sorted[r].startDate > day) break;
+        const end = sorted[r].endDate;
+        if (!end || day <= end) idx = r;
       }
       if (idx < 0) {
         daysWithoutRate += 1;
