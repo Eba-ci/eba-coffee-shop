@@ -13,6 +13,15 @@ vi.mock('../point-mort/month-nav', () => ({
 vi.mock('@/lib/fixed-costs/queries', () => ({
   getPaymentsView: vi.fn(async () => ({ month: [], week: [], late: [] })),
 }));
+vi.mock('@/lib/fixed-costs/links-queries', () => ({
+  getReconciliation: vi.fn(async () => ({
+    month: '2026-11',
+    occurrences: [],
+    unlinked: [],
+    linked: [],
+    proposals: [],
+  })),
+}));
 vi.mock('@/lib/expenses', () => ({
   listExpenseCategories: vi.fn(async () => []),
 }));

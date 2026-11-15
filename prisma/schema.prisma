@@ -1732,6 +1732,30 @@ model RefundEvent {
   @@map("refund_event")
 }
 
+// Rapprochement dépense ↔ échéance de charge fixe (#453) : journal append-only
+// de qui a lié / délié quoi. Pas de FK : la dépense ou la charge peuvent
+// disparaître, la trace reste lisible.
+enum FixedCostLinkAction {
+  LINK
+  UNLINK
+}
+
+model FixedCostLinkEvent {
+  id          String              @id @default(cuid())
+  expenseId   String
+  fixedCostId String
+  dueDate     DateTime            @db.Date
+  action      FixedCostLinkAction
+  // Utilisateur identifié (session ou OAuth MCP) ; null = clé statique.
+  actorId     String?
+  source      String // STAFF | MCP
+  createdAt   DateTime            @default(now())
+
+  @@index([expenseId])
+  @@index([fixedCostId, dueDate])
+  @@map("fixed_cost_link_event")
+}
+
 // ─── Investissements (apports / financements) ──────────────────────────────────
 // Distincts des dépenses d'exploitation : argent INJECTÉ dans l'affaire (capital
 // propre, prêt, apport d'associé, subvention…). On suit la source de financement
