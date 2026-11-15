@@ -48,7 +48,7 @@ export function LoyaltySection({
           Merci pour ta première commande chez EBA&nbsp;! 🎉{' '}
           {stampCount > 0
             ? 'Tu viens de gagner ton premier tampon fidélité — encore quelques commandes et une réduction t’attend.'
-            : `Dès ${priceFormatter.format(minOrderAmount)} FCFA d’achat, chaque commande te fait gagner un tampon fidélité.`}
+            : `Dès ${priceFormatter.format(minOrderAmount)} FCFA d’achat, chaque commande payée te fait gagner un tampon fidélité.`}
         </p>
       ) : (
         <p className="mt-3 text-sm text-foreground/70">

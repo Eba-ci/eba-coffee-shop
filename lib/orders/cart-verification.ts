@@ -10,11 +10,18 @@
 import type { CartItem } from '@/lib/cart-store';
 import type { AdminMenuCategory } from '@/lib/menu';
 import { computeItemsTotal } from '@/lib/orders/totals';
-import { effectiveMax, effectiveMin } from '@/lib/supplements';
+import {
+  effectiveMax,
+  effectiveMin,
+  isAvailableToday,
+  isPausedNow,
+  isWithinAnyPeriod,
+} from '@/lib/supplements';
 
 export type CartMismatchReason =
   | 'empty_cart'
   | 'product_unknown'
+  | 'product_unavailable'
   | 'supplement_unknown'
   | 'supplement_invalid'
   | 'price_changed'
@@ -38,22 +45,47 @@ export class CartMismatchError extends Error {
 export function assertCartMatchesMenu(
   items: CartItem[],
   menu: AdminMenuCategory[],
-  clientTotal: number
+  clientTotal: number,
+  now: Date = new Date()
 ): number {
   if (items.length === 0) {
     throw new CartMismatchError('empty_cart', 'Panier vide');
   }
 
+  // `getMenuAdmin` renvoie aussi les produits en pause et les catégories
+  // désactivées : on les écarte ici pour les distinguer d'un produit inconnu.
   const products = new Map(
-    menu.flatMap((c) => c.products).map((p) => [p.id, p])
+    menu.flatMap((c) => c.products.map((p) => [p.id, { p, cat: c }] as const))
   );
 
   for (const item of items) {
-    const product = products.get(item.productId);
-    if (!product) {
+    const entry = products.get(item.productId);
+    const product = entry?.p;
+    if (!entry || !product) {
       throw new CartMismatchError(
         'product_unknown',
         `Produit introuvable : ${item.productName}`
+      );
+    }
+    // `=== false` : seul un refus explicite bloque (comme `group.available`).
+    // Mêmes règles que l'écran (`isOrderableNow`, hors épuisement : le stock a
+    // son propre contrôle) : pause en cours, jours de la semaine (planning du
+    // produit ∩ catégorie ; liste vide = tous les jours), fenêtres « spécialité
+    // de la semaine ».
+    const days = product.availableDays?.length ? product.availableDays : null;
+    const periods = product.weeklySpecials?.length
+      ? product.weeklySpecials
+      : null;
+    if (
+      product.available === false ||
+      entry.cat.available === false ||
+      isPausedNow(product.unavailableUntil, now) ||
+      !isAvailableToday(days, now) ||
+      !isWithinAnyPeriod(periods, now)
+    ) {
+      throw new CartMismatchError(
+        'product_unavailable',
+        `« ${product.name} » n'est plus disponible`
       );
     }
     if (item.basePrice !== product.price) {

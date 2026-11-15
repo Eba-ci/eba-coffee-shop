@@ -19,6 +19,7 @@ import {
 } from '@/lib/order-mutations';
 import { isDeferredPickup } from '@/lib/orders/scheduling';
 import type { OrderPaymentLineInput } from '@/lib/schemas/order';
+import { awardLoyaltyOnPayment } from './loyalty-on-paid';
 import { announcePaidOrder } from './notify-paid';
 import { refundLatePayment, type RefundableOrder } from './refund';
 import { settledElsewhere } from './settle-alerts';
@@ -77,6 +78,7 @@ export async function settleLatePayment(
 
     try {
       await setOrderPayment(order.id, true, lines, null, { online });
+      await awardLoyaltyOnPayment(order.id);
       void announcePaidOrder(order.id).catch((err) => {
         console.error('[jeko] annonce de la commande payée échouée :', err);
       });
