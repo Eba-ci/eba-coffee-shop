@@ -6,7 +6,6 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { Loader2, HandCoins } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -64,7 +63,6 @@ function Form({
   onClose: () => void;
   onDone: () => void;
 }) {
-  const router = useRouter();
   const [amounts, setAmounts] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       months.map((m) => [
@@ -109,7 +107,6 @@ function Form({
       if (r.ok) {
         onDone();
         onClose();
-        router.refresh();
       } else {
         setError(r.error);
       }

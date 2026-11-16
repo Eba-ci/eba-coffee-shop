@@ -6,7 +6,6 @@
 // changer de dû (le serveur refuse et dit quoi annuler d'abord).
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { BadgePlus, Info, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,7 +77,6 @@ function RateForm({
   today: string;
   onDone: () => void;
 }) {
-  const router = useRouter();
   const nextMonth = shiftMonth(today.slice(0, 7), 1);
   const [editing, setEditing] = useState<string | null>(null);
   const [startMonth, setStartMonth] = useState(nextMonth);
@@ -117,7 +115,6 @@ function RateForm({
       const result = await fn();
       if (!result.ok) return setError(result.error);
       after();
-      router.refresh();
     });
   }
 

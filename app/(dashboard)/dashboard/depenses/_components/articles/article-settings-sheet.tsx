@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +31,6 @@ export function ArticleSettingsSheet({
   linkedElsewhere: Set<string>;
   onClose: () => void;
 }) {
-  const router = useRouter();
   const [baseUnit, setBaseUnit] = useState(article.baseUnit ?? '');
   const [trackInventory, setTrackInventory] = useState(article.trackInventory);
   const [inventoryItemId, setInventoryItemId] = useState(
@@ -73,7 +71,6 @@ export function ArticleSettingsSheet({
         setError(r.error);
         return;
       }
-      router.refresh();
       onClose();
     });
   }

@@ -3,19 +3,17 @@
 // Annulation d'un versement : jamais supprimé, motif obligatoire. Le geste se
 // déplie en place (motif + confirmation) plutôt que d'ouvrir une modale.
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Ban, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useServerAction } from '@/lib/hooks/use-server-action';
 import { cancelSalaryPaymentAction } from '../../../salary-actions';
 
 export function CancelPaymentButton({ paymentId }: { paymentId: string }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending, error, clearError } = useServerAction();
 
   if (!open) {
     return (
@@ -23,7 +21,10 @@ export function CancelPaymentButton({ paymentId }: { paymentId: string }) {
         variant="ghost"
         size="sm"
         className="h-11 px-2 text-muted-foreground sm:h-8"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          clearError();
+          setOpen(true);
+        }}
       >
         <Ban className="size-4" aria-hidden="true" />
         Annuler
@@ -32,11 +33,14 @@ export function CancelPaymentButton({ paymentId }: { paymentId: string }) {
   }
 
   function submit() {
-    startTransition(async () => {
-      const r = await cancelSalaryPaymentAction({ paymentId, reason });
-      if (r.ok) router.refresh();
-      else setError(r.error);
-    });
+    // L'action revalide /dashboard/employes : aucun second rendu côté client.
+    run(
+      () => cancelSalaryPaymentAction({ paymentId, reason }),
+      () => {
+        setOpen(false);
+        setReason('');
+      }
+    );
   }
 
   return (
@@ -48,7 +52,7 @@ export function CancelPaymentButton({ paymentId }: { paymentId: string }) {
         value={reason}
         onChange={(e) => {
           setReason(e.target.value);
-          setError(null);
+          clearError();
         }}
       />
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -56,7 +60,10 @@ export function CancelPaymentButton({ paymentId }: { paymentId: string }) {
         <Button
           variant="outline"
           className="h-11 flex-1"
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            clearError();
+            setOpen(false);
+          }}
           disabled={pending}
         >
           Garder

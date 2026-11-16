@@ -6,7 +6,6 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { HandCoins, Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,7 +44,6 @@ function Form({
   rows: PayrollRow[];
   onClose: () => void;
 }) {
-  const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(rows.map((r) => r.id))
   );
@@ -104,7 +102,6 @@ function Form({
       });
       if (r.ok) {
         onClose();
-        router.refresh();
       } else setError(r.error);
     });
   }

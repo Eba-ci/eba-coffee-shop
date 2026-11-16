@@ -10,7 +10,6 @@
 // de synchronisation).
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +46,6 @@ export function EmployeeCreateDrawer({
 }
 
 function CreateForm({ today, onDone }: { today: string; onDone: () => void }) {
-  const router = useRouter();
   const [name, setName] = useState('');
   const [position, setPosition] = useState('');
   const [startDate, setStartDate] = useState(today);
@@ -84,7 +82,6 @@ function CreateForm({ today, onDone }: { today: string; onDone: () => void }) {
       });
       if (!result.ok) return setError(result.error);
       onDone();
-      router.refresh();
     });
   }
 

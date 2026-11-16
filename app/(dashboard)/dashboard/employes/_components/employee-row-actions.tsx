@@ -8,7 +8,6 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   CalendarX2,
   Eye,
@@ -57,7 +56,6 @@ export function EmployeeRowActions({
   /** ADMIN uniquement : un COMPTABLE consulte sans action d'écriture. */
   canWrite: boolean;
 }) {
-  const router = useRouter();
   const [payOpen, setPayOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
@@ -81,7 +79,6 @@ export function EmployeeRowActions({
       const result = await reactivateEmployeeAction(row.id);
       if (!result.ok) return setError(result.error);
       setReactivateConfirm(false);
-      router.refresh();
     });
   }
 

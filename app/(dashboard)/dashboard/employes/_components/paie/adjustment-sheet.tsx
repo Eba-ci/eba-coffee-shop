@@ -6,7 +6,6 @@
 // saisir, annuler et afficher (#443, #444).
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Ban, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,7 +46,6 @@ export function AdjustmentSheet({
   today: string;
   onOpenChange: (open: boolean) => void;
 }) {
-  const router = useRouter();
   const [rows, setRows] = useState<SalaryAdjustmentRow[]>(
     () => employee?.adjustments ?? []
   );
@@ -99,7 +97,6 @@ export function AdjustmentSheet({
       ]);
       setAmount('');
       setNote('');
-      router.refresh();
     });
   }
 
@@ -112,7 +109,6 @@ export function AdjustmentSheet({
           a.id === id ? { ...a, canceledAt: a.canceledAt ?? today } : a
         )
       );
-      router.refresh();
     });
   }
 
