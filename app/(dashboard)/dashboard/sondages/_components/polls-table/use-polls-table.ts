@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useServerAction } from '@/lib/hooks/use-server-action';
+import { useState } from 'react';
 import {
   createPollAction,
   setPollStatusAction,
@@ -12,10 +12,8 @@ import { emptyCreate, type CreateValues, type PollRow } from './types';
 export type PollsTableState = ReturnType<typeof usePollsTable>;
 
 export function usePollsTable() {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const { run, pending, error, setError } = useServerAction();
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [values, setValues] = useState<CreateValues>(emptyCreate);
@@ -46,29 +44,20 @@ export function usePollsTable() {
       resultsVisibility: values.resultsVisibility,
       options: options.map((label) => ({ label })),
     };
-    startTransition(async () => {
-      const r = await createPollAction(input);
-      if (!r.ok) {
-        setError(r.error);
-        return;
+    run(
+      () => createPollAction(input),
+      () => {
+        setCreateOpen(false);
       }
-      setCreateOpen(false);
-      router.refresh();
-    });
+    );
   }
 
   function changeStatus(id: string, status: PollRow['status']) {
     setError(null);
     setPendingId(id);
-    startTransition(async () => {
-      const r = await setPollStatusAction(id, { status });
-      setPendingId(null);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-      router.refresh();
-    });
+    run(() =>
+      setPollStatusAction(id, { status }).finally(() => setPendingId(null))
+    );
   }
 
   function remove(poll: PollRow) {
@@ -81,15 +70,7 @@ export function usePollsTable() {
     }
     setError(null);
     setPendingId(poll.id);
-    startTransition(async () => {
-      const r = await deletePollAction(poll.id);
-      setPendingId(null);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-      router.refresh();
-    });
+    run(() => deletePollAction(poll.id).finally(() => setPendingId(null)));
   }
 
   return {

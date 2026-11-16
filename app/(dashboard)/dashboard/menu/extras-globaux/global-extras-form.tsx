@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   SupplementsEditor,
@@ -19,7 +18,6 @@ type Props = {
 };
 
 export function GlobalExtrasForm({ initialGroups }: Props) {
-  const router = useRouter();
   const { pushToast } = useUndoToast();
   const [groups, setGroups] = useState<SupplementGroup[]>(initialGroups);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +49,6 @@ export function GlobalExtrasForm({ initialGroups }: Props) {
         pushToast(result.error, 'error');
         return;
       }
-      router.refresh();
       pushToast('Extras globaux enregistrés');
     });
   }

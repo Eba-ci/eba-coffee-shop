@@ -60,7 +60,7 @@ export function DraftBanner({
       );
     }
     setNotice(parts.length > 0 ? parts.join(' · ') : null);
-    // `items` change d'identité à chaque `router.refresh()` : on ne réaccorde
+    // `items` change d'identité à chaque rendu serveur (revalidation) : on ne réaccorde
     // qu'au montage, le brouillon n'ayant pas à bouger entre deux rendus.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

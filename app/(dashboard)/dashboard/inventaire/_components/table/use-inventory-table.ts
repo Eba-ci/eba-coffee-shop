@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import type { InventoryItemView } from '@/lib/inventory';
 import { useSearchHits } from '@/lib/hooks/use-search-hits';
 import { itemsByHits } from '@/lib/search/rank';
@@ -24,7 +23,6 @@ export function useInventoryTable({
   items: InventoryItemView[];
   archived: InventoryItemView[];
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const { confirm, confirmDialog } = useConfirmDialog();
@@ -83,7 +81,6 @@ export function useInventoryTable({
         return;
       }
       setCreateOpen(false);
-      router.refresh();
     });
   }
 
@@ -104,7 +101,6 @@ export function useInventoryTable({
         return;
       }
       setEditItem(null);
-      router.refresh();
     });
   }
 
@@ -125,7 +121,6 @@ export function useInventoryTable({
         setListError(r.error);
         return;
       }
-      router.refresh();
     });
   }
 
@@ -139,7 +134,6 @@ export function useInventoryTable({
         setListError(r.error);
         return;
       }
-      router.refresh();
     });
   }
 

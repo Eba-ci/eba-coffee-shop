@@ -10,8 +10,8 @@
 // Le motif (`trustedNote`) est facultatif : raison de l'octroi ou plafond
 // d'ardoise convenu avec le client.
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useServerAction } from '@/lib/hooks/use-server-action';
+import { useState } from 'react';
 import { Handshake, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,11 +40,9 @@ export function TrustedCustomerCard({
   trustedSince,
   trustedNote,
 }: Props) {
-  const router = useRouter();
   const [trusted, setTrusted] = useState(isTrusted);
   const [note, setNote] = useState(trustedNote ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending, error, setError } = useServerAction();
 
   // « Sale » = l'état affiché diverge de l'état enregistré : le bouton
   // n'apparaît que là, pour éviter un enregistrement à vide.
@@ -52,18 +50,9 @@ export function TrustedCustomerCard({
 
   function save() {
     setError(null);
-    startTransition(async () => {
-      const res = await setCustomerTrustedAction(
-        customerId,
-        trusted,
-        note.trim() || null
-      );
-      if (!res.ok) {
-        setError(res.error);
-        return;
-      }
-      router.refresh();
-    });
+    run(() =>
+      setCustomerTrustedAction(customerId, trusted, note.trim() || null)
+    );
   }
 
   return (

@@ -5,7 +5,6 @@
 // motif, canal et numéro préremplis (modifiables), remise en stock facultative.
 
 import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,7 +59,6 @@ export function RequestRefundSheet({
   canApprove: boolean;
   defaultOpen?: boolean;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState(defaultOpen);
   const lines = useMemo(() => buildRefundableLines(order.items), [order.items]);
   const [selection, setSelection] = useState<LineSelection>({});
@@ -123,7 +121,6 @@ export function RequestRefundSheet({
       );
       if (r.ok) {
         setOpen(false);
-        router.refresh();
       } else {
         setError(r.error);
       }

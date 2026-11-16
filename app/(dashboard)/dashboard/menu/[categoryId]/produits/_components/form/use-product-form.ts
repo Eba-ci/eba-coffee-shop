@@ -223,7 +223,6 @@ export function useProductForm({
         return;
       }
       router.push(`/dashboard/menu/${categoryId}`);
-      router.refresh();
       pushToast(isEdit ? `${payload.name} enregistré` : `${payload.name} créé`);
     });
   }
