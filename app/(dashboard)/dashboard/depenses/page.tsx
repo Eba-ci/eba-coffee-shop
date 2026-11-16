@@ -68,10 +68,8 @@ export default async function DepensesPage({
     const query = params.mois ? `?mois=${encodeURIComponent(params.mois)}` : '';
     redirect(`/dashboard/employes/paie${query}`);
   }
-  const pointMortMonth = parseMonth(
-    loadPointMortParams(params).mois,
-    todayDateString()
-  );
+  const pointMortParams = loadPointMortParams(params);
+  const pointMortMonth = parseMonth(pointMortParams.mois, todayDateString());
 
   const isAll = params.range === 'all';
   const today = todayDateString();
@@ -205,7 +203,12 @@ export default async function DepensesPage({
         }
         paiements={
           <Suspense fallback={<TableSkeleton rows={8} withToolbar={false} />}>
-            <PaymentsSection month={pointMortMonth} readOnly={readOnly} />
+            <PaymentsSection
+              month={pointMortMonth}
+              readOnly={readOnly}
+              historyMonths={pointMortParams.histo}
+              onlyUnpaid={pointMortParams.impayes}
+            />
           </Suspense>
         }
       />
