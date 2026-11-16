@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useServerAction } from '@/lib/hooks/use-server-action';
+import { useState } from 'react';
 import {
   ALLOWED_IMAGE_MIME_TYPES,
   MAX_UPLOAD_SIZE_BYTES,
@@ -33,9 +34,8 @@ export function usePollDetail({
   pollId: string;
   suggestions: SuggestionRow[];
 }) {
-  const [pending, startTransition] = useTransition();
+  const { run, pending, error, setError } = useServerAction();
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const [newLabel, setNewLabel] = useState('');
   const [newDescription, setNewDescription] = useState('');
@@ -51,43 +51,36 @@ export function usePollDetail({
       setError('Le libellé est obligatoire.');
       return;
     }
-    startTransition(async () => {
-      const r = await createPollOptionAction(pollId, {
-        label,
-        description: newDescription.trim() || undefined,
-      });
-      if (!r.ok) {
-        setError(r.error);
-        return;
+    run(
+      () =>
+        createPollOptionAction(pollId, {
+          label,
+          description: newDescription.trim() || undefined,
+        }),
+      () => {
+        setNewLabel('');
+        setNewDescription('');
       }
-      setNewLabel('');
-      setNewDescription('');
-    });
+    );
   }
 
   function move(id: string, direction: 'up' | 'down') {
     setPendingId(id);
-    startTransition(async () => {
-      const r = await movePollOptionAction(id, pollId, direction);
-      setPendingId(null);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-    });
+    run(() =>
+      movePollOptionAction(id, pollId, direction).finally(() =>
+        setPendingId(null)
+      )
+    );
   }
 
   function remove(option: OptionRow) {
     if (!window.confirm(`Retirer l’option « ${option.label} » ?`)) return;
     setPendingId(option.id);
-    startTransition(async () => {
-      const r = await deletePollOptionAction(option.id, pollId);
-      setPendingId(null);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-    });
+    run(() =>
+      deletePollOptionAction(option.id, pollId).finally(() =>
+        setPendingId(null)
+      )
+    );
   }
 
   async function uploadImage(optionId: string, file: File) {
@@ -124,17 +117,12 @@ export function usePollDetail({
       rejectionReason = reason.trim();
     }
     setPendingId(suggestion.id);
-    startTransition(async () => {
-      const r = await moderatePollSuggestionAction(suggestion.id, pollId, {
+    run(() =>
+      moderatePollSuggestionAction(suggestion.id, pollId, {
         decision,
         rejectionReason,
-      });
-      setPendingId(null);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-    });
+      }).finally(() => setPendingId(null))
+    );
   }
 
   return {

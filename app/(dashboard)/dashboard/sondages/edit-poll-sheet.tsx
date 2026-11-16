@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useServerAction } from '@/lib/hooks/use-server-action';
+import { useState } from 'react';
 import { Loader2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,8 +44,7 @@ export function EditPollSheet({
   variant?: 'icon' | 'button';
 }) {
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const { run, pending, error, setError } = useServerAction();
   const [values, setValues] = useState<PollScalarValues>(() =>
     toFormValues(poll)
   );
@@ -69,14 +69,12 @@ export function EditPollSheet({
       allowSuggestions: values.allowSuggestions,
       resultsVisibility: values.resultsVisibility,
     };
-    startTransition(async () => {
-      const r = await updatePollAction(poll.id, input);
-      if (!r.ok) {
-        setError(r.error);
-        return;
+    run(
+      () => updatePollAction(poll.id, input),
+      () => {
+        setOpen(false);
       }
-      setOpen(false);
-    });
+    );
   }
 
   return (

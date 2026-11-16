@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useServerAction } from '@/lib/hooks/use-server-action';
+import { useState } from 'react';
 import { Loader2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,8 +37,7 @@ function toFormValues(video: TiktokVideoScalar): TiktokVideoFormValues {
 /** Bouton + panneau d'édition d'une vidéo TikTok existante. */
 export function EditTiktokSheet({ video }: { video: TiktokVideoScalar }) {
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const { run, pending, error, setError } = useServerAction();
   const [values, setValues] = useState<TiktokVideoFormValues>(() =>
     toFormValues(video)
   );
@@ -60,14 +60,12 @@ export function EditTiktokSheet({ video }: { video: TiktokVideoScalar }) {
       caption: values.caption.trim() || null,
       isActive: values.isActive,
     };
-    startTransition(async () => {
-      const r = await updateTiktokVideoAction(video.id, input);
-      if (!r.ok) {
-        setError(r.error);
-        return;
+    run(
+      () => updateTiktokVideoAction(video.id, input),
+      () => {
+        setOpen(false);
       }
-      setOpen(false);
-    });
+    );
   }
 
   return (
