@@ -161,6 +161,19 @@ aussi en local ; en test, changer l'en-tête `x-forwarded-for` suffit.
   la commande sort de l'attente (`paymentExpiresAt = null`) et s'encaisse par les moyens
   habituels, sans Jèko ni frais. Un lien Jèko déjà ouvert peut encore être payé : il
   déclenche l'alerte de double paiement.
+- **Lien Jèko déjà ouvert après « Prendre en caisse »** : aucune API d'annulation de
+  demande de paiement n'a été repérée côté Jèko, donc le lien reste payable jusqu'à son
+  expiration. Le filet est l'alerte de double paiement ci-dessus, puis un remboursement
+  manuel. Rien à coder tant que Jèko n'offre pas d'annulation.
+- **Créneau retenu pendant le paiement** : une commande en attente garde son créneau (et
+  son stock, retrait aujourd'hui) pendant `PAYMENT_EXPIRY_MINUTES`
+  (`config/constants/orders.ts`), et chaque relance repousse l'échéance. Une personne
+  mal intentionnée pourrait donc bloquer un créneau en relançant ; c'est borné par la
+  limite de débit par IP (`lib/order-payment-rate-limit.ts`) et le risque est faible au
+  volume actuel. À revoir (plafond de relances par commande) si on le constate.
+- **Registre Jèko (`amount_mismatch`, paiements tardifs)** : documenté, pas compté. Aucun
+  montant reçu n'est mémorisé et `paymentTransactionId` n'est pas écrit dans ces cas ;
+  le Dashboard Jèko reste la source pour rapprocher.
 - **Expiration sans configuration Jèko** : si les variables `JEKO_*` manquent, aucune
   commande ayant une demande de paiement n'est expirée (elle a pu être payée).
 - **Montant figé** : `Order.paymentAmountDue` garde ce qui a été demandé à Jèko. Le
