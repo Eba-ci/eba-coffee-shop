@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -13,30 +13,30 @@ const DEPENSES_ACTIONS = [
   'depenses/_components/paiements/batch-actions.ts',
 ];
 
-const SCREENS = [
-  'employes/[employeeId]/_components/sections/cancel-payment-button.tsx',
-  'employes/_components/arrears/overpaid-bonus-button.tsx',
-  'employes/_components/arrears/arrears-settle-drawer.tsx',
-  'employes/_components/employee-create-drawer.tsx',
-  'employes/_components/employee-edit-drawer.tsx',
-  'employes/_components/employee-exit-drawer.tsx',
-  'employes/_components/employee-rate-drawer.tsx',
-  'employes/_components/employee-row-actions.tsx',
-  'employes/_components/paie/adjustment-sheet.tsx',
-  'employes/_components/paie/payroll-drawer.tsx',
-  'depenses/_components/paiements/use-batch-selection.ts',
-  'depenses/_components/article-history/use-relink.ts',
-  'depenses/_components/articles/article-merge-sheet.tsx',
-  'depenses/_components/articles/article-settings-sheet.tsx',
-  'depenses/articles-table.tsx',
-  'depenses/expense-settings-sheet.tsx',
-];
+// Écrans dérivés par glob : tout .ts/.tsx (hors tests) sous ces deux dossiers.
+// Exclus : fichiers qui gardent légitimement `useRouter` pour des
+// `router.replace`/`push` (filtres d'URL, tables) ou dont le `refresh` relève
+// du reste de #477 (use-expense-form.ts), hors périmètre ici.
+const EXCLUDED = ['depenses/_components/expense-form/use-expense-form.ts'];
+
+function walk(dir: string): string[] {
+  return readdirSync(join(DIR, dir), { withFileTypes: true }).flatMap((e) => {
+    const rel = `${dir}/${e.name}`;
+    if (e.isDirectory()) return walk(rel);
+    const isSource = /\.tsx?$/.test(e.name) && !/\.test\.tsx?$/.test(e.name);
+    return isSource ? [rel] : [];
+  });
+}
+
+const SCREENS = ['employes', 'depenses']
+  .flatMap(walk)
+  .filter((p) => !EXCLUDED.includes(p));
 
 const read = (p: string) => readFileSync(join(DIR, p), 'utf8');
 
 describe('aucun second rendu côté client redondant (#477)', () => {
   it.each(SCREENS)('%s', (p) => {
-    expect(read(p)).not.toMatch(/router\.refresh\(/);
+    expect(read(p)).not.toMatch(/\.refresh\b/);
   });
 
   it.each(EMPLOYES_ACTIONS)('%s revalide /dashboard/employes', (p) => {

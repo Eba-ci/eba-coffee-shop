@@ -21,7 +21,10 @@ export function CancelPaymentButton({ paymentId }: { paymentId: string }) {
         variant="ghost"
         size="sm"
         className="h-11 px-2 text-muted-foreground sm:h-8"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          clearError();
+          setOpen(true);
+        }}
       >
         <Ban className="size-4" aria-hidden="true" />
         Annuler
@@ -31,7 +34,13 @@ export function CancelPaymentButton({ paymentId }: { paymentId: string }) {
 
   function submit() {
     // L'action revalide /dashboard/employes : aucun second rendu côté client.
-    run(() => cancelSalaryPaymentAction({ paymentId, reason }));
+    run(
+      () => cancelSalaryPaymentAction({ paymentId, reason }),
+      () => {
+        setOpen(false);
+        setReason('');
+      }
+    );
   }
 
   return (
@@ -51,7 +60,10 @@ export function CancelPaymentButton({ paymentId }: { paymentId: string }) {
         <Button
           variant="outline"
           className="h-11 flex-1"
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            clearError();
+            setOpen(false);
+          }}
           disabled={pending}
         >
           Garder

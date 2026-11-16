@@ -24,11 +24,15 @@ export function OverpaidBonusButton({
   overpaid: number;
 }) {
   const [confirm, setConfirm] = useState(false);
-  const { run, pending, error } = useServerAction();
+  const { run, pending, error, clearError } = useServerAction();
 
   function submit() {
-    run(() => convertOverpaymentToBonusAction({ employeeId, month }));
-    setConfirm(false);
+    // La confirmation reste ouverte (bouton désactivé) jusqu'à la réponse ;
+    // elle ne se ferme qu'en cas de succès, l'erreur reste visible sinon.
+    run(
+      () => convertOverpaymentToBonusAction({ employeeId, month }),
+      () => setConfirm(false)
+    );
   }
 
   return (
@@ -46,7 +50,11 @@ export function OverpaidBonusButton({
         variant={confirm ? 'default' : 'outline'}
         className="h-11"
         disabled={pending}
-        onClick={() => (confirm ? submit() : setConfirm(true))}
+        onClick={() => {
+          if (confirm) return submit();
+          clearError();
+          setConfirm(true);
+        }}
       >
         {pending ? (
           <Loader2 className="size-4 animate-spin" />
