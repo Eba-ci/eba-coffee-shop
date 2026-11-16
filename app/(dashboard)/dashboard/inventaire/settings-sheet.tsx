@@ -7,7 +7,8 @@
 // que la bannière du tableau de bord ignorait ce réglage et comparait à 7 en
 // dur ; maintenant qu'elle le respecte, il faut pouvoir le régler.
 
-import { useState, useTransition } from 'react';
+import { useServerAction } from '@/lib/hooks/use-server-action';
+import { useState } from 'react';
 import { Loader2, Settings2 } from 'lucide-react';
 
 import type { InventorySettings } from '@/lib/inventory-settings';
@@ -28,10 +29,9 @@ import { updateInventorySettingsAction } from './actions';
 
 export function SettingsSheet({ settings }: { settings: InventorySettings }) {
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const { run, pending, error, setError } = useServerAction();
   const [enabled, setEnabled] = useState(settings.reminderEnabled);
   const [days, setDays] = useState(String(settings.reminderDays));
-  const [error, setError] = useState<string | null>(null);
 
   function submit() {
     setError(null);
@@ -40,17 +40,16 @@ export function SettingsSheet({ settings }: { settings: InventorySettings }) {
       setError('Le délai doit être un nombre de jours entre 1 et 365.');
       return;
     }
-    startTransition(async () => {
-      const result = await updateInventorySettingsAction({
-        reminderEnabled: enabled,
-        reminderDays: parsed,
-      });
-      if (!result.ok) {
-        setError(result.error);
-        return;
+    run(
+      () =>
+        updateInventorySettingsAction({
+          reminderEnabled: enabled,
+          reminderDays: parsed,
+        }),
+      () => {
+        setOpen(false);
       }
-      setOpen(false);
-    });
+    );
   }
 
   return (
