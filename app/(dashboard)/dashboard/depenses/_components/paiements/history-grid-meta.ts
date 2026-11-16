@@ -17,15 +17,15 @@ export const HISTORY_CELL_META: Record<
     className:
       'border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100',
   },
-  UNPAID: {
-    label: 'Impayé',
-    className:
-      'border-red-400 bg-red-100 text-red-950 dark:border-red-800 dark:bg-red-950/60 dark:text-red-100',
-  },
   LATE: {
     label: 'En retard',
     className:
-      'border-red-300 bg-red-50 text-red-950 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100',
+      'border-red-400 bg-red-100 text-red-950 dark:border-red-800 dark:bg-red-950/60 dark:text-red-100',
+  },
+  UNPAID: {
+    label: 'Impayé',
+    className:
+      'border-orange-300 bg-orange-50 text-orange-950 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-100',
   },
   UPCOMING: {
     label: 'À venir',
@@ -39,11 +39,13 @@ export const HISTORY_CELL_META: Record<
 };
 
 /**
- * Ouvre le mois dans l'onglet Paiements ; un mois impayé ou partiel mène droit
+ * Ouvre le mois dans l'onglet Paiements ; un mois en retard, impayé ou partiel mène droit
  * au rapprochement (une dépense existe peut-être sans être liée).
  */
 export function historyCellHref(month: string, state: HistoryCellState) {
   const anchor =
-    state === 'UNPAID' || state === 'PARTIAL' ? '#rapprochement' : '';
+    state === 'LATE' || state === 'UNPAID' || state === 'PARTIAL'
+      ? '#rapprochement'
+      : '';
   return `/dashboard/depenses?tab=paiements&mois=${month}${anchor}`;
 }

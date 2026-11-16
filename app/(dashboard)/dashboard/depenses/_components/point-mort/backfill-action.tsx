@@ -6,7 +6,7 @@
 
 import { useState, useTransition } from 'react';
 import { History } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   FixedCostSheetPanel,
@@ -44,9 +44,9 @@ export function BackfillAction({
       <Button
         type="button"
         size="sm"
-        variant="outline"
+        variant="bordered"
         className="h-11 sm:h-9"
-        onClick={() => setOpen(true)}
+        onPress={() => setOpen(true)}
       >
         <History className="h-4 w-4" aria-hidden />
         {suggestion.alreadyConverted

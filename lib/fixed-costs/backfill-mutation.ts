@@ -59,15 +59,11 @@ export async function backfillFixedCost(
       : null,
   };
 
-  // Charge à corriger : celle importée, sinon l'unique charge de la catégorie.
-  const costs = category.fixedCosts;
-  const existing =
-    costs.find((c) => c.importedCategoryId === d.categoryId) ??
-    (costs.length === 1 ? costs[0] : undefined);
-  if (!existing && costs.length > 1)
-    throw new Error(
-      'Cette catégorie porte plusieurs charges : corrige la prise d’effet de la bonne depuis la liste des charges.'
-    );
+  // Charge à corriger : UNIQUEMENT celle retrouvée par la clé d'idempotence
+  // (`importedCategoryId`). Une charge saisie à la main n'est jamais modifiée.
+  const existing = category.fixedCosts.find(
+    (c) => c.importedCategoryId === d.categoryId
+  );
 
   if (existing) {
     const plan = planBackfillStart(d.startDate, ctx);

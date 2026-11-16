@@ -90,6 +90,16 @@ describe('links-queries', () => {
     expect(view.proposals[0]).toMatchObject({ expenseId: 'e1', delta: 0 });
   });
 
+  it('lit l’échéancier en incluant les charges désactivées (rapprochement)', async () => {
+    schedule.getMonthSchedule.mockResolvedValue([]);
+    await getReconciliation('2026-03');
+    expect(schedule.getMonthSchedule).toHaveBeenCalledWith(
+      '2026-03',
+      expect.anything(),
+      { includeInactive: true }
+    );
+  });
+
   it('sans échéance, ne lit aucune dépense', async () => {
     schedule.getMonthSchedule.mockResolvedValue([]);
     const view = await getReconciliation('2026-03');

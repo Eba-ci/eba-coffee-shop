@@ -6,7 +6,7 @@
 
 import { useTransition } from 'react';
 import { useQueryStates } from 'nuqs';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { HISTORY_RANGE_CHOICES } from '@/lib/fixed-costs/history-grid-ranges';
 import { pointMortParsers } from '../../point-mort-search-params';
 
@@ -33,20 +33,22 @@ export function HistoryGridControls({
         <Button
           key={n}
           size="sm"
-          variant={n === months ? 'default' : 'outline'}
+          color="primary"
+          variant={n === months ? 'solid' : 'bordered'}
           className="h-11 sm:h-9"
           aria-pressed={n === months}
-          onClick={() => setParams({ histo: n === 12 ? null : n })}
+          onPress={() => setParams({ histo: n === 12 ? null : n })}
         >
           {n} mois
         </Button>
       ))}
       <Button
         size="sm"
-        variant={onlyUnpaid ? 'default' : 'outline'}
+        color="primary"
+        variant={onlyUnpaid ? 'solid' : 'bordered'}
         className="h-11 sm:h-9"
         aria-pressed={onlyUnpaid}
-        onClick={() => setParams({ impayes: onlyUnpaid ? null : true })}
+        onPress={() => setParams({ impayes: onlyUnpaid ? null : true })}
       >
         Mois sans aucun paiement
       </Button>

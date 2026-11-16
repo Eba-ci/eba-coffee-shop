@@ -5,9 +5,11 @@
 // de statut, rien n'est stocké. Aucune donnée de salaire : la grille ne reçoit
 // que des charges fixes (la masse salariale reste un nombre ailleurs).
 //
-// Décisions (épique #461) : un mois est IMPAYÉ s'il porte une échéance, que rien
-// n'y est versé (`paid === 0`) et qu'il est STRICTEMENT passé. Le mois courant
-// n'est jamais impayé : il est « en retard » (date passée) ou « à venir ».
+// Décisions (épique #461) : un mois STRICTEMENT passé qui porte une échéance non
+// entièrement réglée (rien de versé OU partiel) est EN RETARD (`LATE`), comme
+// `getLateFixedCostOccurrences` : on oublie le plus souvent de marquer payé. Le
+// mois courant n'est jamais en retard : IMPAYÉ (date échue, rien versé),
+// partiel, ou « à venir ».
 
 import { shiftMonth } from './month';
 import type { Occurrence } from './schedule';
@@ -16,8 +18,8 @@ export type HistoryCellState =
   | 'NA' // pas d'échéance ce mois-là (pas en vigueur, terminée, autre périodicité)
   | 'PAID'
   | 'PARTIAL'
-  | 'UNPAID' // mois passé, échéance existante, rien versé
-  | 'LATE' // mois courant, date d'échéance passée, rien versé
+  | 'LATE' // mois passé, échéance non entièrement réglée (rien ou partiel)
+  | 'UNPAID' // mois courant, date d'échéance passée, rien versé
   | 'UPCOMING';
 
 export type HistoryCell = {
@@ -40,6 +42,9 @@ export type HistoryGridCost = {
 export type HistoryRow = {
   cost: HistoryGridCost;
   cells: HistoryCell[];
+  /** Mois passés non entièrement réglés. */
+  lateMonths: number;
+  /** Mois courant échu, rien versé. */
   unpaidMonths: number;
   due: number;
   paid: number;
@@ -73,16 +78,16 @@ function cellFor(
   const remaining = occurrences.reduce((s, o) => s + o.remaining, 0);
   let state: HistoryCellState;
   if (remaining === 0) state = 'PAID';
+  else if (month < currentMonth) state = 'LATE';
   else if (paid > 0) state = 'PARTIAL';
-  else if (month < currentMonth) state = 'UNPAID';
-  else if (occurrences.some((o) => o.overdue)) state = 'LATE';
+  else if (occurrences.some((o) => o.overdue)) state = 'UNPAID';
   else state = 'UPCOMING';
   return { month, state, due, paid, remaining };
 }
 
 /**
  * `occurrences` doit couvrir tous les mois de la plage (une seule lecture).
- * `onlyUnpaid` ne garde que les charges ayant au moins un mois IMPAYÉ ; les
+ * `onlyUnpaid` ne garde que les charges ayant au moins un mois en retard ou impayé ; les
  * totaux sont alors ceux des lignes conservées.
  */
 export function buildHistoryGrid(
@@ -107,13 +112,15 @@ export function buildHistoryGrid(
     return {
       cost,
       cells,
+      lateMonths: cells.filter((c) => c.state === 'LATE').length,
       unpaidMonths: cells.filter((c) => c.state === 'UNPAID').length,
       due: cells.reduce((s, c) => s + c.due, 0),
       paid: cells.reduce((s, c) => s + c.paid, 0),
       remaining: cells.reduce((s, c) => s + c.remaining, 0),
     };
   });
-  if (opts.onlyUnpaid) rows = rows.filter((r) => r.unpaidMonths > 0);
+  if (opts.onlyUnpaid)
+    rows = rows.filter((r) => r.lateMonths + r.unpaidMonths > 0);
 
   const columns = months.map((month, i) => ({
     month,

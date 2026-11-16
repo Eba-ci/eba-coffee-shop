@@ -97,7 +97,9 @@ export async function getReconciliation(
   month: string
 ): Promise<ReconciliationView> {
   const costs = await listFixedCosts();
-  const occurrences = await getMonthSchedule(month, costs);
+  const occurrences = await getMonthSchedule(month, costs, {
+    includeInactive: true,
+  });
   const empty = { month, occurrences, unlinked: [], linked: [], proposals: [] };
   if (occurrences.length === 0) return empty;
 
@@ -159,7 +161,9 @@ export async function getLinkProposals(opts: {
   const costs = (await listFixedCosts()).filter(
     (c) => !opts.categoryId || c.categoryId === opts.categoryId
   );
-  const occurrences = await getFixedCostSchedule(opts.from, opts.to, costs);
+  const occurrences = await getFixedCostSchedule(opts.from, opts.to, costs, {
+    includeInactive: true,
+  });
   const categoryIds = [...new Set(costs.map((c) => c.categoryId))];
   const unlinked = await listUnlinkedFixedExpenses({
     from: opts.from,

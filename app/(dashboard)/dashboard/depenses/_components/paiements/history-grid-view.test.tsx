@@ -39,11 +39,12 @@ const grid = (payments = [] as never[]) =>
   );
 
 describe('HistoryGridView', () => {
-  it('affiche états, compteur d’impayés et totaux, avec un lien vers le rapprochement', () => {
+  it('affiche états, compteur de retards et totaux, avec un lien vers le rapprochement', () => {
     const html = renderToStaticMarkup(<HistoryGridView grid={grid()} />);
     expect(html).toContain('Loyer');
-    expect(html).toContain('Impayé');
-    expect(html).toContain('3 impayés');
+    expect(html).toContain('En retard');
+    expect(html).toContain('3 en retard');
+    expect(html).toContain('Légende');
     expect(html).toContain('Total de la période');
     expect(html).toContain('tab=paiements&amp;mois=2026-04#rapprochement');
   });

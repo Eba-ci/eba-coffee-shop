@@ -6,7 +6,7 @@
 
 import { useState, useTransition } from 'react';
 import { Link2, Link2Off } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@heroui/react';
 import { formatDay, money } from '@/lib/fixed-costs/format';
 import type { ReconciliationView } from '@/lib/fixed-costs/links-queries';
 import { linkExpensesAction, unlinkExpensesAction } from '../../actions-links';
@@ -84,10 +84,10 @@ export function ReconciliationPanel({
             {!readOnly && view.proposals.length > 1 && (
               <Button
                 size="sm"
-                variant="outline"
+                variant="bordered"
                 className="h-11 sm:h-9"
-                disabled={pending}
-                onClick={() =>
+                isDisabled={pending}
+                onPress={() =>
                   link(
                     view.proposals.map((p) => ({
                       expenseId: p.expenseId,
@@ -124,9 +124,10 @@ export function ReconciliationPanel({
                   {!readOnly && (
                     <Button
                       size="sm"
+                      color="primary"
                       className="h-11 shrink-0 sm:h-9"
-                      disabled={pending}
-                      onClick={() =>
+                      isDisabled={pending}
+                      onPress={() =>
                         link([
                           {
                             expenseId: p.expenseId,
@@ -186,10 +187,10 @@ export function ReconciliationPanel({
                       </select>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant="bordered"
                         className="h-11 shrink-0 sm:h-9"
-                        disabled={pending || !picked}
-                        onClick={() => {
+                        isDisabled={pending || !picked}
+                        onPress={() => {
                           const [costId, dueDate] = picked.split('|');
                           link([{ expenseId: e.id, costId, dueDate }]);
                         }}
@@ -224,12 +225,12 @@ export function ReconciliationPanel({
                   </p>
                   {!readOnly && (
                     <Button
-                      size="icon"
-                      variant="ghost"
+                      isIconOnly
+                      variant="light"
                       className="h-11 w-11 shrink-0"
                       aria-label="Délier"
-                      disabled={pending}
-                      onClick={() => unlink(l.id)}
+                      isDisabled={pending}
+                      onPress={() => unlink(l.id)}
                     >
                       <Link2Off className="h-4 w-4" />
                     </Button>

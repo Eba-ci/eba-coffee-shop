@@ -70,6 +70,31 @@ describe('linkExpenses', () => {
     });
   });
 
+  it('verrouille les charges puis les dépenses AVANT de lire les dépenses', async () => {
+    await linkExpenses([target], actor);
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+    const [costLock, expenseLock] = tx.$queryRaw.mock.calls.map((c) =>
+      c[0].join('?')
+    );
+    expect(costLock).toContain('"fixed_cost"');
+    expect(expenseLock).toContain('"expense"');
+    expect(tx.$queryRaw.mock.invocationCallOrder[1]).toBeLessThan(
+      tx.expense.findMany.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('deux appels qui visent la même dépense : le second la voit déjà liée ailleurs et refuse', async () => {
+    await linkExpenses([target], actor);
+    // Après le verrou, le second appel relit l'état validé du premier.
+    tx.expense.findMany.mockResolvedValue([
+      exp({ fixedCostId: 'c1', dueDate: utc('2026-03-10') }),
+    ]);
+    await expect(
+      linkExpenses([{ ...target, dueDate: '2026-04-10' }], actor)
+    ).rejects.toThrow(/déjà/);
+    expect(tx.expense.update).toHaveBeenCalledTimes(1);
+  });
+
   it('un montant inférieur donne « partielle » avec le cumul exact', async () => {
     tx.expense.findMany.mockResolvedValue([exp({ amount: 30_000 })]);
     const [o] = await linkExpenses([target], actor);

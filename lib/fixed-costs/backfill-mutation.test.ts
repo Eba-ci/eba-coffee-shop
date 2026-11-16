@@ -87,25 +87,24 @@ describe('backfillFixedCost', () => {
     expect(prismaMock.fixedCost.create).not.toHaveBeenCalled();
   });
 
-  it('refuse une catégorie portant plusieurs charges sans import', async () => {
+  it('ne modifie jamais une charge non importée : la clé d’idempotence seule retrouve une charge', async () => {
     prismaMock.expenseCategory.findFirst.mockResolvedValue({
       name: 'Loyer',
       fixedCosts: [
         {
-          id: 'a',
-          startDate: utc('2026-01-01'),
-          endDate: null,
-          importedCategoryId: null,
-        },
-        {
-          id: 'b',
-          startDate: utc('2026-01-01'),
+          id: 'manuelle',
+          startDate: utc('2026-10-01'),
           endDate: null,
           importedCategoryId: null,
         },
       ],
     });
-    await expect(backfillFixedCost(input)).rejects.toThrow(/plusieurs charges/);
+    const r = await backfillFixedCost(input);
+    expect(r).toMatchObject({ action: 'created', costId: 'new' });
+    expect(prismaMock.fixedCost.update).not.toHaveBeenCalled();
+    expect(prismaMock.fixedCost.create.mock.calls[0][0].data).toMatchObject({
+      importedCategoryId: 'cat',
+    });
   });
 
   it('refuse la catégorie Salaires, une date future et un montant nul', async () => {

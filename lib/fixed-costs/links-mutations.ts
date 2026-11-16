@@ -18,12 +18,12 @@ import {
 } from '@/lib/timezone';
 import { linkError } from './link-rules';
 import {
-  occurrenceAt,
-  statusOf,
-  toInstallmentLike,
-  type OccurrenceStatus,
-  type ScheduledCost,
-} from './schedule';
+  lockLinkRows,
+  logLinkEvent,
+  toScheduled,
+  type LinkActor,
+} from './links-support';
+import { occurrenceAt, statusOf, type OccurrenceStatus } from './schedule';
 
 export const LINK_BATCH_MAX = 100;
 
@@ -39,7 +39,7 @@ export const linkBatchSchema = z
   .max(LINK_BATCH_MAX, `${LINK_BATCH_MAX} liaisons au maximum.`);
 export type LinkTarget = z.infer<typeof linkTargetSchema>;
 
-export type LinkActor = { userId: string | null; source: 'STAFF' | 'MCP' };
+export type { LinkActor };
 
 export type LinkOutcome = LinkTarget & {
   /** `already` : liaison déjà en place (rejeu sans effet). */
@@ -60,9 +60,10 @@ export async function linkExpenses(
   const today = todayDateString();
 
   return prisma.$transaction(async (tx) => {
-    // Verrou des charges visées, toujours dans l'ordre des identifiants.
-    const costIds = [...new Set(targets.map((t) => t.costId))].sort();
-    await tx.$queryRaw`SELECT "id" FROM "fixed_cost" WHERE "id" = ANY(${costIds}) ORDER BY "id" FOR UPDATE`;
+    // Verrous : charges, puis dépenses (ordre des identifiants), AVANT toute lecture.
+    const costIds = [...new Set(targets.map((t) => t.costId))];
+    const expenseIds = [...new Set(targets.map((t) => t.expenseId))];
+    await lockLinkRows(tx, costIds, expenseIds);
 
     const [costs, expenses] = await Promise.all([
       tx.fixedCost.findMany({
@@ -70,7 +71,7 @@ export async function linkExpenses(
         include: { installments: true },
       }),
       tx.expense.findMany({
-        where: { id: { in: [...new Set(targets.map((t) => t.expenseId))] } },
+        where: { id: { in: expenseIds } },
         select: {
           id: true,
           categoryId: true,
@@ -162,16 +163,16 @@ export async function linkExpenses(
         where: { id: p.expenseId },
         data: { fixedCostId: p.costId, dueDate: toDate(p.dueDate) },
       });
-      await tx.fixedCostLinkEvent.create({
-        data: {
+      await logLinkEvent(
+        tx,
+        {
           expenseId: p.expenseId,
           fixedCostId: p.costId,
           dueDate: toDate(p.dueDate),
           action: 'LINK',
-          actorId: actor.userId,
-          source: actor.source,
         },
-      });
+        actor
+      );
     }
     return outcomes;
   });
@@ -194,6 +195,7 @@ export async function unlinkExpenses(
     .max(LINK_BATCH_MAX)
     .parse(expenseIds);
   return prisma.$transaction(async (tx) => {
+    await lockLinkRows(tx, [], ids);
     const rows = await tx.expense.findMany({
       where: { id: { in: ids } },
       select: { id: true, fixedCostId: true, dueDate: true },
@@ -213,43 +215,17 @@ export async function unlinkExpenses(
         where: { id },
         data: { fixedCostId: null, dueDate: null },
       });
-      await tx.fixedCostLinkEvent.create({
-        data: {
+      await logLinkEvent(
+        tx,
+        {
           expenseId: id,
           fixedCostId: row.fixedCostId,
           dueDate: row.dueDate,
           action: 'UNLINK',
-          actorId: actor.userId,
-          source: actor.source,
         },
-      });
+        actor
+      );
     }
     return out;
   });
-}
-
-type CostRow = {
-  id: string;
-  label: string;
-  amount: number;
-  periodicity: ScheduledCost['periodicity'];
-  startDate: Date;
-  endDate: Date | null;
-  active: boolean;
-  categoryId: string;
-  installments: { monthOffset: number; day: number; amount: number }[];
-};
-
-function toScheduled(c: CostRow): ScheduledCost {
-  return {
-    id: c.id,
-    label: c.label,
-    amount: c.amount,
-    periodicity: c.periodicity,
-    startDate: formatLocalDateOnly(c.startDate),
-    endDate: c.endDate ? formatLocalDateOnly(c.endDate) : null,
-    active: c.active,
-    categoryId: c.categoryId,
-    installments: c.installments.map(toInstallmentLike),
-  };
 }

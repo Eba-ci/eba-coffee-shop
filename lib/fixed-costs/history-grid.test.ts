@@ -64,7 +64,7 @@ describe('monthRange', () => {
 describe('buildHistoryGrid', () => {
   const months = ['2026-03', '2026-04', '2026-05'];
 
-  it('un loyer payé en mars, rien en avril, payé en mai : avril est impayé et retenu par le filtre', () => {
+  it('un loyer payé en mars, rien en avril, payé en mai : avril est en retard et retenu par le filtre', () => {
     const payments = [
       pay('c1', '2026-03-05', 100_000),
       pay('c1', '2026-05-05', 100_000),
@@ -73,19 +73,18 @@ describe('buildHistoryGrid', () => {
     expect(g.rows).toHaveLength(1);
     expect(g.rows[0].cells.map((c) => c.state)).toEqual([
       'PAID',
-      'UNPAID',
+      'LATE',
       'PAID',
     ]);
-    expect(g.rows[0].unpaidMonths).toBe(1);
+    expect(g.rows[0].lateMonths).toBe(1);
   });
 
-  it('le compteur correspond au nombre de cases impayées', () => {
+  it('le compteur correspond au nombre de cases en retard', () => {
     const g = grid([cost()], [], months);
     const r = g.rows[0];
-    expect(r.unpaidMonths).toBe(
-      r.cells.filter((c) => c.state === 'UNPAID').length
-    );
-    expect(r.unpaidMonths).toBe(3);
+    expect(r.lateMonths).toBe(r.cells.filter((c) => c.state === 'LATE').length);
+    expect(r.lateMonths).toBe(3);
+    expect(r.unpaidMonths).toBe(0);
   });
 
   it('une charge créée en mai : janvier à avril sont non applicables', () => {
@@ -99,38 +98,47 @@ describe('buildHistoryGrid', () => {
       'NA',
       'NA',
       'NA',
-      'UNPAID',
+      'LATE',
     ]);
   });
 
-  it('une charge trimestrielle n’a pas d’impayé sur les mois sans échéance', () => {
+  it('une charge trimestrielle n’a pas de retard sur les mois sans échéance', () => {
     const g = grid(
       [cost({ periodicity: 'QUARTERLY', startDate: '2026-01-05' })],
       [],
       ['2026-01', '2026-02', '2026-03', '2026-04']
     );
     expect(g.rows[0].cells.map((c) => c.state)).toEqual([
-      'UNPAID',
+      'LATE',
       'NA',
       'NA',
-      'UNPAID',
+      'LATE',
     ]);
   });
 
-  it('le mois courant n’est jamais impayé : en retard ou à venir', () => {
+  it('un mois passé partiellement réglé est en retard, pas partiel', () => {
+    const g = grid([cost()], [pay('c1', '2026-03-05', 40_000)], months);
+    expect(g.rows[0].cells[0]).toMatchObject({
+      state: 'LATE',
+      remaining: 60_000,
+    });
+  });
+
+  it('le mois courant n’est jamais en retard : impayé (échu) ou à venir', () => {
     const late = grid([cost({ startDate: '2026-11-05' })], [], ['2026-11']);
-    expect(late.rows[0].cells[0].state).toBe('LATE');
-    expect(late.rows[0].unpaidMonths).toBe(0);
+    expect(late.rows[0].cells[0].state).toBe('UNPAID');
+    expect(late.rows[0].lateMonths).toBe(0);
+    expect(late.rows[0].unpaidMonths).toBe(1);
     const upcoming = grid([cost({ startDate: '2026-11-25' })], [], ['2026-11']);
     expect(upcoming.rows[0].cells[0].state).toBe('UPCOMING');
   });
 
-  it('partiel avec reste exact, et totaux = somme des colonnes', () => {
-    const payments = [pay('c1', '2026-03-05', 40_000)];
+  it('partiel (mois courant) avec reste exact, et totaux = somme des colonnes', () => {
+    const payments = [pay('c1', '2026-11-05', 40_000)];
     const g = grid(
       [cost(), cost({ id: 'c2', label: 'Internet', amount: 20_000 })],
       payments,
-      months
+      ['2026-11', '2026-12', '2027-01']
     );
     expect(g.rows[0].cells[0]).toMatchObject({
       state: 'PARTIAL',
@@ -147,6 +155,6 @@ describe('buildHistoryGrid', () => {
 
   it('une charge terminée n’est pas applicable après sa fin', () => {
     const g = grid([cost({ endDate: '2026-03-31' })], [], months);
-    expect(g.rows[0].cells.map((c) => c.state)).toEqual(['UNPAID', 'NA', 'NA']);
+    expect(g.rows[0].cells.map((c) => c.state)).toEqual(['LATE', 'NA', 'NA']);
   });
 });

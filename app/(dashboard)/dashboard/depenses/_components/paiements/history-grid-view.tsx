@@ -57,11 +57,20 @@ function Totals({ row }: { row: HistoryRow }) {
   );
 }
 
-function UnpaidCount({ count }: { count: number }) {
-  if (count === 0) return null;
+function LateCount({ late, unpaid }: { late: number; unpaid: number }) {
+  if (late + unpaid === 0) return null;
   return (
-    <span className="shrink-0 whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 dark:bg-red-950 dark:text-red-200">
-      {count} impayé{count > 1 ? 's' : ''}
+    <span className="flex shrink-0 flex-col items-end gap-1 text-xs font-medium">
+      {late > 0 && (
+        <span className="whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-red-800 dark:bg-red-950 dark:text-red-200">
+          {late} en retard
+        </span>
+      )}
+      {unpaid > 0 && (
+        <span className="whitespace-nowrap rounded-full bg-orange-100 px-2 py-0.5 text-orange-800 dark:bg-orange-950 dark:text-orange-200">
+          {unpaid} impayé{unpaid > 1 ? 's' : ''}
+        </span>
+      )}
     </span>
   );
 }
@@ -92,6 +101,37 @@ function CellLink({
   );
 }
 
+function Legend() {
+  return (
+    <div className="space-y-1">
+      <ul
+        className="flex flex-wrap gap-x-3 gap-y-1 text-xs"
+        aria-label="Légende"
+      >
+        {(['PAID', 'PARTIAL', 'LATE', 'UNPAID', 'UPCOMING'] as const).map(
+          (state) => (
+            <li key={state} className="flex items-center gap-1.5">
+              <span
+                aria-hidden
+                className={cn(
+                  'inline-block h-3 w-3 rounded-sm border',
+                  HISTORY_CELL_META[state].className
+                )}
+              />
+              {HISTORY_CELL_META[state].label}
+            </li>
+          )
+        )}
+      </ul>
+      <p className="text-xs text-muted-foreground">
+        En retard : mois passé non réglé (souvent un paiement oublié). Cliquez
+        la case pour rattacher une dépense déjà saisie ou enregistrer le
+        paiement.
+      </p>
+    </div>
+  );
+}
+
 export function HistoryGridView({ grid }: { grid: HistoryGrid }) {
   if (grid.rows.length === 0)
     return (
@@ -107,6 +147,8 @@ export function HistoryGridView({ grid }: { grid: HistoryGrid }) {
         {money(grid.total.paid)} · reste {money(grid.total.remaining)}
       </p>
 
+      <Legend />
+
       <ul className="space-y-3 md:hidden">
         {grid.rows.map((row) => (
           <li
@@ -118,7 +160,7 @@ export function HistoryGridView({ grid }: { grid: HistoryGrid }) {
           >
             <div className="flex items-start justify-between gap-2">
               <RowLabel row={row} />
-              <UnpaidCount count={row.unpaidMonths} />
+              <LateCount late={row.lateMonths} unpaid={row.unpaidMonths} />
             </div>
             <Totals row={row} />
             <ul className="grid grid-cols-3 gap-1.5">
@@ -153,7 +195,7 @@ export function HistoryGridView({ grid }: { grid: HistoryGrid }) {
                 </th>
               ))}
               <th className="text-right text-xs font-medium text-muted-foreground">
-                Impayés
+                En retard / impayés
               </th>
               <th className="text-right text-xs font-medium text-muted-foreground">
                 Dû / payé / reste
@@ -177,7 +219,9 @@ export function HistoryGridView({ grid }: { grid: HistoryGrid }) {
                     <CellLink cell={cell} />
                   </td>
                 ))}
-                <td className="text-right tabular-nums">{row.unpaidMonths}</td>
+                <td className="text-right tabular-nums">
+                  {row.lateMonths} / {row.unpaidMonths}
+                </td>
                 <td className="whitespace-nowrap text-right text-xs tabular-nums">
                   {compactMoney(row.due)} / {compactMoney(row.paid)} /{' '}
                   {compactMoney(row.remaining)}
