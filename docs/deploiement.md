@@ -54,6 +54,7 @@ Le Dockerfile suit `with-docker` (deps → builder → runner). L'URL de la base
 
 - Coupure de quelques secondes à chaque déploiement ; les flux SSE se reconnectent.
 - Limiteurs de débit et throttles par processus : remis à zéro à chaque déploiement.
+- **Une seule instance.** Les limiteurs de débit (`lib/*rate-limit.ts`) et les `lastRunAt` de `expirePendingOrders` (`lib/jeko/expiry.ts`) et `refreshPendingRefunds` (`lib/refunds/refresh.ts`) vivent en mémoire du processus. Avec N instances, chaque limite est multipliée par N et chaque throttle tourne N fois (sans danger : les deux balayages sont idempotents, ils coûtent seulement des requêtes). **Avant de passer à plusieurs instances**, déplacer ces compteurs vers un stockage partagé (table Postgres ou Redis).
 - Après un rollback, la première visite d'une page peut voir les données de l'ancien build, puis la page se rafraîchit.
 - Un webhook Jèko reçu pendant la coupure échoue ; Jèko réessaie 3 fois et désactive le webhook après 15 échecs : éviter de déployer pendant un paiement.
 
