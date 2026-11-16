@@ -10,7 +10,6 @@
 // (commandes, fidélité, votes de sondage re-rattachés) puis supprimé.
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, Merge, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,8 +39,6 @@ export function MergeCustomerSheet({
   customerName,
   customerPhone,
 }: Props) {
-  const router = useRouter();
-
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CustomerHit[]>([]);
@@ -118,7 +115,6 @@ export function MergeCustomerSheet({
       setDuplicate(null);
       setQuery('');
       setResults([]);
-      router.refresh();
     });
   }
 

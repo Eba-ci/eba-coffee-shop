@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { WeekdayToggle } from './weekday-toggle';
@@ -9,7 +8,6 @@ import { useUndoToast } from '@/lib/hooks/use-undo-toast';
 import { createProductScheduleAction } from '../actions';
 
 export function ScheduleForm() {
-  const router = useRouter();
   const { pushToast } = useUndoToast();
   const [name, setName] = useState('');
   const [days, setDays] = useState<number[]>([]);
@@ -29,7 +27,6 @@ export function ScheduleForm() {
       }
       setName('');
       setDays([]);
-      router.refresh();
       pushToast(`Planning « ${created} » créé`);
     });
   }

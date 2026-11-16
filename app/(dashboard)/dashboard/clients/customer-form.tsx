@@ -87,7 +87,6 @@ export function CustomerFormSheet(props: Props) {
       if (props.mode === 'create') {
         router.push(`/dashboard/clients/${res.id}`);
       } else {
-        router.refresh();
       }
     });
   }

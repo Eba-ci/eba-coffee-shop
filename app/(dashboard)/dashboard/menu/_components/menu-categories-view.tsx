@@ -79,7 +79,6 @@ export function MenuCategoriesView({
       return;
     }
     setIntent(null);
-    router.refresh();
   }
 
   return (

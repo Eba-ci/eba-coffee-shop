@@ -5,7 +5,6 @@
 // client, débloque les récompenses de palier si l'ajustement les franchit.
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,8 +24,6 @@ import {
 import { addMissedOrderStampsAction } from './actions';
 
 export function MissedOrderStampsSheet({ customerId }: { customerId: string }) {
-  const router = useRouter();
-
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState('1');
   const [note, setNote] = useState('');
@@ -61,7 +58,6 @@ export function MissedOrderStampsSheet({ customerId }: { customerId: string }) {
           ? `Tampons ajoutés — ${res.rewardsCreated} récompense(s) débloquée(s). Solde : ${res.stampCount}.`
           : `Tampons ajoutés. Solde : ${res.stampCount}.`
       );
-      router.refresh();
     });
   }
 

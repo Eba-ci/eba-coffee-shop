@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   ALLOWED_IMAGE_MIME_TYPES,
   MAX_UPLOAD_SIZE_BYTES,
@@ -34,7 +33,6 @@ export function usePollDetail({
   pollId: string;
   suggestions: SuggestionRow[];
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +62,6 @@ export function usePollDetail({
       }
       setNewLabel('');
       setNewDescription('');
-      router.refresh();
     });
   }
 
@@ -77,7 +74,6 @@ export function usePollDetail({
         setError(r.error);
         return;
       }
-      router.refresh();
     });
   }
 
@@ -91,7 +87,6 @@ export function usePollDetail({
         setError(r.error);
         return;
       }
-      router.refresh();
     });
   }
 
@@ -114,7 +109,6 @@ export function usePollDetail({
         imageUrl: url,
       });
       if (!r.ok) setError(r.error);
-      else router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur upload');
     } finally {
@@ -140,7 +134,6 @@ export function usePollDetail({
         setError(r.error);
         return;
       }
-      router.refresh();
     });
   }
 

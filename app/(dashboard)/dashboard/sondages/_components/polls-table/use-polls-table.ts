@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   createPollAction,
   setPollStatusAction,
@@ -12,7 +11,6 @@ import { emptyCreate, type CreateValues, type PollRow } from './types';
 export type PollsTableState = ReturnType<typeof usePollsTable>;
 
 export function usePollsTable() {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +51,6 @@ export function usePollsTable() {
         return;
       }
       setCreateOpen(false);
-      router.refresh();
     });
   }
 
@@ -67,7 +64,6 @@ export function usePollsTable() {
         setError(r.error);
         return;
       }
-      router.refresh();
     });
   }
 
@@ -88,7 +84,6 @@ export function usePollsTable() {
         setError(r.error);
         return;
       }
-      router.refresh();
     });
   }
 

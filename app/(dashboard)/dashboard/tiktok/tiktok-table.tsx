@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { MediaImage as Image } from '@/components/ui/media-image';
 import { ArrowDown, ArrowUp, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
@@ -45,7 +44,6 @@ type TiktokVideoRow = {
 };
 
 export function TiktokTable({ videos }: { videos: TiktokVideoRow[] }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +78,6 @@ export function TiktokTable({ videos }: { videos: TiktokVideoRow[] }) {
         return;
       }
       setCreateOpen(false);
-      router.refresh();
     });
   }
 
@@ -96,7 +93,6 @@ export function TiktokTable({ videos }: { videos: TiktokVideoRow[] }) {
         setError(r.error);
         return;
       }
-      router.refresh();
     });
   }
 
@@ -110,7 +106,6 @@ export function TiktokTable({ videos }: { videos: TiktokVideoRow[] }) {
         setError(r.error);
         return;
       }
-      router.refresh();
     });
   }
 
@@ -127,7 +122,6 @@ export function TiktokTable({ videos }: { videos: TiktokVideoRow[] }) {
         setError(r.error);
         return;
       }
-      router.refresh();
     });
   }
 

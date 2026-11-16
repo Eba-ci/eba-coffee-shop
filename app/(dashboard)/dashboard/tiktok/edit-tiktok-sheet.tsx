@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,7 +35,6 @@ function toFormValues(video: TiktokVideoScalar): TiktokVideoFormValues {
 
 /** Bouton + panneau d'édition d'une vidéo TikTok existante. */
 export function EditTiktokSheet({ video }: { video: TiktokVideoScalar }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +67,6 @@ export function EditTiktokSheet({ video }: { video: TiktokVideoScalar }) {
         return;
       }
       setOpen(false);
-      router.refresh();
     });
   }
 

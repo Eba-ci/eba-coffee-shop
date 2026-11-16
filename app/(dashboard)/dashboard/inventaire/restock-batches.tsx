@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Undo2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +31,6 @@ type Batch = {
 };
 
 export function RestockBatches({ batches }: { batches: Batch[] }) {
-  const router = useRouter();
   const { confirm, confirmDialog } = useConfirmDialog();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +51,6 @@ export function RestockBatches({ batches }: { batches: Batch[] }) {
       const res = await cancelRestockBatchAction(id);
       setBusyId(null);
       if (res.ok) {
-        router.refresh();
       } else {
         setError(res.error);
       }

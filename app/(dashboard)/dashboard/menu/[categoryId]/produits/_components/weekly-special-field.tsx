@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +37,6 @@ export function WeeklySpecialField({
   productId: string;
   initialSpecials: WeeklySpecialRow[];
 }) {
-  const router = useRouter();
   const { pushToast } = useUndoToast();
   const [pendingDelete, setPendingDelete] = useState<WeeklySpecialRow | null>(
     null
@@ -75,7 +73,6 @@ export function WeeklySpecialField({
       setStartDate('');
       setEndDate('');
       setNote('');
-      router.refresh();
       pushToast('Spécialité de la semaine programmée');
     });
   }
@@ -91,7 +88,6 @@ export function WeeklySpecialField({
         return;
       }
       setSpecials((prev) => prev.filter((s) => s.id !== target.id));
-      router.refresh();
       pushToast('Fenêtre retirée');
     });
   }

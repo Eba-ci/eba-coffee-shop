@@ -11,7 +11,6 @@
 // d'ardoise convenu avec le client.
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Handshake, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +39,6 @@ export function TrustedCustomerCard({
   trustedSince,
   trustedNote,
 }: Props) {
-  const router = useRouter();
   const [trusted, setTrusted] = useState(isTrusted);
   const [note, setNote] = useState(trustedNote ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +60,6 @@ export function TrustedCustomerCard({
         setError(res.error);
         return;
       }
-      router.refresh();
     });
   }
 

@@ -17,7 +17,25 @@ const DEPENSES_ACTIONS = [
 // Exclus : fichiers qui gardent légitimement `useRouter` pour des
 // `router.replace`/`push` (filtres d'URL, tables) ou dont le `refresh` relève
 // du reste de #477 (use-expense-form.ts), hors périmètre ici.
-const EXCLUDED = ['depenses/_components/expense-form/use-expense-form.ts'];
+// - `use-expense-form.ts` : garde un refresh quand le formulaire s'ouvre dans
+//   un panneau (`onSuccess`), hors chemin revalidé.
+// - `inventaire/import-dialog.tsx` : l'import passe par `fetch` vers une route
+//   API, qui ne revalide rien (#493).
+const EXCLUDED = [
+  'depenses/_components/expense-form/use-expense-form.ts',
+  'inventaire/import-dialog.tsx',
+];
+
+// #493 : actions de ces écrans, qui revalident déjà le chemin affiché.
+const ACTIONS_REVALIDATING: Record<string, RegExp> = {
+  'clients/actions.ts': /revalidatePath\('\/dashboard\/clients'\)/,
+  'inventaire/actions.ts': /revalidatePath\('\/dashboard\/inventaire'\)/,
+  'menu/actions.ts': /revalidatePath\('\/dashboard\/menu', 'layout'\)/,
+  'sondages/actions.ts': /revalidatePath\('\/dashboard\/sondages'\)/,
+  'tiktok/actions.ts': /revalidatePath\('\/dashboard\/tiktok'\)/,
+  'remboursements/actions.ts':
+    /revalidatePath\('\/dashboard\/remboursements'\)/,
+};
 
 function walk(dir: string): string[] {
   return readdirSync(join(DIR, dir), { withFileTypes: true }).flatMap((e) => {
@@ -28,7 +46,16 @@ function walk(dir: string): string[] {
   });
 }
 
-const SCREENS = ['employes', 'depenses']
+const SCREENS = [
+  'employes',
+  'depenses',
+  'clients',
+  'inventaire',
+  'menu',
+  'sondages',
+  'tiktok',
+  'remboursements',
+]
   .flatMap(walk)
   .filter((p) => !EXCLUDED.includes(p));
 
@@ -38,6 +65,13 @@ describe('aucun second rendu côté client redondant (#477)', () => {
   it.each(SCREENS)('%s', (p) => {
     expect(read(p)).not.toMatch(/\.refresh\b/);
   });
+
+  it.each(Object.entries(ACTIONS_REVALIDATING))(
+    '%s revalide son écran',
+    (p, re) => {
+      expect(read(p)).toMatch(re);
+    }
+  );
 
   it.each(EMPLOYES_ACTIONS)('%s revalide /dashboard/employes', (p) => {
     expect(read(p)).toContain("revalidatePath('/dashboard/employes'");

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Pencil, Trash2, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +23,6 @@ export function ScheduleRowActions({
   days: number[];
   inUse: boolean;
 }) {
-  const router = useRouter();
   const { pushToast } = useUndoToast();
   const [isPending, startTransition] = useTransition();
   const [isEditing, setIsEditing] = useState(false);
@@ -57,7 +55,6 @@ export function ScheduleRowActions({
         return;
       }
       setIsEditing(false);
-      router.refresh();
       pushToast('Planning enregistré');
     });
   }
@@ -70,7 +67,6 @@ export function ScheduleRowActions({
         pushToast(result.error, 'error');
         return;
       }
-      router.refresh();
       pushToast(`Planning « ${name} » supprimé`);
     });
   }

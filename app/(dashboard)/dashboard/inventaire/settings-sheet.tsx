@@ -8,7 +8,6 @@
 // dur ; maintenant qu'elle le respecte, il faut pouvoir le régler.
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, Settings2 } from 'lucide-react';
 
 import type { InventorySettings } from '@/lib/inventory-settings';
@@ -28,7 +27,6 @@ import {
 import { updateInventorySettingsAction } from './actions';
 
 export function SettingsSheet({ settings }: { settings: InventorySettings }) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [enabled, setEnabled] = useState(settings.reminderEnabled);
@@ -52,7 +50,6 @@ export function SettingsSheet({ settings }: { settings: InventorySettings }) {
         return;
       }
       setOpen(false);
-      router.refresh();
     });
   }
 
