@@ -43,11 +43,12 @@ describe('FixedCostHistory (écran de détection, lecture seule)', () => {
 
     expect(html).toContain('Loyer');
     expect(html).toContain('À vérifier');
-    expect(html).toContain('Jamais convertie');
+    expect(html).toContain('Pourquoi « à vérifier » ?');
     expect(html).toContain('Trous internes');
     expect(html).toContain('avril 2026');
     expect(html).toContain('Puis plus rien');
-    expect(html).toContain('Prise d’effet proposée');
+    expect(html).toContain('Proposition :');
+    expect(html).toContain('en faire une charge fixe mensuelle');
   });
 
   it('ne propose pas la conversion d’une dépense unique et marque déjà convertie', () => {
@@ -70,7 +71,7 @@ describe('FixedCostHistory (écran de détection, lecture seule)', () => {
 
     expect(html).toContain('Dépense unique');
     expect(html).toContain('Dépense unique : conversion non proposée.');
-    expect(html).toContain('Déjà convertie');
+    expect(html).not.toContain('Proposition :');
   });
 
   it('sans catégories, aucune action d’écriture n’est proposée', () => {
@@ -92,6 +93,7 @@ describe('FixedCostHistory (écran de détection, lecture seule)', () => {
       />
     );
     expect(fixed).toContain('Corriger la prise d’effet');
+    expect(fixed).toContain('a déjà une charge fixe');
   });
 
   it('ne propose rien pour une dépense unique', () => {

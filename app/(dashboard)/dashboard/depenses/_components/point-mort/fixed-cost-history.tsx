@@ -9,6 +9,10 @@ import { Badge } from '@/components/ui/badge';
 import { money } from '@/lib/fixed-costs/format';
 import { shiftMonth, monthLabel } from '@/lib/fixed-costs/month';
 import { suggestBackfill } from '@/lib/fixed-costs/backfill-suggestion';
+import {
+  IRREGULAR_AMOUNT_RATIO,
+  MAX_PROBABLE_GAPS,
+} from '@/lib/fixed-costs/history-detection';
 import { BackfillAction } from './backfill-action';
 import type {
   CategoryHistory,
@@ -66,9 +70,9 @@ export function FixedCostHistory({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Ces propositions ne créent aucune dépense et ne lient rien : seule la
-        prise d’effet de la charge est posée, après ta confirmation. Les
-        montants sont les totaux réels des dépenses, jamais une estimation.
+        Voici les dépenses passées qui ressemblent à des charges fixes. Rien
+        n’est créé ni modifié sans ta confirmation, et aucune dépense n’est
+        touchée. Les montants sont les vrais totaux, pas des estimations.
       </p>
       <ul className="divide-y rounded-lg border">
         {rows.map((row) => (
@@ -96,77 +100,108 @@ function HistoryRow({
       ? monthLabel(row.trailingGaps[row.trailingGaps.length - 1])
       : null;
 
+  const totals = row.months.map((m) => m.total);
+  const min = Math.min(...totals);
+  const max = Math.max(...totals);
+  const irregular = max > min * IRREGULAR_AMOUNT_RATIO;
+  const startMonth = monthLabel(row.suggestedStartMonth);
+
   return (
-    <li className="space-y-2 p-3">
+    <li className="space-y-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="min-w-0 break-words font-medium">{row.categoryName}</p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant={row.alreadyConverted ? 'outline' : 'secondary'}>
-            {row.alreadyConverted ? 'Déjà convertie' : 'Jamais convertie'}
-          </Badge>
-          <Badge variant={confidence.variant}>
-            <confidence.Icon className="h-3 w-3" aria-hidden />
-            {confidence.label}
-          </Badge>
-        </div>
+        <p className="min-w-0 break-words text-base font-semibold">
+          {row.categoryName}
+        </p>
+        <Badge variant={confidence.variant}>
+          <confidence.Icon className="h-3 w-3" aria-hidden />
+          {confidence.label}
+        </Badge>
       </div>
 
-      <p className="text-xs tabular-nums text-muted-foreground">
-        {monthLabel(row.firstMonth)} → {monthLabel(row.lastMonth)} ·{' '}
-        {plural(row.months.length, 'mois couvert', 'mois couverts')} ·{' '}
-        {plural(row.expenseCount, 'dépense', 'dépenses')} · {money(row.total)}
+      <p className="text-sm text-muted-foreground">
+        {plural(row.expenseCount, 'dépense', 'dépenses')} enregistrées sur{' '}
+        {plural(row.months.length, 'mois', 'mois')}, de{' '}
+        {monthLabel(row.firstMonth)} à {monthLabel(row.lastMonth)} :{' '}
+        <span className="font-medium tabular-nums text-foreground">
+          {money(row.total)}
+        </span>{' '}
+        au total.
       </p>
 
-      <ul className="flex flex-wrap gap-1.5" aria-label="Totaux réels par mois">
-        {row.months.map((month) => (
-          <li
-            key={month.month}
-            className="inline-flex items-baseline gap-1 rounded-md bg-muted px-2 py-1 text-xs"
-          >
-            <span className="capitalize text-muted-foreground">
-              {monthLabel(month.month)}
-            </span>
-            <span className="tabular-nums font-medium">
-              {money(month.total)}
-            </span>
-            {month.count > 1 && (
-              <span className="text-muted-foreground">({month.count})</span>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      {row.gaps.length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Trous internes : {row.gaps.map(monthLabel).join(', ')}.
+      {row.confidence === 'to-review' && (
+        <p className="rounded-md bg-muted p-2 text-sm">
+          <span className="font-medium">Pourquoi « à vérifier » ?</span>{' '}
+          {irregular
+            ? `Les montants varient beaucoup (de ${money(min)} à ${money(max)} par mois) : ce n’est peut-être pas une charge fixe.`
+            : row.gaps.length > MAX_PROBABLE_GAPS
+              ? 'Plusieurs mois n’ont aucune dépense : la régularité n’est pas sûre.'
+              : 'Seulement deux mois d’historique : trop peu pour être certain.'}
         </p>
       )}
 
-      {trailingStart && trailingEnd && (
-        <p className="text-xs text-muted-foreground">
-          Puis plus rien : aucune dépense de {trailingStart} à {trailingEnd} (
-          {plural(row.trailingGaps.length, 'mois', 'mois')}).
-        </p>
-      )}
-
-      <p className="text-xs">
-        {row.confidence === 'single' ? (
-          'Dépense unique : conversion non proposée.'
-        ) : (
-          <>
-            Prise d’effet proposée :{' '}
-            <span className="font-medium capitalize">
-              {monthLabel(row.suggestedStartMonth)}
-            </span>{' '}
-            · périodicité mensuelle.
-          </>
+      <details className="group text-sm">
+        <summary className="inline-flex min-h-11 cursor-pointer items-center text-primary sm:min-h-8">
+          Voir le détail mois par mois
+        </summary>
+        <ul
+          className="mt-1 flex flex-wrap gap-1.5"
+          aria-label="Totaux réels par mois"
+        >
+          {row.months.map((month) => (
+            <li
+              key={month.month}
+              className="inline-flex items-baseline gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+            >
+              <span className="capitalize text-muted-foreground">
+                {monthLabel(month.month)}
+              </span>
+              <span className="font-medium tabular-nums">
+                {money(month.total)}
+              </span>
+              {month.count > 1 && (
+                <span className="text-muted-foreground">
+                  · {month.count} dépenses
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        {row.gaps.length > 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Trous internes (mois sans dépense) :{' '}
+            {row.gaps.map(monthLabel).join(', ')}.
+          </p>
         )}
-      </p>
-      {row.confidence !== 'single' && categories.length > 0 && (
-        <BackfillAction
-          suggestion={suggestBackfill(row)}
-          categories={categories}
-        />
+        {trailingStart && trailingEnd && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Puis plus rien : aucune dépense de {trailingStart} à {trailingEnd} (
+            {plural(row.trailingGaps.length, 'mois', 'mois')}).
+          </p>
+        )}
+      </details>
+
+      {row.confidence === 'single' ? (
+        <p className="text-sm text-muted-foreground">
+          Dépense unique : conversion non proposée.
+        </p>
+      ) : (
+        <div className="space-y-2 rounded-lg bg-muted/50 p-3">
+          <p className="text-sm">
+            <span className="font-medium">Proposition :</span>{' '}
+            {row.alreadyConverted
+              ? 'cette catégorie a déjà une charge fixe. '
+              : 'en faire une charge fixe mensuelle. '}
+            Son suivi (point mort, retards) commencerait en{' '}
+            <span className="font-medium capitalize">{startMonth}</span>, le
+            mois de la première dépense.
+          </p>
+          {categories.length > 0 && (
+            <BackfillAction
+              suggestion={suggestBackfill(row)}
+              categories={categories}
+            />
+          )}
+        </div>
       )}
     </li>
   );
