@@ -8,10 +8,6 @@ import {
   syncFixedCostsFromCategories,
   type CategorySyncResult,
 } from '@/lib/fixed-costs/category-sync';
-import {
-  backfillFixedCost,
-  type BackfillResult,
-} from '@/lib/fixed-costs/backfill-mutation';
 import { createInventoryItem } from '@/lib/inventory-mutations';
 import { updateExpenseSettings } from '@/lib/expense-settings-db';
 import type { InventoryUnitInput } from '@/lib/schemas/inventory';
@@ -227,29 +223,6 @@ export async function updateFixedCostAction(
 ): Promise<ActionResult> {
   await requireAdminId();
   return run(() => fixedCosts.updateFixedCost(id, input));
-}
-
-/**
- * Backfill depuis l'historique (#452) : crée la charge avec une prise d'effet
- * passée ou corrige celle de la catégorie. Droits finance (ANALYSTE refusé).
- */
-export async function backfillFixedCostAction(
-  input: unknown
-): Promise<
-  | { ok: true; action: BackfillResult['action']; warning: string | null }
-  | { ok: false; error: string }
-> {
-  await requireAdminId();
-  try {
-    const res = await backfillFixedCost(input);
-    revalidate();
-    return { ok: true, action: res.action, warning: res.warning };
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : 'Erreur inattendue',
-    };
-  }
 }
 
 export async function deleteFixedCostAction(id: string): Promise<ActionResult> {

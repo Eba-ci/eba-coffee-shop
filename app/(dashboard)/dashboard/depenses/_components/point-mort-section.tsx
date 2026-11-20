@@ -14,7 +14,6 @@ import { MARGIN_ESTIMATE_WINDOW_DAYS } from '@/config/constants';
 import { projectMonthEnd, summarizeMonth } from '@/lib/fixed-costs/month';
 import { todayDateString } from '@/lib/timezone';
 import { listExpenseCategories } from '@/lib/expenses';
-import { getFixedCostHistory } from '@/lib/fixed-costs/history-queries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { KpiCard } from '@/components/(dashboard)/kpi-card';
 import { FixedCostManager } from '../fixed-cost-manager';
@@ -23,7 +22,6 @@ import { toChartPoints } from '@/lib/fixed-costs/chart';
 import { MonthNav } from './point-mort/month-nav';
 import { MonthSummaryBar } from './point-mort/month-summary';
 import { PointMortDays } from './point-mort/point-mort-days';
-import { FixedCostHistory } from './point-mort/fixed-cost-history';
 
 const fmt = new Intl.NumberFormat('fr-FR');
 const f = (n: number | null) => (n === null ? '—' : `${fmt.format(n)} F`);
@@ -31,11 +29,10 @@ const f = (n: number | null) => (n === null ? '—' : `${fmt.format(n)} F`);
 export async function PointMortSection({ month }: { month: string }) {
   const today = todayDateString();
   const currentMonth = today.slice(0, 7);
-  const [report, costs, categories, fixedCostHistory] = await Promise.all([
+  const [report, costs, categories] = await Promise.all([
     getMonthReport(month),
     listFixedCosts(),
     listExpenseCategories(),
-    getFixedCostHistory(currentMonth),
   ]);
   const todayRow = report.today;
   const summary = summarizeMonth(report.days, today);
@@ -158,18 +155,6 @@ export async function PointMortSection({ month }: { month: string }) {
         </CardHeader>
         <CardContent>
           <PointMortDays days={report.days} today={today} />
-        </CardContent>
-      </Card>
-
-      <Card id="historique-charges">
-        <CardHeader>
-          <CardTitle className="text-base">Historique détecté</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FixedCostHistory
-            rows={fixedCostHistory}
-            categories={categories.map((c) => ({ id: c.id, name: c.name }))}
-          />
         </CardContent>
       </Card>
 
