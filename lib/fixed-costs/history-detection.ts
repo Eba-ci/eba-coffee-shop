@@ -28,6 +28,9 @@ export type HistoryCategory = {
 
 export type HistoryConfidence = 'probable' | 'to-review' | 'single';
 
+/** Pourquoi une catégorie est « à vérifier » (null si elle ne l'est pas). */
+export type ReviewReason = 'two-months' | 'many-gaps' | 'irregular-amounts';
+
 export type HistoryMonth = {
   /** Mois civil `YYYY-MM`. */
   month: string;
@@ -56,6 +59,8 @@ export type CategoryHistory = {
   /** Périodicité proposée : mensuelle par défaut (#451). */
   suggestedPeriodicity: 'MONTHLY';
   confidence: HistoryConfidence;
+  /** Règle qui a fait classer la ligne « à vérifier » ; null sinon. */
+  reviewReason: ReviewReason | null;
   /** La catégorie est déjà liée à une charge : ne pas la reconvertir. */
   alreadyConverted: boolean;
   /** Total cumulé des dépenses de la catégorie. */
@@ -121,7 +126,7 @@ export function detectFixedCostHistory(
       trailingGaps,
       suggestedStartMonth: firstMonth,
       suggestedPeriodicity: 'MONTHLY',
-      confidence: classify(monthly, gaps),
+      ...classify(monthly, gaps),
       alreadyConverted: category.hasFixedCost,
       total,
       expenseCount,
@@ -166,18 +171,23 @@ function missingMonths(
  * « récurrente probable » : au moins 3 mois couverts, au plus un trou interne
  * et des montants du même ordre (le plus cher ne dépasse pas le double du
  * moins cher). « à vérifier » : deux mois, plusieurs trous ou montants très
- * irréguliers. « dépense unique » : un seul mois, jamais proposé d'office.
+ * irréguliers (`reviewReason` dit laquelle, dans l'ordre des règles).
+ * « dépense unique » : un seul mois, jamais proposé d'office.
  */
 function classify(
   months: readonly HistoryMonth[],
   gaps: readonly string[]
-): HistoryConfidence {
-  if (months.length === 1) return 'single';
-  if (months.length === 2) return 'to-review';
-  if (gaps.length > MAX_PROBABLE_GAPS) return 'to-review';
+): { confidence: HistoryConfidence; reviewReason: ReviewReason | null } {
+  const review = (reviewReason: ReviewReason) => ({
+    confidence: 'to-review' as const,
+    reviewReason,
+  });
+  if (months.length === 1) return { confidence: 'single', reviewReason: null };
+  if (months.length === 2) return review('two-months');
+  if (gaps.length > MAX_PROBABLE_GAPS) return review('many-gaps');
   const totals = months.map((m) => m.total);
   const min = Math.min(...totals);
   const max = Math.max(...totals);
-  if (max > min * IRREGULAR_AMOUNT_RATIO) return 'to-review';
-  return 'probable';
+  if (max > min * IRREGULAR_AMOUNT_RATIO) return review('irregular-amounts');
+  return { confidence: 'probable', reviewReason: null };
 }
