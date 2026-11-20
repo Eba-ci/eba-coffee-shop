@@ -15,7 +15,13 @@ const { tx, prismaMock } = vi.hoisted(() => {
 vi.mock('@/lib/prisma', () => ({ default: prismaMock }));
 vi.mock('@/lib/auth-helpers', () => ({ requireAdmin: vi.fn() }));
 
+vi.mock('./expense-sync', async (orig) => ({
+  ...(await orig<typeof import('./expense-sync')>()),
+  syncSalaryExpenses: vi.fn(),
+}));
+
 import { requireAdmin } from '@/lib/auth-helpers';
+import { syncSalaryExpenses } from './expense-sync';
 import {
   adjustSalaryAdvance,
   cancelSalaryAdvance,
@@ -91,6 +97,8 @@ describe('mutations d’avance (ADMIN seul, idempotentes)', () => {
       where: { id: 'adv1' },
       data: { amount: 25_000, month: '2026-07', note: 'corrigé' },
     });
+    // La ligne globale suit : ancienne ET nouvelle position.
+    expect(syncSalaryExpenses).toHaveBeenCalledTimes(1);
   });
 
   it('refuse de réduire le montant sous ce qui a déjà été récupéré', async () => {
@@ -135,17 +143,28 @@ describe('mutations d’avance (ADMIN seul, idempotentes)', () => {
       id: 'adv1',
       cancelled: true,
     });
-    expect(tx.salaryPayment.delete).toHaveBeenCalledWith({
+    // Jamais supprimée : annulée avec trace, détachée de sa ligne globale.
+    expect(tx.salaryPayment.delete).not.toHaveBeenCalled();
+    expect(tx.salaryPayment.update).toHaveBeenCalledWith({
       where: { id: 'adv1' },
+      data: expect.objectContaining({
+        canceledAt: expect.any(Date),
+        expenseId: null,
+      }),
     });
+    expect(syncSalaryExpenses).toHaveBeenCalledTimes(1);
 
-    // Rejeu (double clic) : la ligne n'existe plus, on renvoie le même succès.
-    tx.salaryPayment.findUnique.mockResolvedValue(null);
+    // Rejeu (double clic) : déjà annulée, même succès sans second recalcul.
+    tx.salaryPayment.findUnique.mockResolvedValue({
+      id: 'adv1',
+      canceledAt: new Date(),
+    });
     await expect(cancelSalaryAdvance({ paymentId: 'adv1' })).resolves.toEqual({
       id: 'adv1',
       cancelled: true,
     });
-    expect(tx.salaryPayment.delete).toHaveBeenCalledTimes(1);
+    expect(tx.salaryPayment.update).toHaveBeenCalledTimes(1);
+    expect(syncSalaryExpenses).toHaveBeenCalledTimes(1);
   });
 
   it('un ajustement sans champ est refusé par le schéma', async () => {

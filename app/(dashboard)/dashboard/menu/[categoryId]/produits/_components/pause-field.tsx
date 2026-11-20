@@ -8,7 +8,6 @@
 // remonter d'état — d'où l'extraction, qui allège d'autant la fiche produit.
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,7 +27,6 @@ export function PauseField({
   productId: string;
   initialUnavailableUntil: Date | null;
 }) {
-  const router = useRouter();
   const { pushToast } = useUndoToast();
   const [unavailableUntil, setUnavailableUntil] = useState<Date | null>(
     initialUnavailableUntil
@@ -59,7 +57,6 @@ export function PauseField({
         return;
       }
       setUnavailableUntil(until);
-      router.refresh();
       pushToast(`En pause jusqu’au ${formatAbidjanDateTime(until)}`);
     });
   }
@@ -96,7 +93,6 @@ export function PauseField({
       }
       setUnavailableUntil(null);
       setCustomInput('');
-      router.refresh();
       pushToast('Produit de nouveau disponible');
     });
   }

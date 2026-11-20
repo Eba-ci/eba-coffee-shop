@@ -5,12 +5,15 @@
 //   mois    YYYY-MM affiché (relit la base : navigation `shallow: false`)
 //   vue     calendrier | liste (affichage seul, pas de relecture serveur)
 //   manques 1 = ne montrer que les jours sous le seuil (affichage seul)
+//   histo   6 | 12 | 24 mois de la vue historique des paiements (relit la base)
+//   impayes 1 = historique : charges ayant au moins un mois sans paiement
 //
 // Import depuis `nuqs/server` : aucun code React, utilisable côté serveur.
 
 import {
   createLoader,
   parseAsBoolean,
+  parseAsInteger,
   parseAsString,
   parseAsStringLiteral,
 } from 'nuqs/server';
@@ -22,6 +25,8 @@ export const pointMortParsers = {
   mois: parseAsString,
   vue: parseAsStringLiteral(POINT_MORT_VIEWS),
   manques: parseAsBoolean,
+  histo: parseAsInteger,
+  impayes: parseAsBoolean,
 };
 
 export const loadPointMortParams = createLoader(pointMortParsers);

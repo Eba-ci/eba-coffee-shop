@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -26,7 +25,6 @@ export function ArticleMergeSheet({
   targets: ArticleMeta[];
   onClose: () => void;
 }) {
-  const router = useRouter();
   const [targetId, setTargetId] = useState(targets[0]?.id ?? '');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -42,7 +40,6 @@ export function ArticleMergeSheet({
         setError(r.error);
         return;
       }
-      router.refresh();
       onClose();
     });
   }

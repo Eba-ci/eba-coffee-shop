@@ -68,9 +68,29 @@ export const SALARY_END_AFTER_START_MESSAGE =
   'La sortie doit être après l’entrée';
 
 /**
+ * Un taux ne s'écrase jamais : une correction est un NOUVEAU taux daté. Une
+ * date déjà utilisée est refusée (le module expose `addSalaryRate` pour ça,
+ * distinct de l'`upsert` historique de l'onglet Salaires).
+ */
+export const SALARY_RATE_DUPLICATE_MESSAGE =
+  'Un taux existe déjà pour ce mois : modifiez-le plutôt que d’en ajouter un second.';
+
+/**
+ * Une retenue ne peut pas rendre le dû négatif : elle est refusée au-delà du
+ * salaire dû du mois (prorata des taux), pour ne pas créer de dette silencieuse.
+ */
+export const SALARY_RETENUE_EXCEEDS_DUE_MESSAGE =
+  'La retenue dépasse le salaire dû du mois : réduis le montant ou saisis un versement';
+
+/** Primes et retenues : bornes de saisie. */
+export const SALARY_ADJUSTMENT_AMOUNT_MAX = EXPENSE_AMOUNT_MAX;
+
+export const SALARY_ADJUSTMENT_NOTE_MAX = SALARY_NOTE_MAX;
+
+/**
  * Catégorie de dépense qui matérialise les versements de salaire. Réservée à
  * l'ADMIN : les lignes rattachées sont masquées aux autres rôles (le lien
- * `Expense.salaryPaymentId` fait foi, pas le nom seul).
+ * `Expense.salaryAggregateKey` fait foi, pas le nom seul).
  */
 export const SALARY_EXPENSE_CATEGORY_NAME = 'Salaires';
 

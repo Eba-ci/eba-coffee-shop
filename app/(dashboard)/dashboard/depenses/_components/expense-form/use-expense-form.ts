@@ -204,9 +204,10 @@ export function useExpenseForm({
         setError(result.error);
         return;
       }
-      if (onSuccess) onSuccess();
-      else router.push(cancelHref);
-      router.refresh();
+      if (onSuccess) {
+        onSuccess();
+        router.refresh();
+      } else router.push(cancelHref);
     });
   }
 

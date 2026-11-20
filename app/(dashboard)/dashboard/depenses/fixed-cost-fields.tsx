@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import {
   FIXED_COST_PERIODICITIES,
   FIXED_COST_PERIODICITY_LABELS,
@@ -24,6 +25,7 @@ export type Draft = {
   startDate: string;
   endDate: string;
   categoryId: string;
+  note: string;
   /** Vide = échéance par défaut déduite de la prise d'effet. */
   installments: InstallmentDraft[];
 };
@@ -36,10 +38,15 @@ export function emptyDraft(categoryId: string): Draft {
     startDate: todayDateString(),
     endDate: '',
     categoryId,
+    note: '',
     installments: [],
   };
 }
 
+/**
+ * Champs d'une charge fixe, réutilisés tels quels par le drawer : identité,
+ * montant/périodicité, prise d'effet/fin, puis échéances.
+ */
 export function FixedCostFields({
   draft,
   set,
@@ -50,86 +57,147 @@ export function FixedCostFields({
   categories: { id: string; name: string }[];
 }) {
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        <Field id="fc-label" label="Libellé">
-          <Input
-            id="fc-label"
-            className="h-11"
-            value={draft.label}
-            onChange={(e) => set('label', e.target.value)}
-            placeholder="Ex. Loyer"
-          />
-        </Field>
-        <Field id="fc-cat" label="Catégorie de dépense">
-          <select
-            id="fc-cat"
-            className={selectClass}
-            value={draft.categoryId}
-            onChange={(e) => set('categoryId', e.target.value)}
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field id="fc-amount" label="Montant (F)">
-          <Input
-            id="fc-amount"
-            className="h-11"
-            type="number"
-            min={1}
-            inputMode="numeric"
-            value={draft.amount}
-            onChange={(e) => set('amount', e.target.value)}
-          />
-        </Field>
-        <Field id="fc-period" label="Périodicité">
-          <select
-            id="fc-period"
-            className={selectClass}
-            value={draft.periodicity}
-            onChange={(e) =>
-              set('periodicity', e.target.value as FixedCostPeriodicityValue)
-            }
-          >
-            {FIXED_COST_PERIODICITIES.map((p) => (
-              <option key={p} value={p}>
-                {FIXED_COST_PERIODICITY_LABELS[p]}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field id="fc-start" label="Prise d’effet">
-          <Input
-            id="fc-start"
-            className="h-11"
-            type="date"
-            value={draft.startDate}
-            onChange={(e) => set('startDate', e.target.value)}
-          />
-        </Field>
-        <Field id="fc-end" label="Fin (optionnel)">
-          <Input
-            id="fc-end"
-            className="h-11"
-            type="date"
-            value={draft.endDate}
-            onChange={(e) => set('endDate', e.target.value)}
-          />
-        </Field>
-      </div>
-      {draft.periodicity !== 'DAILY' && (
-        <FixedCostInstallments
-          periodicity={draft.periodicity}
-          amount={Math.round(Number(draft.amount)) || 0}
-          startDate={draft.startDate}
-          installments={draft.installments}
-          onChange={(v) => set('installments', v)}
+    <div className="space-y-6">
+      <section className="space-y-3">
+        <SectionTitle
+          title="Identité"
+          hint="Le nom et la catégorie qui rattachent la charge aux dépenses."
         />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field id="fc-label" label="Libellé">
+            <Input
+              id="fc-label"
+              className="h-11"
+              value={draft.label}
+              onChange={(e) => set('label', e.target.value)}
+              placeholder="Ex. Loyer"
+            />
+          </Field>
+          <Field id="fc-cat" label="Catégorie de dépense">
+            <select
+              id="fc-cat"
+              className={selectClass}
+              value={draft.categoryId}
+              onChange={(e) => set('categoryId', e.target.value)}
+            >
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field
+            id="fc-note"
+            label="Note (optionnel)"
+            className="sm:col-span-2"
+          >
+            <Input
+              id="fc-note"
+              className="h-11"
+              value={draft.note}
+              maxLength={200}
+              onChange={(e) => set('note', e.target.value)}
+              placeholder="Précision utile (ex. bail renouvelé en janvier)"
+            />
+          </Field>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-3">
+        <SectionTitle
+          title="Montant et périodicité"
+          hint="Le montant est réparti sur les jours ouverts de sa période."
+        />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field id="fc-amount" label="Montant (F)">
+            <Input
+              id="fc-amount"
+              className="h-11 tabular-nums"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={draft.amount}
+              onChange={(e) => set('amount', e.target.value)}
+            />
+          </Field>
+          <Field id="fc-period" label="Périodicité">
+            <select
+              id="fc-period"
+              className={selectClass}
+              value={draft.periodicity}
+              onChange={(e) =>
+                set('periodicity', e.target.value as FixedCostPeriodicityValue)
+              }
+            >
+              {FIXED_COST_PERIODICITIES.map((p) => (
+                <option key={p} value={p}>
+                  {FIXED_COST_PERIODICITY_LABELS[p]}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-3">
+        <SectionTitle
+          title="Prise d’effet et fin"
+          hint="La charge s’applique à partir de la prise d’effet, jusqu’à la fin si renseignée."
+        />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field id="fc-start" label="Prise d’effet">
+            <Input
+              id="fc-start"
+              className="h-11 tabular-nums"
+              type="date"
+              value={draft.startDate}
+              onChange={(e) => set('startDate', e.target.value)}
+            />
+          </Field>
+          <Field id="fc-end" label="Fin (optionnel)">
+            <Input
+              id="fc-end"
+              className="h-11 tabular-nums"
+              type="date"
+              value={draft.endDate}
+              onChange={(e) => set('endDate', e.target.value)}
+            />
+          </Field>
+        </div>
+      </section>
+
+      {draft.periodicity !== 'DAILY' && (
+        <>
+          <Separator />
+          <section className="space-y-3">
+            <SectionTitle
+              title="Échéances"
+              hint="Sans échéance, le paiement tombe le jour de la prise d’effet."
+            />
+            <FixedCostInstallments
+              periodicity={draft.periodicity}
+              amount={Math.round(Number(draft.amount)) || 0}
+              startDate={draft.startDate}
+              installments={draft.installments}
+              onChange={(v) => set('installments', v)}
+            />
+          </section>
+        </>
       )}
+    </div>
+  );
+}
+
+function SectionTitle({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div className="space-y-0.5">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <p className="text-xs text-muted-foreground">{hint}</p>
     </div>
   );
 }
@@ -137,14 +205,16 @@ export function FixedCostFields({
 function Field({
   id,
   label,
+  className,
   children,
 }: {
   id: string;
   label: string;
+  className?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className={className ? `space-y-1.5 ${className}` : 'space-y-1.5'}>
       <Label htmlFor={id}>{label}</Label>
       {children}
     </div>

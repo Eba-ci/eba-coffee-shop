@@ -24,14 +24,12 @@ export async function ApercuSection({
   categoryId,
   paymentMethod,
   search,
-  includeSalary,
 }: {
   dateFrom?: Date;
   dateTo?: Date;
   categoryId?: string;
   paymentMethod?: string;
   search?: string;
-  includeSalary?: boolean;
 }) {
   const extra = {
     categoryId,
@@ -42,7 +40,6 @@ export async function ApercuSection({
       | 'OTHER'
       | undefined,
     search,
-    includeSalary,
   };
 
   const today = parseDateOnlyToUTC(todayDateString())!;

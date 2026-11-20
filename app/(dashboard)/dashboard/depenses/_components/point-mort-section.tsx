@@ -174,6 +174,7 @@ export async function PointMortSection({ month }: { month: string }) {
               active: c.active,
               categoryId: c.categoryId,
               categoryName: c.categoryName,
+              note: c.note,
               installments: c.installments,
             }))}
             categories={categories.map((c) => ({ id: c.id, name: c.name }))}

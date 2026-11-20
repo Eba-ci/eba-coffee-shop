@@ -1,6 +1,6 @@
 // lib/mcp/tools/salaries.ts
 //
-// Outils MCP — salaires. Le DÉTAIL de la paie (employés, taux, versements,
+// Outils MCP — paie du module Employés. Le DÉTAIL (employés, taux, versements,
 // avances) est réservé à l'ADMIN (`scope: 'admin'` : invisible au MANAGER, au
 // COMPTABLE et à l'ANALYSTE, et jamais exposé à l'assistant IA). Seul
 // l'agrégat mensuel — UN nombre, sans employé — reste ouvert aux rôles
@@ -9,11 +9,11 @@
 // Aucune logique propre : tout vient de `lib/salaries` (aucune duplication).
 
 import { z } from 'zod';
+import { getSalaryMonthView } from '@/lib/salaries/admin-queries';
 import {
-  getSalaryMonthView,
   listSalaryAdvances,
   listSalaryEmployees,
-} from '@/lib/salaries/admin-queries';
+} from '@/lib/salaries/admin-lists';
 import { getMonthlySalaryTotal } from '@/lib/salaries/queries';
 import { isValidMonth } from '@/lib/salaries/month';
 import type { McpTool } from './types';
@@ -46,9 +46,11 @@ export const salariesTools: McpTool[] = [
     scope: 'admin',
     title: 'Vue détaillée des salaires d’un mois (ADMIN)',
     description:
-      'ADMIN uniquement. Détail par employé d’un mois civil : dû, salaires et ' +
-      'acomptes versés, avances récupérées, reste à payer, solde d’avance, plus ' +
-      'les totaux du mois. Données nominatives : jamais exposées aux autres rôles.',
+      'ADMIN uniquement (module Employés → Paie du mois). Détail par employé d’un mois civil : dû (taux ' +
+      'proratisés, primes et retenues), salaires et acomptes versés, avances ' +
+      'récupérées, reste à payer, arriéré des mois clôturés, montant proposé ' +
+      'au paiement et solde d’avance, plus les totaux du mois. Données ' +
+      'nominatives : jamais exposées aux autres rôles.',
     inputSchema: monthInput,
     readOnly: true,
     handler: (args) => getSalaryMonthView((args as { month: string }).month),
@@ -59,8 +61,9 @@ export const salariesTools: McpTool[] = [
     scope: 'admin',
     title: 'Lister les employés (ADMIN)',
     description:
-      'ADMIN uniquement. Employés (nom, poste, entrée/sortie, actif, note) et ' +
-      'historique de leurs taux mensuels. Données nominatives.',
+      'ADMIN uniquement (module Employés). Employés (nom, poste, entrée/sortie, actif, note), ' +
+      'historique de leurs taux mensuels, primes/retenues et arriéré à ce ' +
+      'jour. Données nominatives.',
     inputSchema: z.object({}),
     readOnly: true,
     handler: () => listSalaryEmployees(),
@@ -71,7 +74,7 @@ export const salariesTools: McpTool[] = [
     scope: 'admin',
     title: 'Lister les avances sur salaire (ADMIN)',
     description:
-      'ADMIN uniquement. Avances enregistrées (employé, date, mois, montant, ' +
+      'ADMIN uniquement (module Employés). Avances enregistrées (employé, date, mois, montant, ' +
       'étalement, note), les plus récentes d’abord.',
     inputSchema: z.object({}),
     readOnly: true,

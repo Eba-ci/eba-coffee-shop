@@ -108,7 +108,10 @@ export async function createOrder(
         }
 
         let finalOrder = order;
-        if (customerId) {
+        // Paiement en ligne : le tampon n'est accordé qu'au paiement validé
+        // (`awardLoyaltyOnPayment`), sinon il serait visible sur la carte pour
+        // une commande qui peut expirer.
+        if (customerId && !online) {
           const { rewards } = await awardLoyaltyForOrder(tx, {
             customerId,
             orderId: order.id,

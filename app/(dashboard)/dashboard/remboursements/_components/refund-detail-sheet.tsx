@@ -2,7 +2,6 @@
 
 // Détail d'un remboursement dans un panneau latéral, ouvert par `?open=<id>`.
 
-import { useRouter } from 'next/navigation';
 import { parseAsString, useQueryState } from 'nuqs';
 import Link from 'next/link';
 import {
@@ -46,7 +45,6 @@ export function RefundDetailSheet({
   refund: RefundDetailData | null;
   viewer: RefundViewer;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useQueryState(
     'open',
     parseAsString.withOptions({ shallow: false, scroll: false })
@@ -76,14 +74,11 @@ export function RefundDetailSheet({
               <RefundActions
                 refund={refund}
                 viewer={viewer}
-                onDone={() => router.refresh()}
+                onDone={() => {}}
               />
 
               {refund.convertibleCredit > 0 && viewer.canRequest && (
-                <ConvertCredit
-                  refund={refund}
-                  onDone={() => router.refresh()}
-                />
+                <ConvertCredit refund={refund} onDone={() => {}} />
               )}
 
               <dl className="divide-y rounded-lg border px-3">

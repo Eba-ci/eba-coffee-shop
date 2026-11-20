@@ -161,6 +161,19 @@ aussi en local ; en test, changer l'en-tête `x-forwarded-for` suffit.
   la commande sort de l'attente (`paymentExpiresAt = null`) et s'encaisse par les moyens
   habituels, sans Jèko ni frais. Un lien Jèko déjà ouvert peut encore être payé : il
   déclenche l'alerte de double paiement.
+- **Lien Jèko déjà ouvert après « Prendre en caisse »** : aucune API d'annulation de
+  demande de paiement n'a été repérée côté Jèko, donc le lien reste payable jusqu'à son
+  expiration. Le filet est l'alerte de double paiement ci-dessus, puis un remboursement
+  manuel. Rien à coder tant que Jèko n'offre pas d'annulation.
+- **Créneau retenu pendant le paiement** : une commande en attente garde son créneau (et
+  son stock, retrait aujourd'hui) pendant `PAYMENT_EXPIRY_MINUTES`
+  (`config/constants/orders.ts`), et chaque relance repousse l'échéance. Une personne
+  mal intentionnée pourrait donc bloquer un créneau en relançant ; c'est borné par la
+  limite de débit par IP (`lib/order-payment-rate-limit.ts`) et le risque est faible au
+  volume actuel. À revoir (plafond de relances par commande) si on le constate.
+- **Registre Jèko (`amount_mismatch`, paiements tardifs)** : documenté, pas compté. Aucun
+  montant reçu n'est mémorisé et `paymentTransactionId` n'est pas écrit dans ces cas ;
+  le Dashboard Jèko reste la source pour rapprocher.
 - **Expiration sans configuration Jèko** : si les variables `JEKO_*` manquent, aucune
   commande ayant une demande de paiement n'est expirée (elle a pu être payée).
 - **Montant figé** : `Order.paymentAmountDue` garde ce qui a été demandé à Jèko. Le
@@ -170,6 +183,33 @@ aussi en local ; en test, changer l'en-tête `x-forwarded-for` suffit.
   comptoir ; seule la relance du paiement reste possible côté client.
 - **Pas de remboursement automatique** : aucune API de remboursement n'a été repérée,
   il se fait à la main depuis le Dashboard Jèko.
+
+### Fidélité
+
+Pour une commande payée en ligne, le tampon n'est plus accordé à la création mais au
+paiement validé (`awardLoyaltyOnPayment`, `lib/jeko/loyalty-on-paid.ts`), y compris après un
+paiement tardif validé. Conséquence : pas de récompense auto-appliquée à la commande en ligne
+en cours (le tampon compte pour la suivante). La caisse garde le tampon à la création.
+
+Cas limites : une commande en ligne annulée par une personne puis payée n'a jamais eu de
+tampon ; à sa reprise par le staff, `restoreLoyaltyForOrder` lui en accorde un (commande
+payée en ligne uniquement). L'attribution est retentée 3 fois ; si tout échoue, le webhook répond quand même 200, une
+ligne d'ajustement à 0 tampon est écrite dans le journal du client (trace durable, visible sur
+sa fiche) et une alerte staff demande l'ajustement manuel.
+
+### Registre Jèko et paiements en écart
+
+Le registre (`lib/jeko/ledger.ts`, page `/dashboard/jeko`) ne compte que les commandes
+dont `paymentTransactionId` est renseigné. Or `settleJekoTransaction` ne l'écrit qu'**avec**
+`isPaid`, donc **pas** pour un paiement `amount_mismatch` : la commande n'est qu'« sortie
+de l'attente » (`paymentExpiresAt` nul) et rien ne mémorise le montant réellement reçu.
+Les compter exigerait une nouvelle colonne (montant reçu) et une règle de rapprochement :
+nous avons choisi de **ne pas** le faire, au risque d'inventer des chiffres.
+
+Conséquence : un paiement en écart (et un paiement tardif remboursé, déjà déduit à part)
+n'apparaît pas dans le solde affiché, alors que l'argent est chez Jèko. Le staff est alerté
+(« Montant reçu X F au lieu de Y F ») et tranche : **vérifier le solde réel dans le Dashboard
+Jèko** (`lib/jeko/balance.ts` lit le solde réel du compte) avant tout retrait.
 
 ## Retour arrière d'urgence
 

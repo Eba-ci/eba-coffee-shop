@@ -64,7 +64,7 @@ export async function listFixedCosts(): Promise<FixedCostRow[]> {
 }
 
 /** Dépenses liées à une occurrence de charge fixe dont l'échéance est dans la plage. */
-async function listLinkedPayments(
+export async function listLinkedPayments(
   from: string,
   to: string
 ): Promise<LinkedPayment[]> {
@@ -91,22 +91,30 @@ async function listLinkedPayments(
 export async function getFixedCostSchedule(
   from: string,
   to: string,
-  costs?: FixedCostRow[]
+  costs?: FixedCostRow[],
+  opts: { includeInactive?: boolean } = {}
 ): Promise<Occurrence[]> {
   const all = costs ?? (await listFixedCosts());
-  const active = all.filter((c) => c.active && c.periodicity !== 'DAILY');
-  if (active.length === 0) return [];
+  // `includeInactive` (rapprochement) : une charge désactivée garde ses
+  // échéances sur sa fenêtre début → fin ; les autres lecteurs l'ignorent.
+  const kept = all
+    .filter(
+      (c) => (c.active || opts.includeInactive) && c.periodicity !== 'DAILY'
+    )
+    .map((c) => (opts.includeInactive ? { ...c, active: true } : c));
+  if (kept.length === 0) return [];
   const payments = await listLinkedPayments(from, to);
-  return scheduleForRange(active, from, to, payments, todayDateString());
+  return scheduleForRange(kept, from, to, payments, todayDateString());
 }
 
 /** Échéancier d'un mois civil `YYYY-MM`. */
 export async function getMonthSchedule(
   month: string,
-  costs?: FixedCostRow[]
+  costs?: FixedCostRow[],
+  opts: { includeInactive?: boolean } = {}
 ): Promise<Occurrence[]> {
   const { from, to } = monthBounds(month);
-  return getFixedCostSchedule(from, to, costs);
+  return getFixedCostSchedule(from, to, costs, opts);
 }
 
 /** Vue « paiements » d'un mois : échéances du mois, de la semaine et retards. */

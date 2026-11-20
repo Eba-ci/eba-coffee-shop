@@ -168,7 +168,6 @@ export function useRestockForm({
       });
       if (res.ok) {
         router.push('/dashboard/inventaire');
-        router.refresh();
       } else {
         setError(res.error);
       }

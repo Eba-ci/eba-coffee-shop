@@ -3,6 +3,10 @@
 // Plan PUR d'import des catégories de dépenses de nature FIXED en charges
 // fixes (#433). Aucun accès base : la mutation charge les données et applique
 // le plan.
+//
+// Depuis la recette du 14/11, la charge prend effet au MOIS DE LA PREMIÈRE
+// dépense connue, et non au mois courant : sans ça, les mois déjà payés (et
+// les mois impayés) de l'historique resteraient invisibles dans le calendrier.
 
 import { isSalaryNamed } from './salary-migration';
 
@@ -13,11 +17,19 @@ export type CategoryImportInput = {
   lastAmount: number | null;
   /** Commentaire (`note`) de cette même dépense : devient le libellé de la charge. */
   lastNote?: string | null;
+  /** Mois « YYYY-MM » de la PREMIÈRE dépense : prise d'effet de la charge. */
+  firstExpenseMonth?: string | null;
 };
 
 export type CategoryImportPlan = {
   /** Catégories à transformer en charge fixe (montant connu > 0). */
-  toImport: { categoryId: string; label: string; amount: number }[];
+  toImport: {
+    categoryId: string;
+    label: string;
+    amount: number;
+    /** Mois « YYYY-MM » de prise d'effet. */
+    startMonth: string;
+  }[];
   /** Noms des catégories sans montant connu : à compléter, rien n'est créé. */
   toComplete: string[];
   /** Noms des catégories « Salaires » ignorées. */
@@ -26,9 +38,15 @@ export type CategoryImportPlan = {
   alreadyLinked: number;
 };
 
+/**
+ * `fallbackStartMonth` (« YYYY-MM ») n'est utilisé que si une catégorie a un
+ * montant sans date de première dépense : cas anormal, on retombe sur le mois
+ * courant plutôt que d'inventer une date passée.
+ */
 export function planCategoryImport(
   categories: CategoryImportInput[],
-  linkedCategoryIds: ReadonlySet<string>
+  linkedCategoryIds: ReadonlySet<string>,
+  fallbackStartMonth: string
 ): CategoryImportPlan {
   const plan: CategoryImportPlan = {
     toImport: [],
@@ -46,6 +64,7 @@ export function planCategoryImport(
         categoryId: c.id,
         label: c.lastNote?.trim() || c.name,
         amount: c.lastAmount,
+        startMonth: c.firstExpenseMonth ?? fallbackStartMonth,
       });
     } else {
       plan.toComplete.push(c.name);

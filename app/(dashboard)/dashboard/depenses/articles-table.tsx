@@ -75,7 +75,6 @@ export function ArticlesTable({
       if (!r.ok) setError(r.error);
       else {
         setEditingId(null);
-        router.refresh();
       }
     });
   }
@@ -88,7 +87,6 @@ export function ArticlesTable({
     startTransition(async () => {
       const r = await archiveExpenseArticleAction(id);
       if (!r.ok) setError(r.error);
-      else router.refresh();
     });
   }
 

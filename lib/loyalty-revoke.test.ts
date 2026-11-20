@@ -22,6 +22,7 @@ const tx = {
   loyaltyLedger: { findMany: vi.fn(), create: vi.fn() },
   customer: { findUnique: vi.fn(), update: vi.fn() },
   loyaltySettings: { findUnique: vi.fn() },
+  order: { findUnique: vi.fn() },
 };
 
 const args = {
@@ -36,6 +37,7 @@ beforeEach(() => {
   tx.loyaltyReward.findMany.mockResolvedValue([]);
   tx.loyaltyLedger.findMany.mockResolvedValue([]);
   tx.loyaltySettings.findUnique.mockResolvedValue(null);
+  tx.order.findUnique.mockResolvedValue({ isPaid: false, onlineFee: null });
 });
 
 describe('revokeLoyaltyForOrder', () => {

@@ -23,7 +23,7 @@ export default async function ModifierDepensePage({
   ]);
   if (!expense) notFound();
   // Ligne de salaire : pilotée par le module salaires, jamais éditée ici.
-  if (expense.salaryPaymentId) notFound();
+  if (expense.salaryAggregateKey) notFound();
 
   const plainCategories = categories.map((c) => ({ id: c.id, name: c.name }));
 

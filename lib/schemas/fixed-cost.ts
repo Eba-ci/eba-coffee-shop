@@ -92,6 +92,21 @@ export const fixedCostUpdateSchema = fixedCostObjectSchema
     path: ['endDate'],
   });
 
+/**
+ * Backfill d'une charge depuis l'historique détecté (#452). `label` et
+ * `amount` ne servent qu'à une CRÉATION : si la catégorie a déjà sa charge,
+ * seule la prise d'effet est corrigée.
+ */
+export const fixedCostBackfillSchema = z.object({
+  categoryId: z.string().min(1, 'Catégorie requise'),
+  startDate: dateOnly,
+  label: fixedCostObjectSchema.shape.label.optional(),
+  amount: z.number().int('Montant entier (FCFA)').optional(),
+  periodicity: fixedCostPeriodicitySchema.default('MONTHLY'),
+  installments: fixedCostObjectSchema.shape.installments,
+});
+export type FixedCostBackfillInput = z.infer<typeof fixedCostBackfillSchema>;
+
 export type FixedCostInstallmentInput = z.infer<
   typeof fixedCostInstallmentSchema
 >;

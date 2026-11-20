@@ -144,7 +144,6 @@ export function useCountView(items: InventoryItemView[]) {
         clear();
         setRecapOpen(false);
         router.push('/dashboard/inventaire?compte=1');
-        router.refresh();
       } else {
         setError(result.error);
       }

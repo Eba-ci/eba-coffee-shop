@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
       // Confidentialité : les lignes de salaire (réservées à l'ADMIN) n'ont pas
       // de détail d'article, et ne doivent jamais transiter par cet export.
       expense: {
-        salaryPaymentId: null,
+        salaryAggregateKey: null,
         ...(dateFrom || dateTo
           ? {
               date: {

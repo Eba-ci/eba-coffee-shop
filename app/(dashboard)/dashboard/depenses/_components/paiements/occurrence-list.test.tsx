@@ -67,3 +67,26 @@ describe('OccurrenceList — sélection', () => {
     );
   });
 });
+
+describe('OccurrenceList — retards par mois (#458)', () => {
+  const late = [
+    occ({ dueDate: '2026-11-03', label: 'Loyer' }),
+    occ({
+      costId: 'c2',
+      dueDate: '2026-10-03',
+      label: 'Wifi',
+      remaining: 5000,
+    }),
+  ];
+  it('un accordéon par mois, le plus récent ouvert, les autres repliés', () => {
+    const html = render({ occurrences: late, groupByMonth: true });
+    expect(html).toContain('novembre 2026');
+    expect(html).toContain('octobre 2026');
+    expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('aria-controls=');
+  });
+  it('sans regroupement, pas d’accordéon', () => {
+    expect(render({ occurrences: late })).not.toContain('aria-expanded');
+  });
+});

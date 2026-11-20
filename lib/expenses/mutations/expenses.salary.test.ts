@@ -1,5 +1,6 @@
-// Une ligne de salaire est pilotée par le module salaires : les écritures
-// génériques de dépense la refusent (sinon le versement lié se désynchronise).
+// La ligne globale de masse salariale est recalculée par le module employés :
+// les écritures génériques de dépense la refusent (sinon elle se désynchronise
+// des versements).
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,8 +18,8 @@ beforeEach(() => {
   vi.resetAllMocks();
 });
 
-describe('dépenses liées à un salaire', () => {
-  it('updateExpense refuse de modifier une ligne de salaire', async () => {
+describe('ligne globale de masse salariale', () => {
+  it('updateExpense refuse de modifier la ligne globale', async () => {
     vi.mocked(prisma.$transaction).mockImplementation((async (
       fn: (tx: unknown) => unknown
     ) =>
@@ -26,22 +27,24 @@ describe('dépenses liées à un salaire', () => {
         expense: {
           findUnique: vi.fn().mockResolvedValue({
             amount: 100,
-            salaryPaymentId: 'p1',
+            salaryAggregateKey: '2026-11-01:WAVE',
             _count: { items: 0 },
           }),
         },
       })) as never);
 
     await expect(updateExpense('x1', { note: 'x' })).rejects.toThrow(
-      /versement de salaire/
+      /générée à partir des versements/
     );
   });
 
-  it('deleteExpense refuse de supprimer une ligne de salaire', async () => {
+  it('deleteExpense refuse de supprimer la ligne globale', async () => {
     vi.mocked(prisma.expense.findUnique).mockResolvedValue({
-      salaryPaymentId: 'p1',
+      salaryAggregateKey: '2026-11-01:WAVE',
     } as never);
 
-    await expect(deleteExpense('x1')).rejects.toThrow(/versement de salaire/);
+    await expect(deleteExpense('x1')).rejects.toThrow(
+      /générée à partir des versements/
+    );
   });
 });

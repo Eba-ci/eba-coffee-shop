@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,7 +92,6 @@ function ExpenseSettingsSheet({
   settings: ExpenseSettings;
   onClose: () => void;
 }) {
-  const router = useRouter();
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(FIELDS.map((f) => [f.key, String(settings[f.key])]))
   );
@@ -121,7 +119,6 @@ function ExpenseSettingsSheet({
         setError(r.error);
         return;
       }
-      router.refresh();
       onClose();
     });
   }

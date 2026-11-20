@@ -4,8 +4,8 @@
 // (paiement cash oublié en caisse, etc.). Ouvre un Sheet depuis la fiche
 // client, débloque les récompenses de palier si l'ajustement les franchit.
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useServerAction } from '@/lib/hooks/use-server-action';
+import { useState } from 'react';
 import { Loader2, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,14 +25,11 @@ import {
 import { addMissedOrderStampsAction } from './actions';
 
 export function MissedOrderStampsSheet({ customerId }: { customerId: string }) {
-  const router = useRouter();
-
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState('1');
   const [note, setNote] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending, error, setError } = useServerAction();
 
   function openSheet() {
     setCount('1');
@@ -46,23 +43,21 @@ export function MissedOrderStampsSheet({ customerId }: { customerId: string }) {
     setError(null);
     setSuccess(null);
     const parsed = Number(count);
-    startTransition(async () => {
-      const res = await addMissedOrderStampsAction(
-        customerId,
-        parsed,
-        note.trim() || undefined
-      );
-      if (!res.ok) {
-        setError(res.error);
-        return;
+    run(
+      () =>
+        addMissedOrderStampsAction(
+          customerId,
+          parsed,
+          note.trim() || undefined
+        ),
+      (res) => {
+        setSuccess(
+          res.rewardsCreated > 0
+            ? `Tampons ajoutés — ${res.rewardsCreated} récompense(s) débloquée(s). Solde : ${res.stampCount}.`
+            : `Tampons ajoutés. Solde : ${res.stampCount}.`
+        );
       }
-      setSuccess(
-        res.rewardsCreated > 0
-          ? `Tampons ajoutés — ${res.rewardsCreated} récompense(s) débloquée(s). Solde : ${res.stampCount}.`
-          : `Tampons ajoutés. Solde : ${res.stampCount}.`
-      );
-      router.refresh();
-    });
+    );
   }
 
   return (

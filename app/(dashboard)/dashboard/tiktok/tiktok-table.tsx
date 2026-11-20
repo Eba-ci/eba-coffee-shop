@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { MediaImage as Image } from '@/components/ui/media-image';
+import { useServerAction } from '@/lib/hooks/use-server-action';
 import { ArrowDown, ArrowUp, Loader2, Plus, Trash2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -45,10 +45,8 @@ type TiktokVideoRow = {
 };
 
 export function TiktokTable({ videos }: { videos: TiktokVideoRow[] }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const { run, pending, error, setError, clearError } = useServerAction();
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [values, setValues] = useState<TiktokVideoFormValues>(
@@ -56,7 +54,7 @@ export function TiktokTable({ videos }: { videos: TiktokVideoRow[] }) {
   );
 
   function openCreate() {
-    setError(null);
+    clearError();
     setValues(emptyTiktokVideoValues);
     setCreateOpen(true);
   }
@@ -73,62 +71,36 @@ export function TiktokTable({ videos }: { videos: TiktokVideoRow[] }) {
       caption: values.caption.trim() || undefined,
       isActive: values.isActive,
     };
-    startTransition(async () => {
-      const r = await createTiktokVideoAction(input);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-      setCreateOpen(false);
-      router.refresh();
-    });
+    run(
+      () => createTiktokVideoAction(input),
+      () => setCreateOpen(false)
+    );
   }
 
   function toggleActive(video: TiktokVideoRow) {
-    setError(null);
     setPendingId(video.id);
-    startTransition(async () => {
-      const r = await updateTiktokVideoAction(video.id, {
-        isActive: !video.isActive,
-      });
-      setPendingId(null);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-      router.refresh();
-    });
+    run(() =>
+      updateTiktokVideoAction(video.id, { isActive: !video.isActive }).finally(
+        () => setPendingId(null)
+      )
+    );
   }
 
   function move(id: string, direction: 'up' | 'down') {
-    setError(null);
     setPendingId(id);
-    startTransition(async () => {
-      const r = await moveTiktokVideoAction(id, direction);
-      setPendingId(null);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-      router.refresh();
-    });
+    run(() =>
+      moveTiktokVideoAction(id, direction).finally(() => setPendingId(null))
+    );
   }
 
   function remove(video: TiktokVideoRow) {
     if (!window.confirm('Retirer cette vidéo TikTok ? Action irréversible.')) {
       return;
     }
-    setError(null);
     setPendingId(video.id);
-    startTransition(async () => {
-      const r = await deleteTiktokVideoAction(video.id);
-      setPendingId(null);
-      if (!r.ok) {
-        setError(r.error);
-        return;
-      }
-      router.refresh();
-    });
+    run(() =>
+      deleteTiktokVideoAction(video.id).finally(() => setPendingId(null))
+    );
   }
 
   return (

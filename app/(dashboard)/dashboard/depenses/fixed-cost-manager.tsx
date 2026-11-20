@@ -1,16 +1,15 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Download, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Download, Pencil, Plus, Trash2, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import {
   FIXED_COST_PERIODICITY_LABELS,
   type FixedCostPeriodicityValue,
 } from '@/lib/schemas/fixed-cost';
-import { FixedCostFields, emptyDraft, type Draft } from './fixed-cost-fields';
+import { FixedCostSheet, type FixedCostSheetTarget } from './fixed-cost-sheet';
 import {
-  createFixedCostAction,
   deleteFixedCostAction,
   syncFixedCostsFromCategoriesAction,
   updateFixedCostAction,
@@ -26,6 +25,7 @@ export type FixedCostManagerRow = {
   active: boolean;
   categoryId: string;
   categoryName: string;
+  note: string | null;
   /** Vide = échéance par défaut déduite de la prise d'effet. */
   installments: { monthOffset: number; day: number; amount: number }[];
 };
@@ -38,72 +38,10 @@ export function FixedCostManager({
   costs: FixedCostManagerRow[];
   categories: { id: string; name: string }[];
 }) {
-  const [draft, setDraft] = useState<Draft>(() =>
-    emptyDraft(categories[0]?.id ?? '')
-  );
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [target, setTarget] = useState<FixedCostSheetTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const set = <K extends keyof Draft>(k: K, v: Draft[K]) =>
-    setDraft((d) => ({ ...d, [k]: v }));
-
-  function reset() {
-    setEditingId(null);
-    setDraft(emptyDraft(categories[0]?.id ?? ''));
-  }
-
-  function submit() {
-    const amount = Math.round(Number(draft.amount));
-    if (!draft.label.trim() || !(amount > 0)) {
-      setError('Libellé et montant requis');
-      return;
-    }
-    if (!draft.categoryId) {
-      setError('Choisis une catégorie');
-      return;
-    }
-    setError(null);
-    setInfo(null);
-    const payload = {
-      label: draft.label,
-      amount,
-      periodicity: draft.periodicity,
-      startDate: draft.startDate,
-      endDate: draft.endDate || null,
-      categoryId: draft.categoryId,
-      installments: draft.installments.map((i) => ({
-        monthOffset: Number(i.monthOffset) || 0,
-        day: Math.round(Number(i.day)),
-        amount: Math.round(Number(i.amount)),
-      })),
-    };
-    startTransition(async () => {
-      const r = editingId
-        ? await updateFixedCostAction(editingId, payload)
-        : await createFixedCostAction(payload);
-      if (!r.ok) setError(r.error);
-      else reset();
-    });
-  }
-
-  function edit(row: FixedCostManagerRow) {
-    setEditingId(row.id);
-    setError(null);
-    setDraft({
-      label: row.label,
-      amount: String(row.amount),
-      periodicity: row.periodicity,
-      startDate: row.startDate,
-      endDate: row.endDate ?? '',
-      categoryId: row.categoryId,
-      installments: row.installments.map((i) => ({
-        monthOffset: String(i.monthOffset),
-        day: String(i.day),
-        amount: String(i.amount),
-      })),
-    });
-  }
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setError(null);
@@ -144,76 +82,83 @@ export function FixedCostManager({
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Chaque charge est répartie sur les jours ouverts de sa période (selon
-        tes horaires) : un jour fermé ne porte aucune charge.
-      </p>
-
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={sync}
-        disabled={pending}
-        className="h-11 sm:h-9"
-      >
-        <Download className="mr-1.5 h-4 w-4" />
-        Importer les catégories fixes
-      </Button>
-
-      <FixedCostFields draft={draft} set={set} categories={categories} />
-
-      <div className="flex gap-2">
-        <Button
-          onClick={submit}
-          disabled={pending}
-          size="sm"
-          className="h-11 sm:h-9"
-        >
-          {pending ? (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="mr-1.5 h-4 w-4" />
-          )}
-          {editingId ? 'Enregistrer' : 'Ajouter'}
-        </Button>
-        {editingId && (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <p className="max-w-prose text-sm text-muted-foreground">
+          Chaque charge est répartie sur les jours ouverts de sa période (selon
+          tes horaires) : un jour fermé ne porte aucune charge.
+        </p>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <Button
-            onClick={reset}
-            variant="ghost"
             size="sm"
+            variant="outline"
+            onClick={sync}
+            disabled={pending}
             className="h-11 sm:h-9"
           >
-            <X className="mr-1.5 h-4 w-4" />
-            Annuler
+            <Download className="h-4 w-4" />
+            Importer les catégories fixes
           </Button>
-        )}
+          <Button
+            size="sm"
+            onClick={() => setTarget({ mode: 'create' })}
+            disabled={pending}
+            className="h-11 sm:h-9"
+          >
+            <Plus className="h-4 w-4" />
+            Nouvelle charge
+          </Button>
+        </div>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
       {info && <p className="text-sm text-muted-foreground">{info}</p>}
 
       {costs.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Aucune charge fixe définie.
-        </p>
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-8 text-center">
+          <Wallet className="h-8 w-8 text-muted-foreground" aria-hidden />
+          <p className="text-sm text-muted-foreground">
+            Aucune charge fixe définie pour l’instant.
+          </p>
+          <Button
+            size="sm"
+            onClick={() => setTarget({ mode: 'create' })}
+            disabled={pending}
+            className="h-11 sm:h-9"
+          >
+            <Plus className="h-4 w-4" />
+            Nouvelle charge
+          </Button>
+        </div>
       ) : (
-        <ul className="divide-y rounded-lg border">
+        <ul className="divide-y rounded-lg border bg-card shadow-sm">
           {costs.map((c) => (
             <li
               key={c.id}
-              className="flex items-center justify-between gap-3 px-3 py-2"
+              className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 space-y-0.5">
                 <p className="truncate text-sm font-medium">{c.label}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {fmt.format(c.amount)} F ·{' '}
+                  {c.categoryName} ·{' '}
                   {FIXED_COST_PERIODICITY_LABELS[c.periodicity].toLowerCase()}
                   {' · '}dès le {c.startDate}
-                  {c.endDate ? ` jusqu’au ${c.endDate}` : ''} · {c.categoryName}
+                  {c.endDate ? ` jusqu’au ${c.endDate}` : ''}
                 </p>
+                {c.note && (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {c.note}
+                  </p>
+                )}
               </div>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center justify-between gap-1 sm:justify-end">
+                <span className="mr-1 text-sm font-medium tabular-nums">
+                  {fmt.format(c.amount)} F
+                </span>
                 <Switch
                   checked={c.active}
                   onCheckedChange={() =>
@@ -227,7 +172,7 @@ export function FixedCostManager({
                   size="icon"
                   variant="ghost"
                   className="h-11 w-11"
-                  onClick={() => edit(c)}
+                  onClick={() => setTarget({ mode: 'edit', id: c.id, row: c })}
                   disabled={pending}
                   aria-label="Modifier"
                 >
@@ -248,6 +193,12 @@ export function FixedCostManager({
           ))}
         </ul>
       )}
+
+      <FixedCostSheet
+        target={target}
+        categories={categories}
+        onClose={() => setTarget(null)}
+      />
     </div>
   );
 }

@@ -1,27 +1,20 @@
-// Confidentialité des lignes de salaire : par défaut, `buildExpenseWhere`
-// exclut les dépenses liées à un versement (`salaryPaymentId != null`). Seul
-// un appel explicite (`includeSalary: true`, écrans ADMIN) les inclut.
+// La ligne globale de masse salariale est une dépense comme les autres pour
+// les lectures : `buildExpenseWhere` ne l'exclut plus (plus de trou comptable
+// pour les non-admin). Le détail par employé n'existe pas dans cette table.
 
 import { describe, expect, it } from 'vitest';
 import { buildExpenseWhere } from './filters';
 
-describe('buildExpenseWhere — lignes de salaire', () => {
-  it('masque les lignes de salaire par défaut', () => {
-    expect(buildExpenseWhere({})).toMatchObject({ salaryPaymentId: null });
+describe('buildExpenseWhere — masse salariale', () => {
+  it('n’exclut aucune ligne par défaut', () => {
+    expect(buildExpenseWhere({})).toEqual({});
   });
 
-  it('masque aussi quand des filtres sont posés', () => {
+  it('applique seulement les filtres demandés', () => {
     const where = buildExpenseWhere({
       categoryId: 'cat-sal',
       paymentMethod: 'WAVE',
-      search: 'x',
     });
-    expect(where.salaryPaymentId).toBeNull();
-  });
-
-  it('inclut les lignes de salaire quand l’appelant l’autorise (ADMIN)', () => {
-    const where = buildExpenseWhere({ includeSalary: true });
-    expect(where.salaryPaymentId).toBeUndefined();
-    expect('salaryPaymentId' in where).toBe(false);
+    expect(where).toEqual({ categoryId: 'cat-sal', paymentMethod: 'WAVE' });
   });
 });

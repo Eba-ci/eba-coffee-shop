@@ -32,7 +32,9 @@ import { pollOptionsTools } from './poll-options';
 import { tiktokTools } from './tiktok';
 import { refundsTools } from './refunds';
 import { fixedCostsTools } from './fixed-costs';
+import { fixedCostLinksTools } from './fixed-cost-links';
 import { salariesTools } from './salaries';
+import { salariesWriteTools } from './salaries-write';
 
 export const tools: McpTool[] = [
   ...menuReadTools,
@@ -45,7 +47,9 @@ export const tools: McpTool[] = [
   ...investmentsTools,
   ...revenueAdjustmentsTools,
   ...fixedCostsTools,
+  ...fixedCostLinksTools,
   ...salariesTools,
+  ...salariesWriteTools,
   ...refundsTools,
   ...cashClosingTools,
   ...ordersTools,

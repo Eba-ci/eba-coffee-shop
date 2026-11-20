@@ -20,13 +20,19 @@ import { listExpenseCategories } from '@/lib/expenses';
 import { loadArticleOptions } from '../article-options';
 import { OccurrenceList } from './occurrence-list';
 import { PayDrawerProvider } from './pay-drawer';
+import { HistoryGridSection } from './history-grid-section';
 
 export async function PaymentsSection({
   month,
   readOnly = false,
+  historyMonths,
+  onlyUnpaid,
 }: {
   month: string;
   readOnly?: boolean;
+  /** Plage de la vue historique (6 | 12 | 24), 12 par défaut. */
+  historyMonths?: number | null;
+  onlyUnpaid?: boolean | null;
 }) {
   const today = todayDateString();
   const currentMonth = today.slice(0, 7);
@@ -85,6 +91,7 @@ export async function PaymentsSection({
               month={month}
               readOnly={readOnly}
               selectable
+              groupByMonth
               emptyLabel="Aucun retard."
             />
           </CardContent>
@@ -124,6 +131,8 @@ export async function PaymentsSection({
           />
         </CardContent>
       </Card>
+
+      <HistoryGridSection months={historyMonths} onlyUnpaid={onlyUnpaid} />
     </div>
   );
 

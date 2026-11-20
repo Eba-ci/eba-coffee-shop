@@ -9,8 +9,8 @@
 // numéro reste l'identifiant final. Le doublon sélectionné est absorbé
 // (commandes, fidélité, votes de sondage re-rattachés) puis supprimé.
 
-import { useEffect, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useServerAction } from '@/lib/hooks/use-server-action';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, Merge, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,15 +40,12 @@ export function MergeCustomerSheet({
   customerName,
   customerPhone,
 }: Props) {
-  const router = useRouter();
-
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CustomerHit[]>([]);
   const [duplicate, setDuplicate] = useState<CustomerHit | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { run, pending, error, setError } = useServerAction();
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -104,22 +101,19 @@ export function MergeCustomerSheet({
     if (!duplicate) return;
     setError(null);
     setSuccess(null);
-    startTransition(async () => {
-      const res = await mergeCustomersAction(duplicate.id, customerId);
-      if (!res.ok) {
-        setError(res.error);
-        return;
+    run(
+      () => mergeCustomersAction(duplicate.id, customerId),
+      (res) => {
+        setSuccess(
+          `Fusion effectuée — ${res.ordersMoved} commande(s), ` +
+            `${res.rewardsMoved} récompense(s) et ${res.pollVotesMoved} vote(s) ` +
+            `rattachés. ${res.stampsMerged} tampon(s) cumulé(s).`
+        );
+        setDuplicate(null);
+        setQuery('');
+        setResults([]);
       }
-      setSuccess(
-        `Fusion effectuée — ${res.ordersMoved} commande(s), ` +
-          `${res.rewardsMoved} récompense(s) et ${res.pollVotesMoved} vote(s) ` +
-          `rattachés. ${res.stampsMerged} tampon(s) cumulé(s).`
-      );
-      setDuplicate(null);
-      setQuery('');
-      setResults([]);
-      router.refresh();
-    });
+    );
   }
 
   return (

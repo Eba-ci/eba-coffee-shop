@@ -2,8 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
-    employee: { create: vi.fn(), update: vi.fn() },
-    salaryRate: { upsert: vi.fn() },
+    employee: {
+      create: vi.fn(),
+      update: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
+    },
+    salaryRate: { create: vi.fn(), upsert: vi.fn() },
     salaryPayment: { findUnique: vi.fn(), create: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -21,9 +25,16 @@ import { requireAdmin } from '@/lib/auth-helpers';
 import {
   createEmployee,
   recordSalaryPayment,
-  setSalaryRate,
   updateEmployee,
 } from './mutations';
+import { addSalaryRate } from './rate-mutations';
+
+const rateInput = {
+  employeeId: 'e1',
+  monthlyAmount: 120_000,
+  startMonth: '2026-12',
+  endMonth: null,
+};
 
 /**
  * Garde ADMIN explicite sur les ÉCRITURES de lib/salaries appelées par l'écran
@@ -41,15 +52,7 @@ describe('écritures salaires : garde ADMIN', () => {
       () => createEmployee({ name: 'A', startDate: '2026-01-01' }),
     ],
     ['updateEmployee', () => updateEmployee('e1', { name: 'B' })],
-    [
-      'setSalaryRate',
-      () =>
-        setSalaryRate({
-          employeeId: 'e1',
-          monthlyAmount: 1_000,
-          startDate: '2026-01-01',
-        }),
-    ],
+    ['addSalaryRate', () => addSalaryRate(rateInput)],
     [
       'recordSalaryPayment',
       () =>
@@ -66,6 +69,7 @@ describe('écritures salaires : garde ADMIN', () => {
     expect(prismaMock.employee.create).not.toHaveBeenCalled();
     expect(prismaMock.employee.update).not.toHaveBeenCalled();
     expect(prismaMock.salaryRate.upsert).not.toHaveBeenCalled();
+    expect(prismaMock.salaryRate.create).not.toHaveBeenCalled();
     expect(prismaMock.salaryPayment.create).not.toHaveBeenCalled();
   });
 });
