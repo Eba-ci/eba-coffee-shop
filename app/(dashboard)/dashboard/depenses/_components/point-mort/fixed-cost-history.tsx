@@ -9,14 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { money } from '@/lib/fixed-costs/format';
 import { shiftMonth, monthLabel } from '@/lib/fixed-costs/month';
 import { suggestBackfill } from '@/lib/fixed-costs/backfill-suggestion';
-import {
-  IRREGULAR_AMOUNT_RATIO,
-  MAX_PROBABLE_GAPS,
-} from '@/lib/fixed-costs/history-detection';
 import { BackfillAction } from './backfill-action';
 import type {
   CategoryHistory,
   HistoryConfidence,
+  ReviewReason,
 } from '@/lib/fixed-costs/history-detection';
 
 const CONFIDENCE_META: Record<
@@ -46,6 +43,22 @@ const CONFIDENCE_META: Record<
 
 const plural = (count: number, one: string, many: string) =>
   `${count} ${count > 1 ? many : one}`;
+
+/** Texte de chaque raison ; la règle elle-même vit dans `classify()`. */
+function reviewReasonText(
+  reason: ReviewReason,
+  min: number,
+  max: number
+): string {
+  switch (reason) {
+    case 'two-months':
+      return 'Seulement deux mois d’historique : trop peu pour être certain.';
+    case 'many-gaps':
+      return 'Plusieurs mois n’ont aucune dépense : la régularité n’est pas sûre.';
+    case 'irregular-amounts':
+      return `Les montants varient beaucoup (de ${money(min)} à ${money(max)} par mois) : ce n’est peut-être pas une charge fixe.`;
+  }
+}
 
 /**
  * Résultat de la détection, tous rôles en lecture. Chaque catégorie montre ses
@@ -103,7 +116,6 @@ function HistoryRow({
   const totals = row.months.map((m) => m.total);
   const min = Math.min(...totals);
   const max = Math.max(...totals);
-  const irregular = max > min * IRREGULAR_AMOUNT_RATIO;
   const startMonth = monthLabel(row.suggestedStartMonth);
 
   return (
@@ -119,27 +131,42 @@ function HistoryRow({
       </div>
 
       <p className="text-sm text-muted-foreground">
-        {plural(row.expenseCount, 'dépense', 'dépenses')} enregistrées sur{' '}
-        {plural(row.months.length, 'mois', 'mois')}, de{' '}
-        {monthLabel(row.firstMonth)} à {monthLabel(row.lastMonth)} :{' '}
+        {row.expenseCount > 1
+          ? `${row.expenseCount} dépenses enregistrées`
+          : '1 dépense enregistrée'}{' '}
+        {row.months.length > 1
+          ? `sur ${row.months.length} mois, de ${monthLabel(row.firstMonth)} à ${monthLabel(row.lastMonth)}`
+          : `en ${monthLabel(row.firstMonth)}`}{' '}
+        :{' '}
         <span className="font-medium tabular-nums text-foreground">
           {money(row.total)}
         </span>{' '}
         au total.
       </p>
 
-      {row.confidence === 'to-review' && (
+      {row.reviewReason && (
         <p className="rounded-md bg-muted p-2 text-sm">
           <span className="font-medium">Pourquoi « à vérifier » ?</span>{' '}
-          {irregular
-            ? `Les montants varient beaucoup (de ${money(min)} à ${money(max)} par mois) : ce n’est peut-être pas une charge fixe.`
-            : row.gaps.length > MAX_PROBABLE_GAPS
-              ? 'Plusieurs mois n’ont aucune dépense : la régularité n’est pas sûre.'
-              : 'Seulement deux mois d’historique : trop peu pour être certain.'}
+          {reviewReasonText(row.reviewReason, min, max)}
         </p>
       )}
 
-      <details className="group text-sm">
+      {row.alreadyConverted && row.confidence === 'single' && (
+        <p className="text-sm text-muted-foreground">
+          Cette catégorie a déjà une charge fixe.
+        </p>
+      )}
+
+      {trailingStart && trailingEnd && (
+        <p className="text-sm">
+          <span className="font-medium">Puis plus rien :</span> aucune dépense
+          de {trailingStart} à {trailingEnd} (
+          {plural(row.trailingGaps.length, 'mois', 'mois')}). La charge s’est
+          peut-être arrêtée.
+        </p>
+      )}
+
+      <details className="text-sm">
         <summary className="inline-flex min-h-11 cursor-pointer items-center text-primary sm:min-h-8">
           Voir le détail mois par mois
         </summary>
@@ -172,12 +199,6 @@ function HistoryRow({
             {row.gaps.map(monthLabel).join(', ')}.
           </p>
         )}
-        {trailingStart && trailingEnd && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Puis plus rien : aucune dépense de {trailingStart} à {trailingEnd} (
-            {plural(row.trailingGaps.length, 'mois', 'mois')}).
-          </p>
-        )}
       </details>
 
       {row.confidence === 'single' ? (
@@ -189,9 +210,8 @@ function HistoryRow({
           <p className="text-sm">
             <span className="font-medium">Proposition :</span>{' '}
             {row.alreadyConverted
-              ? 'cette catégorie a déjà une charge fixe. '
-              : 'en faire une charge fixe mensuelle. '}
-            Son suivi (point mort, retards) commencerait en{' '}
+              ? 'cette catégorie a déjà une charge fixe. Tu peux faire démarrer son suivi (point mort, retards) en '
+              : 'en faire une charge fixe mensuelle, suivie (point mort, retards) à partir de '}
             <span className="font-medium capitalize">{startMonth}</span>, le
             mois de la première dépense.
           </p>

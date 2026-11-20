@@ -47,6 +47,7 @@ describe('detectFixedCostHistory', () => {
       '2026-11',
     ]);
     expect(row.confidence).toBe('probable');
+    expect(row.reviewReason).toBeNull();
     expect(row.alreadyConverted).toBe(false);
   });
 
@@ -99,6 +100,7 @@ describe('detectFixedCostHistory', () => {
     expect(row.total).toBe(350_000);
     expect(row.expenseCount).toBe(3);
     expect(row.confidence).toBe('to-review');
+    expect(row.reviewReason).toBe('two-months');
   });
 
   it('n’affiche jamais la catégorie Salaires (casse et accents ignorés)', () => {
@@ -130,6 +132,7 @@ describe('detectFixedCostHistory', () => {
 
     expect(row.gaps).toEqual(['2025-12', '2026-01']);
     expect(row.confidence).toBe('to-review');
+    expect(row.reviewReason).toBe('two-months');
   });
 
   it('passe « à vérifier » quand les montants sont très irréguliers', () => {
@@ -146,6 +149,7 @@ describe('detectFixedCostHistory', () => {
 
     expect(row.gaps).toEqual([]);
     expect(row.confidence).toBe('to-review');
+    expect(row.reviewReason).toBe('irregular-amounts');
   });
 
   it('ignore les catégories sans dépense et les dates invalides', () => {
@@ -176,5 +180,21 @@ describe('detectFixedCostHistory', () => {
     );
 
     expect(row.trailingGaps).toEqual([]);
+  });
+
+  it('donne « plusieurs trous » quand 3 mois couverts laissent plus d’un trou', () => {
+    const [row] = detectFixedCostHistory(
+      [cat('wifi', 'Wifi')],
+      byCategory({
+        wifi: [
+          exp('2026-01-05', 10_000),
+          exp('2026-04-05', 10_000),
+          exp('2026-07-05', 10_000),
+        ],
+      })
+    );
+
+    expect(row.confidence).toBe('to-review');
+    expect(row.reviewReason).toBe('many-gaps');
   });
 });

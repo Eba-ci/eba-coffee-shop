@@ -18,6 +18,7 @@ const row = (overrides: Partial<CategoryHistory> = {}): CategoryHistory => ({
   suggestedStartMonth: '2026-03',
   suggestedPeriodicity: 'MONTHLY',
   confidence: 'probable',
+  reviewReason: null,
   alreadyConverted: false,
   total: 450_000,
   expenseCount: 3,
@@ -36,6 +37,7 @@ describe('FixedCostHistory (écran de détection, lecture seule)', () => {
               { month: '2026-05', total: 160_000, count: 2 },
             ],
             confidence: 'to-review',
+            reviewReason: 'irregular-amounts',
           }),
         ]}
       />
@@ -51,7 +53,7 @@ describe('FixedCostHistory (écran de détection, lecture seule)', () => {
     expect(html).toContain('en faire une charge fixe mensuelle');
   });
 
-  it('ne propose pas la conversion d’une dépense unique et marque déjà convertie', () => {
+  it('ne propose pas la conversion d’une dépense unique et rappelle qu’une charge existe déjà', () => {
     const html = renderToStaticMarkup(
       <FixedCostHistory
         rows={[
@@ -71,6 +73,9 @@ describe('FixedCostHistory (écran de détection, lecture seule)', () => {
 
     expect(html).toContain('Dépense unique');
     expect(html).toContain('Dépense unique : conversion non proposée.');
+    expect(html).toContain('Cette catégorie a déjà une charge fixe.');
+    expect(html).toContain('1 dépense enregistrée en mars 2026');
+    expect(html).not.toContain('enregistrées');
     expect(html).not.toContain('Proposition :');
   });
 
@@ -111,5 +116,35 @@ describe('FixedCostHistory (écran de détection, lecture seule)', () => {
     expect(html).toContain(
       'Aucune catégorie fixe avec des dépenses à détecter.'
     );
+  });
+
+  it('explique chaque raison de « à vérifier » et rien pour une ligne probable', () => {
+    const text = (reviewReason: CategoryHistory['reviewReason']) =>
+      renderToStaticMarkup(
+        <FixedCostHistory
+          rows={[row({ confidence: 'to-review', reviewReason })]}
+        />
+      );
+    expect(text('two-months')).toContain('Seulement deux mois d’historique');
+    expect(text('many-gaps')).toContain('Plusieurs mois n’ont aucune dépense');
+    expect(text('irregular-amounts')).toContain(
+      'Les montants varient beaucoup'
+    );
+    expect(
+      renderToStaticMarkup(<FixedCostHistory rows={[row()]} />)
+    ).not.toContain('Pourquoi');
+  });
+
+  it('garde « Puis plus rien » visible, hors du détail replié', () => {
+    const html = renderToStaticMarkup(<FixedCostHistory rows={[row()]} />);
+    const before = html.slice(0, html.indexOf('<details'));
+    expect(before).toContain('Puis plus rien');
+  });
+
+  it('formule la correction comme une possibilité, pas comme un fait', () => {
+    const html = renderToStaticMarkup(
+      <FixedCostHistory rows={[row({ alreadyConverted: true })]} />
+    );
+    expect(html).toContain('Tu peux faire démarrer son suivi');
   });
 });
