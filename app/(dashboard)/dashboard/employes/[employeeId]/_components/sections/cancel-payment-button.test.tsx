@@ -31,6 +31,13 @@ describe('CancelPaymentButton', () => {
     });
     fireEvent.click(screen.getByText('Annuler le versement'));
     await screen.findByText('Refusé');
+    // L'erreur s'affiche avant la fin de la transition : tant que `pending` est
+    // vrai, « Garder » est désactivé et un clic serait ignoré (test fragile).
+    await waitFor(() =>
+      expect((screen.getByText('Garder') as HTMLButtonElement).disabled).toBe(
+        false
+      )
+    );
 
     fireEvent.click(screen.getByText('Garder'));
     fireEvent.click(screen.getByText('Annuler'));
