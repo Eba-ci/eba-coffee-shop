@@ -22,7 +22,14 @@ import type { ConnState } from './use-orders-stream';
 
 export type SseSnapshotMessage = { type: 'snapshot'; data: unknown[] };
 export type SseConnStateMessage = { type: 'connState'; data: ConnState };
-type SseLeaderMessage = SseSnapshotMessage | SseConnStateMessage;
+// `hello` : un nouvel arrivant (onglet ou composant) demande au leader de lui
+// rejouer le dernier snapshot et l'état de connexion, sans attendre le prochain
+// changement (sinon il ne saurait pas ce qui existait déjà).
+type SseHelloMessage = { type: 'hello' };
+type SseLeaderMessage =
+  | SseSnapshotMessage
+  | SseConnStateMessage
+  | SseHelloMessage;
 
 /** Vrai si le navigateur supporte la Web Locks API (`navigator.locks`). */
 export function hasWebLocksSupport(): boolean {
@@ -63,17 +70,37 @@ export function startSseLeader(
   let isLeader = false;
   let closeConnection: (() => void) | null = null;
   let releaseLock: (() => void) | null = null;
+  let lastSnapshot: unknown[] | null = null;
+  let lastConnState: ConnState | null = null;
 
   const channel = new BroadcastChannel(`eba-sse-${endpoint}`);
   channel.onmessage = (event: MessageEvent<SseLeaderMessage>) => {
     // Le leader applique déjà les mises à jour localement avant diffusion —
     // et `BroadcastChannel` ne renvoie de toute façon jamais l'émetteur à
     // lui-même (garde défensive, sans effet en pratique).
-    if (isLeader) return;
     const msg = event.data;
+    if (isLeader) {
+      if (msg.type === 'hello') {
+        if (lastConnState) {
+          channel.postMessage({
+            type: 'connState',
+            data: lastConnState,
+          } satisfies SseConnStateMessage);
+        }
+        if (lastSnapshot) {
+          channel.postMessage({
+            type: 'snapshot',
+            data: lastSnapshot,
+          } satisfies SseSnapshotMessage);
+        }
+      }
+      return;
+    }
     if (msg.type === 'snapshot') onSnapshot(msg.data);
     else if (msg.type === 'connState') onConnState(msg.data);
   };
+
+  channel.postMessage({ type: 'hello' } satisfies SseHelloMessage);
 
   navigator.locks
     .request(`eba-sse-leader-${endpoint}`, () => {
@@ -89,6 +116,7 @@ export function startSseLeader(
         }
         closeConnection = openConnection(
           (raw) => {
+            lastSnapshot = raw;
             onSnapshot(raw);
             channel.postMessage({
               type: 'snapshot',
@@ -96,6 +124,7 @@ export function startSseLeader(
             } satisfies SseSnapshotMessage);
           },
           (state) => {
+            lastConnState = state;
             onConnState(state);
             channel.postMessage({
               type: 'connState',
