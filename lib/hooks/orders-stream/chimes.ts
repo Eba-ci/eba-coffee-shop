@@ -1,77 +1,140 @@
-export function playNewOrderChime() {
-  if (typeof window === 'undefined') return;
-  const AudioCtx =
+// Son « nouvelle commande » : UN seul son pour tout le dashboard.
+// Fichier court (`public/sounds/new-order.mp3`) décodé une fois dans un
+// AudioContext partagé ; si le fichier manque ou ne se décode pas, un bip de
+// secours évite le silence. Le contexte est débloqué au premier geste
+// (`installAudioUnlock`) : sans cela, un écran de caisse jamais touché reste muet.
+
+const SOUND_URL = '/sounds/new-order.mp3';
+const VIBRATION = [600, 150, 600];
+const FADE_OUT_S = 0.4;
+
+export type AudioState = 'running' | 'suspended' | 'unsupported';
+
+let ctx: AudioContext | null = null;
+let buffer: AudioBuffer | null = null;
+let loading: Promise<void> | null = null;
+let unlockInstalled = false;
+const stateListeners = new Set<() => void>();
+
+function getContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  if (ctx) return ctx;
+  const Ctor =
     window.AudioContext ||
-    (window as unknown as { webkitAudioContext: typeof AudioContext })
+    (window as unknown as { webkitAudioContext?: typeof AudioContext })
       .webkitAudioContext;
-  if (!AudioCtx) return;
-  const ctx = new AudioCtx();
-  // Deux répétitions d'un aller-retour à deux notes (sirène), séparées par un
-  // blanc plus long — reconnaissable sans regarder l'écran.
-  const HIGH = 1318.51; // mi6
-  const LOW = 1046.5; // do6
-  const beat = 0.13;
-  const gap = 0.03;
-  const notes: Array<{ freq: number; start: number; duration: number }> = [];
-  let t = 0;
-  for (let rep = 0; rep < 2; rep++) {
-    for (const freq of [LOW, HIGH, LOW, HIGH]) {
-      notes.push({ freq, start: t, duration: beat });
-      t += beat + gap;
-    }
-    t += 0.22; // blanc entre les deux répétitions
-  }
-  const now = ctx.currentTime;
-  for (const note of notes) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'square';
-    osc.frequency.value = note.freq;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    const startAt = now + note.start;
-    const endAt = startAt + note.duration;
-    gain.gain.setValueAtTime(0, startAt);
-    gain.gain.linearRampToValueAtTime(0.45, startAt + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, endAt);
-    osc.start(startAt);
-    osc.stop(endAt + 0.05);
-  }
-  setTimeout(() => ctx.close(), 2200);
-  if (typeof navigator !== 'undefined' && navigator.vibrate) {
-    navigator.vibrate([200, 100, 200, 100, 200]);
-  }
+  if (!Ctor) return null;
+  ctx = new Ctor();
+  ctx.addEventListener('statechange', () =>
+    stateListeners.forEach((listener) => listener())
+  );
+  return ctx;
 }
 
-export function playReadyChime() {
-  if (typeof window === 'undefined') return;
-  const AudioCtx =
-    window.AudioContext ||
-    (window as unknown as { webkitAudioContext: typeof AudioContext })
-      .webkitAudioContext;
-  if (!AudioCtx) return;
-  const ctx = new AudioCtx();
-  const notes: Array<{ freq: number; start: number; duration: number }> = [
-    { freq: 523.25, start: 0, duration: 0.14 }, // do
-    { freq: 659.25, start: 0.14, duration: 0.14 }, // mi
-    { freq: 783.99, start: 0.28, duration: 0.14 }, // sol
-    { freq: 1046.5, start: 0.42, duration: 0.32 }, // do aigu
-  ];
-  const now = ctx.currentTime;
-  for (const note of notes) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.value = note.freq;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    const startAt = now + note.start;
-    const endAt = startAt + note.duration;
-    gain.gain.setValueAtTime(0, startAt);
-    gain.gain.linearRampToValueAtTime(0.25, startAt + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, endAt);
-    osc.start(startAt);
-    osc.stop(endAt + 0.05);
+export function getAudioState(): AudioState {
+  if (typeof window === 'undefined') return 'running';
+  const c = getContext();
+  if (!c) return 'unsupported';
+  return c.state === 'running' ? 'running' : 'suspended';
+}
+
+export function subscribeAudioState(listener: () => void): () => void {
+  stateListeners.add(listener);
+  return () => {
+    stateListeners.delete(listener);
+  };
+}
+
+/** Relance le contexte (à appeler depuis un geste utilisateur). */
+export async function ensureAudioReady(): Promise<boolean> {
+  const c = getContext();
+  if (!c) return false;
+  if (c.state !== 'running') {
+    try {
+      await c.resume();
+    } catch {
+      // Refusé par le navigateur : pas de geste récent.
+    }
   }
-  setTimeout(() => ctx.close(), 1500);
+  return c.state === 'running';
+}
+
+/** Charge et décode le fichier une fois ; un échec laisse le bip de secours. */
+export function preloadOrderSound(): Promise<void> {
+  const c = getContext();
+  if (!c) return Promise.resolve();
+  loading ??= fetch(SOUND_URL)
+    .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(res.status)))
+    .then((data) => c.decodeAudioData(data))
+    .then((decoded) => {
+      buffer = decoded;
+    })
+    .catch(() => {
+      buffer = null;
+    });
+  return loading;
+}
+
+/** Débloque l'audio au premier geste (clic, touche, toucher), une seule fois. */
+export function installAudioUnlock(): void {
+  if (typeof window === 'undefined' || unlockInstalled) return;
+  unlockInstalled = true;
+  const events = ['pointerdown', 'keydown', 'touchstart'] as const;
+  const unlock = () => {
+    void ensureAudioReady().then((ready) => {
+      if (!ready) return;
+      events.forEach((e) => window.removeEventListener(e, unlock));
+      unlockInstalled = false;
+    });
+  };
+  events.forEach((e) => window.addEventListener(e, unlock, { passive: true }));
+  getContext();
+  const idle =
+    window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 500));
+  idle(() => void preloadOrderSound());
+}
+
+function playBeep(c: AudioContext) {
+  const now = c.currentTime;
+  [660, 880].forEach((freq, i) => {
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    osc.connect(gain);
+    gain.connect(c.destination);
+    const start = now + i * 0.25;
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.6, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.45);
+    osc.start(start);
+    osc.stop(start + 0.5);
+  });
+}
+
+/** Joue le son « nouvelle commande ». */
+export function playOrderSound(): void {
+  const c = getContext();
+  if (!c) return;
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    navigator.vibrate(VIBRATION);
+  }
+  void ensureAudioReady().then((ready) => {
+    if (!ready) return;
+    if (buffer) {
+      const source = c.createBufferSource();
+      const gain = c.createGain();
+      source.buffer = buffer;
+      source.connect(gain);
+      gain.connect(c.destination);
+      // Fondu de sortie : le fichier est coupé net, sans queue de cloche.
+      const end = c.currentTime + buffer.duration;
+      gain.gain.setValueAtTime(1, Math.max(c.currentTime, end - FADE_OUT_S));
+      gain.gain.linearRampToValueAtTime(0, end);
+      source.start();
+    } else {
+      playBeep(c);
+      void preloadOrderSound();
+    }
+  });
 }

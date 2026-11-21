@@ -12,5 +12,15 @@ export type {
   UseOrdersStreamOptions,
   UseOrdersStreamResult,
 } from './orders-stream/stream';
-export { playNewOrderChime, playReadyChime } from './orders-stream/chimes';
-export { useSoundPreference } from './orders-stream/sound-preference';
+export {
+  ensureAudioReady,
+  getAudioState,
+  installAudioUnlock,
+  playOrderSound,
+  subscribeAudioState,
+} from './orders-stream/chimes';
+export type { AudioState } from './orders-stream/chimes';
+export {
+  SOUND_STORAGE_KEY,
+  useSoundPreference,
+} from './orders-stream/sound-preference';
