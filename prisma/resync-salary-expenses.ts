@@ -1,8 +1,9 @@
 // prisma/resync-salary-expenses.ts
 //
-// Recrée les lignes globales de masse salariale depuis les versements. À lancer
-// une fois après la migration `salary_expense_aggregate` (elle retire les
-// anciennes dépenses « miroir ») :
+// Recalcule les lignes globales de masse salariale depuis les versements. Plus
+// requis après la migration `salary_expense_aggregate` (elle regroupe elle-même
+// les anciennes dépenses « miroir ») : sert à réparer une dérive, par exemple un
+// versement qui n'a aucune ligne globale :
 //
 //   pnpm db:resync-salary-expenses
 //
