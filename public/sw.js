@@ -131,19 +131,8 @@ self.addEventListener('push', (event) => {
         tag: payload.tag,
         data: { url: payload.url || '/dashboard' },
       });
-
-      // Le son de la notification système n'est pas personnalisable (API
-      // Notification) — on relaie donc le `tag` à tous les onglets dashboard
-      // ouverts pour qu'ils jouent eux-mêmes le carillon EBA correspondant
-      // (cf. components/(dashboard)/push-sound-relay.tsx), même sur un écran
-      // autre que celui d'où vient la notification.
-      const clientsList = await self.clients.matchAll({
-        type: 'window',
-        includeUncontrolled: true,
-      });
-      for (const client of clientsList) {
-        client.postMessage({ type: 'eba-push', tag: payload.tag });
-      }
+      // Le son « nouvelle commande » du dashboard ne passe plus par le push :
+      // il est joué par le flux SSE (components/(dashboard)/order-sound-listener.tsx).
     })()
   );
 });

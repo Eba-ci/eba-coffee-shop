@@ -10,7 +10,6 @@ import { type PreparationOrder } from '@/lib/preparation-queue';
 import type { MenuCategory } from '@/config/menu';
 import type { ContactSettings } from '@/lib/contact-settings';
 import {
-  playNewOrderChime,
   useOrdersStream,
   useSoundPreference,
 } from '@/lib/hooks/use-orders-stream';
@@ -27,11 +26,9 @@ import { ProductionSheet } from './_components/production-sheet';
 import { OrdersSearchSheet } from './_components/orders-search-sheet';
 import { normalize } from './_components/view/normalize';
 import { useCreatedFlash } from './_components/view/use-created-flash';
-import { useReadyToLaunchChime } from './_components/view/use-ready-chime';
 import { usePreparationActions } from './_components/view/use-preparation-actions';
 import { usePreparationLists } from './_components/view/use-preparation-lists';
 
-const SOUND_STORAGE_KEY = 'eba.preparation.sound-enabled';
 const SSE_URL = '/api/preparation/stream';
 
 export function PreparationView(props: {
@@ -61,8 +58,7 @@ function PreparationViewInner({
   const [openSheet, setOpenSheet] = useState<
     'scheduled' | 'ready' | 'topay' | 'production' | 'search' | null
   >(null);
-  const { soundEnabled, soundEnabledRef, toggleSound } =
-    useSoundPreference(SOUND_STORAGE_KEY);
+  const { soundEnabled, toggleSound } = useSoundPreference();
   const now = useNowTick(15_000);
   const { createdFlash, setCreatedFlash } = useCreatedFlash();
 
@@ -72,11 +68,6 @@ function PreparationViewInner({
       initialOrders: initialQueue,
       normalize,
       getId: (o) => o.id,
-      onNewOrders: (newOrders) => {
-        // Carillon pour les NOUVELLES commandes en préparation seulement (les prêtes ne sont pas du travail).
-        const hasPreparing = newOrders.some((o) => o.status === 'PREPARING');
-        if (hasPreparing && soundEnabledRef.current) playNewOrderChime();
-      },
     });
 
   const actions = usePreparationActions(orders);
@@ -119,7 +110,6 @@ function PreparationViewInner({
     : undefined;
 
   // Carillon quand une programmée du jour devient « prête à lancer » (stock réservé en entier).
-  useReadyToLaunchChime(toLaunchToday.ready.length, soundEnabledRef);
 
   // Grille principale vide : plus aucune commande à cuisiner maintenant.
   const isEmpty = cooking.length === 0;

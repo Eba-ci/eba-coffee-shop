@@ -4,17 +4,12 @@ import { useMemo } from 'react';
 import type { CashierOrder } from '@/lib/cashier-queue';
 import type { MenuCategory } from '@/config/menu';
 import {
-  playNewOrderChime,
   useOrdersStream,
   useSoundPreference,
 } from '@/lib/hooks/use-orders-stream';
 import { buildCustomerGroups } from '@/lib/orders/customer-groups';
 import { parseOrderSearchTerm, searchOrders } from '@/lib/orders/search';
-import {
-  minutesUntilPickup,
-  pickFirstCriticalTab,
-  type TabKey,
-} from './urgency';
+import { pickFirstCriticalTab, type TabKey } from './urgency';
 import { useNowTick } from './use-now-tick';
 import { useCaisseParams } from './use-caisse-params';
 import { CaisseHeader } from './_components/caisse-header';
@@ -35,12 +30,10 @@ import {
 import { normalize } from './_components/view/normalize';
 import { useCaisseAlerts } from './_components/view/use-caisse-alerts';
 import { useCreatedFlash } from './_components/view/use-created-flash';
-import { SCHEDULED_ALERT_MINUTES } from '@/config/constants';
 import { UndoToastProvider } from '@/lib/hooks/use-undo-toast';
 import type { CaisseContactSettings } from './_components/actions/types';
 
 const SSE_URL = '/api/caisse/stream';
-const SOUND_STORAGE_KEY = 'eba.caisse.sound-enabled';
 
 export function CaisseView({
   initialQueue,
@@ -54,8 +47,7 @@ export function CaisseView({
   cashierName: string;
 }) {
   const { tab, setTab, search, setSearch } = useCaisseParams();
-  const { soundEnabled, soundEnabledRef, toggleSound } =
-    useSoundPreference(SOUND_STORAGE_KEY);
+  const { soundEnabled, toggleSound } = useSoundPreference();
   const now = useNowTick(30_000);
   const { createdFlash, setCreatedFlash } = useCreatedFlash();
 
@@ -68,17 +60,6 @@ export function CaisseView({
     initialOrders: initialQueue,
     normalize,
     getId: (o) => o.id,
-    onNewOrders: (newOrders) => {
-      if (!soundEnabledRef.current) return;
-      // On ne carillonne à l'arrivée que pour les commandes « immédiates ».
-      // Les programmées (retrait lointain) ne sonneront qu'à −SCHEDULED_ALERT_MINUTES.
-      const arrivedNow = new Date();
-      const hasImmediate = newOrders.some((o) => {
-        const m = minutesUntilPickup(o, arrivedNow);
-        return m === null || m <= SCHEDULED_ALERT_MINUTES;
-      });
-      if (hasImmediate) playNewOrderChime();
-    },
   });
 
   const { urgencyIndex, counts } = useUrgencyCounts(queue, now);
@@ -91,9 +72,6 @@ export function CaisseView({
   const { readyFlash, setReadyFlash } = useCaisseAlerts({
     initialQueue,
     queue,
-    now,
-    urgencyIndex,
-    soundEnabledRef,
   });
 
   const scheduledOrders = useMemo(
