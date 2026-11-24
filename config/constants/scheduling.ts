@@ -6,8 +6,6 @@ export const SCHEDULED_LEAD_IN_MINUTES = 60;
 
 export const SCHEDULED_ALERT_MINUTES = 15;
 
-export const PRODUCTION_PLAN_DAYS = 7;
-
 export const DEFERRED_PICKUP_DEFAULT_TIME = '11:00';
 
 export const LAUNCH_ALERT_MINUTES = 30;
