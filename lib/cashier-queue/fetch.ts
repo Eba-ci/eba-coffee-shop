@@ -1,8 +1,7 @@
 import prisma from '@/lib/prisma';
-import { withStaffVisible } from '@/lib/orders/visibility';
 import type { CartItem } from '@/lib/cart-store';
+import { withStaffVisible } from '@/lib/orders/visibility';
 import { fetchStockSnapshot } from '@/lib/orders/availability';
-import { endOfLocalDay, startOfLocalDay } from '@/lib/timezone';
 import { fullyRefundedOrderIds } from '@/lib/refunds/fully-refunded';
 import { coalesceAsyncByKey } from '@/lib/async-coalesce';
 import { getOrdersGeneration } from '@/lib/postgres-notify';
@@ -17,34 +16,13 @@ import {
   needsAvailability,
 } from './availability';
 import { loadQueueLoyalty } from './loyalty';
+import { buildQueueWhere } from './where';
 import type { CashierOrder } from './types';
 
 async function findQueueOrders(now: Date) {
-  // Bornes ancrées sur Abidjan, PAS sur le fuseau du runtime (cf. `lib/preparation-queue.ts`).
-  const dayStart = startOfLocalDay(now);
-  const dayEnd = endOfLocalDay(now);
-
   const orders = await prisma.order.findMany({
-    where: withStaffVisible({
-      // Une commande annulée (ou remboursée) quitte la file caisse.
-      status: { not: 'CANCELLED' },
-      AND: [
-        // Toujours active (en cuisine/prête) OU encore impayée.
-        {
-          OR: [
-            { status: { in: ['NEW', 'PREPARING', 'READY'] } },
-            { isPaid: false },
-          ],
-        },
-        // Du jour (walk-in) OU programmée pour aujourd'hui/à venir.
-        {
-          OR: [
-            { createdAt: { gte: dayStart, lte: dayEnd } },
-            { pickupTime: { gte: dayStart } },
-          ],
-        },
-      ],
-    }),
+    // Toutes les commandes ouvertes, tous jours confondus (cf. `./where`).
+    where: withStaffVisible(buildQueueWhere(now)),
     include: { customer: { select: { isTrusted: true } } },
     // FIFO strict : la commande la plus ancienne en haut.
     orderBy: { createdAt: 'asc' },
