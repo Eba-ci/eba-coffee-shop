@@ -1,4 +1,4 @@
-import { Handshake } from 'lucide-react';
+import { Gift, Handshake } from 'lucide-react';
 import { BackButton } from '@/components/(dashboard)/back-button';
 import { formatPhoneForDisplay } from '@/lib/phone';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +24,12 @@ export function CustomerHeader({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold">{customer.name ?? 'Client'}</h1>
+            {customer.loyaltyDisabled && (
+              <Badge variant="outline">
+                <Gift className="h-3 w-3" aria-hidden="true" />
+                Fidélité désactivée
+              </Badge>
+            )}
             {customer.isTrusted && (
               <Badge className="bg-blue-600">
                 <Handshake className="h-3 w-3" aria-hidden="true" />

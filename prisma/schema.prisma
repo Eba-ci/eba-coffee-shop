@@ -450,8 +450,13 @@ model Customer {
 
   // Fidélité (carte à tampons). `stampCount` = avancement de la carte en cours.
   // `lastStampDate` sert à la règle « 1 tampon / jour / numéro ».
-  stampCount    Int       @default(0)
-  lastStampDate DateTime? @db.Date
+  stampCount      Int       @default(0)
+  lastStampDate   DateTime? @db.Date
+  // Fidélité désactivée pour CE client (en plus de l'interrupteur global
+  // `LoyaltySettings.enabled`) : tout est GELÉ — plus de gain, plus d'affichage,
+  // plus d'usage d'une récompense. Tampons et récompenses restent intacts et
+  // reviennent à la réactivation. Cf. `lib/loyalty/active.ts`.
+  loyaltyDisabled Boolean   @default(false)
 
   // Avoir (solde en FCFA, ≥ 0) : alimenté par un remboursement « avoir »,
   // consommé à l'encaissement (mode AVOIR). Historique : `CustomerCreditEntry`.

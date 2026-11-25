@@ -165,7 +165,8 @@ export async function getPublicOrderLoyalty(order: {
     : order.customerPhone
       ? await getLoyaltyCardByPhone(order.customerPhone)
       : null;
-  if (!card || !card.settings.enabled) return null;
+  // Gelée (programme ou client désactivé) : pas de carte sur la page de suivi.
+  if (!card || !card.active) return null;
 
   const ordersCount = await prisma.order.count({
     where: withStaffVisible({ customerId: card.customer.id }),

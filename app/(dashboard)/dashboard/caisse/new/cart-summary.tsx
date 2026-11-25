@@ -171,6 +171,12 @@ export function CartSummary({
         })}
       </ul>
 
+      {loyaltyCard?.frozen === 'customer' && (
+        <p className="border-t px-3 py-2 text-xs text-muted-foreground">
+          Fidélité désactivée pour ce client : aucun tampon ni récompense.
+        </p>
+      )}
+
       {availableRewards.length > 0 && (
         <div className="border-t bg-amber-50 px-3 py-2 dark:bg-amber-950/30">
           <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-amber-900 dark:text-amber-100">

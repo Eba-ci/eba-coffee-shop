@@ -29,9 +29,14 @@ export async function awardLoyaltyForOrder(
 
   const customer = await tx.customer.findUnique({
     where: { id: customerId },
-    select: { stampCount: true, lastStampDate: true },
+    select: { stampCount: true, lastStampDate: true, loyaltyDisabled: true },
   });
   if (!customer) return { rewards: [] };
+  // Fidélité désactivée pour CE client : gelé, aucun tampon ni récompense (le
+  // verrou ci-dessus rend la lecture du drapeau cohérente avec une réactivation
+  // concurrente). Même retour muet que le garde global : les appelants
+  // (création, Jèko, restauration) n'ont rien à gérer.
+  if (customer.loyaltyDisabled) return { rewards: [] };
 
   const today = todayDailyDate();
   if (

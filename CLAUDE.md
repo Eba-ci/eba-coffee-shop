@@ -220,6 +220,14 @@ Le site vitrine est vu depuis Abidjan, en mobile, sur des liens où le **RTT pè
 - **Historique** : table `AssistantConversation` (privée à l'utilisateur, JSON de l'historique OpenAI complet), routes `/api/assistant/conversations[/id]`. Lancer `pnpm db:push` après déploiement.
 - **UI** : bouton discret dans l'en-tête (Ctrl/Cmd+K), jamais de bouton flottant (gêne la caisse sur mobile). Le panneau est chargé en `next/dynamic` à la première ouverture.
 
+## Fidélité : désactivation (gel)
+
+- **Deux interrupteurs, un seul effet** : global `LoyaltySettings.enabled` (Paramètres → Fidélité, MCP `update_loyalty_settings`) et par client `Customer.loyaltyDisabled` (fiche client, MANAGER_PLUS, MCP `set_customer_loyalty_disabled`). Règle unique : `lib/loyalty/active.ts` (`loyaltyFreezeReason` : `'program'` prime sur `'customer'`).
+- **Désactivée = GELÉE, jamais effacée** : plus de gain de tampon (`awardLoyaltyForOrder` — point unique pour création, caisse, Jèko, restauration), plus d'affichage (`getLoyaltyCard().active`, checkout `/api/loyalty-info`, caisse `/api/caisse/loyalty`, page de suivi, message « prête ») et plus d'**usage d'une récompense déjà acquise** (`resolveLoyaltyReward` : public, caisse, édition). Tampons et récompenses restent en base et reviennent tels quels à la réactivation. Les **retraits** (annulation, remboursement, expiration Jèko : `revokeLoyaltyForOrder`) continuent : ils défont ce qui avait été gagné.
+- **Un consommateur teste `card.active`, jamais `settings.enabled` seul** (il ignorerait le client). Une nouvelle surface qui propose ou applique une récompense passe par `getLoyaltyCard` / `getAvailableRewardForPhone` ou `resolveLoyaltyReward`.
+- Corrections manuelles (`adjustStamps`, `awardMissedOrderStamps`, MCP `adjust_loyalty_stamps`) **refusées** sous gel : un compteur qui bouge pendant le gel serait faussé à la réactivation. La fusion de clients garde `loyaltyDisabled` si l'un des deux l'avait ; l'anonymisation le remet à `false`.
+- Lancer `pnpm db:migrate` (migration `20261125090000_customer_loyalty_disabled`).
+
 ## Goûts vs suppléments
 
 - `SupplementGroup.kind` : `'flavor'` (goût, dans le produit) ou `'extra'` (supplément, par-dessus ; défaut). Existe pour la cuisine : un goût « Chocolat » et un supplément « Chocolat » ne doivent pas se confondre sur le ticket.

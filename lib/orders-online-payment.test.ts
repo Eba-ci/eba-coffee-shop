@@ -67,7 +67,11 @@ vi.mock('@/lib/order-mutations', () => ({
   reserveStockOnce: vi.fn(),
 }));
 
-import { resolveLoyaltyReward } from '@/lib/loyalty-mutations';
+import {
+  awardLoyaltyForOrder,
+  consumeLoyaltyReward,
+  resolveLoyaltyReward,
+} from '@/lib/loyalty-mutations';
 import { sendPushToRoles } from '@/lib/push-notify';
 import { isDeferredPickup } from '@/lib/orders/scheduling';
 import { reserveStockOnce } from '@/lib/order-mutations';
@@ -276,5 +280,54 @@ describe('createOrder — réservation anticipée du stock (retrait aujourd’hu
     await expect(createOrder(input, { onlinePayment: online })).rejects.toThrow(
       'Stock insuffisant pour « Gâteau »'
     );
+  });
+});
+
+// Fidélité : en paiement en ligne le tampon n'est accordé qu'AU PAIEMENT
+// (`awardLoyaltyOnPayment`). La réduction que la commande en cours débloquerait
+// n'est donc jamais déduite du montant Jèko, figé à la création : le récapitulatif
+// du checkout ne doit pas la déduire non plus (`lib/loyalty-checkout.ts`).
+describe('createOrder — réduction débloquée par la commande en cours', () => {
+  const unlocked = {
+    rewards: [{ id: 'r1', tier: 5, capAmount: 1000 }],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(sendPushToRoles).mockResolvedValue(undefined as never);
+    vi.mocked(awardLoyaltyForOrder).mockResolvedValue(unlocked as never);
+    // Un test précédent a fait échouer la réservation : on repart d'un état sain.
+    vi.mocked(reserveStockOnce).mockResolvedValue(undefined as never);
+    tx.order.create.mockResolvedValue(createdOrder(3500));
+    tx.order.update.mockImplementation(async ({ data }) => ({
+      ...createdOrder(3500),
+      ...data,
+    }));
+  });
+
+  it('en ligne : pas de tampon à la création, total et frais calculés sur le total plein', async () => {
+    const order = await createOrder(input, { onlinePayment: online });
+
+    expect(awardLoyaltyForOrder).not.toHaveBeenCalled();
+    expect(consumeLoyaltyReward).not.toHaveBeenCalled();
+    // Seule mise à jour : frais (1 % de 3500) + échéance, jamais de remise.
+    expect(tx.order.update).toHaveBeenCalledTimes(1);
+    expect(tx.order.update).toHaveBeenCalledWith({
+      where: { id: 'o1' },
+      data: { onlineFee: 35, paymentExpiresAt: expiresAt },
+    });
+    expect(order.total).toBe(3500);
+    expect(order).not.toHaveProperty('loyaltyDiscount');
+  });
+
+  it('hors ligne : le tampon est accordé à la création et la réduction débloquée est appliquée d’office', async () => {
+    const order = await createOrder(input);
+
+    expect(awardLoyaltyForOrder).toHaveBeenCalledTimes(1);
+    expect(consumeLoyaltyReward).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({ rewardId: 'r1', capAmount: 1000 })
+    );
+    expect(order.total).toBe(2500);
   });
 });

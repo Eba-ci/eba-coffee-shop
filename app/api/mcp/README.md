@@ -271,6 +271,7 @@ réduite, voire vide, ce n'est pas une erreur.
 | `get_ardoise`                      | crm        | lecture  | Ardoise : récupérées non payées par client + anomalies à vérifier                                                   |
 | `get_loyalty_card`                 | crm        | lecture  | Carte à tampons d’un client + récompenses dispo                                                                     |
 | `adjust_loyalty_stamps`            | crm        | écriture | Ajuster les tampons d’un client (correction)                                                                        |
+| `set_customer_loyalty_disabled`    | crm        | écriture | Désactiver / réactiver la fidélité d’un client (gel : plus de gain ni d’usage, rien d’effacé)                       |
 | `get_loyalty_settings`             | crm        | lecture  | Lire la config de la carte à tampons                                                                                |
 | `update_loyalty_settings`          | crm        | écriture | Modifier la config de la carte à tampons                                                                            |
 | `get_contact_settings`             | contact    | lecture  | Lire les coordonnées du commerce (adresse, tél., WhatsApp, email…)                                                  |
@@ -613,9 +614,13 @@ Lecture seule : le règlement passe par `mark_order_paid`.
 
 Les outils **fidélité** (carte à tampons) : `get_loyalty_card` (avancement +
 récompenses dispo), `adjust_loyalty_stamps` (correction tracée),
-`get_loyalty_settings` / `update_loyalty_settings` (config : montant min,
-taille de carte, paliers, plafonds, règle 1/jour). Les tampons se gagnent
-automatiquement à la création de commande (≥ montant min, 1/jour/numéro).
+`get_loyalty_settings` / `update_loyalty_settings` (config : programme actif,
+montant min, taille de carte, paliers, plafonds, règle 1/jour),
+`set_customer_loyalty_disabled` (désactiver la fidélité d'UN client). Les tampons
+se gagnent automatiquement à la création de commande (≥ montant min,
+1/jour/numéro). **Désactivée** (programme coupé ou client désactivé), la fidélité
+est **gelée** : plus de gain, plus de récompense proposée ni utilisable, rien
+d'effacé ; `adjust_loyalty_stamps` est alors refusé.
 
 Les outils **inventaire** (matières premières & consommables) couvrent la gestion
 périodique des stocks, lecture **et** écriture : `list_inventory_items` /
