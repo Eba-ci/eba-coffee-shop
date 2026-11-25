@@ -191,6 +191,13 @@ paiement validé (`awardLoyaltyOnPayment`, `lib/jeko/loyalty-on-paid.ts`), y com
 paiement tardif validé. Conséquence : pas de récompense auto-appliquée à la commande en ligne
 en cours (le tampon compte pour la suivante). La caisse garde le tampon à la création.
 
+Le récapitulatif du checkout (`/carte/commande`) suit la même règle : il ne déduit **jamais** la
+réduction débloquée par la commande en cours en paiement en ligne (`checkoutLoyaltyDiscounts`,
+`lib/loyalty-checkout.ts`) et l'annonce pour la commande suivante (`computeUpcomingRewardMessage`,
+`online: true`). Seule une récompense déjà **acquise** (`loyaltyRewardId`) est déduite : le montant
+Jèko est figé à la création (`paymentAmountDue`), toute remise affichée mais non appliquée par le
+serveur ferait payer plus que le total annoncé.
+
 Cas limites : une commande en ligne annulée par une personne puis payée n'a jamais eu de
 tampon ; à sa reprise par le staff, `restoreLoyaltyForOrder` lui en accorde un (commande
 payée en ligne uniquement). L'attribution est retentée 3 fois ; si tout échoue, le webhook répond quand même 200, une

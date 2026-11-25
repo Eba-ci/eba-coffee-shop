@@ -70,10 +70,20 @@ export function computeCheckoutLoyaltyMessage(params: {
 }
 
 /**
- * Message AVANT paiement quand cette commande débloque une récompense : le
- * serveur l'applique d'office à la création, le récapitulatif l'annonce déjà.
+ * Message AVANT paiement quand cette commande débloque une récompense.
+ *
+ * Hors paiement en ligne, le serveur l'applique d'office à la création : le
+ * récapitulatif l'annonce déjà déduite. En paiement en ligne, le tampon n'est
+ * accordé qu'au paiement validé et le montant Jèko est figé sans cette réduction :
+ * on l'annonce pour la commande SUIVANTE, sans dire qu'elle est déduite.
  */
-export function computeUpcomingRewardMessage(capAmount: number): string {
+export function computeUpcomingRewardMessage(
+  capAmount: number,
+  opts: { online?: boolean } = {}
+): string {
+  if (opts.online) {
+    return `🎁 Cette commande te fait gagner une réduction fidélité de ${fmt(capAmount)} F, à utiliser sur ta prochaine commande 💛`;
+  }
   return `🎁 Cette commande te fait gagner ta réduction fidélité : jusqu'à ${fmt(capAmount)} F déjà déduits de ton total 💛`;
 }
 

@@ -66,7 +66,9 @@ export function computeStampRevert(
 
 /**
  * Récompense que la commande en cours débloquera en créditant son tampon
- * (appliquée d'office par le serveur à la création) — `null` si aucune.
+ * (appliquée d'office par le serveur à la création, SAUF en paiement en ligne où
+ * le tampon n'est accordé qu'au paiement : elle vaut alors pour la suivante) —
+ * `null` si aucune.
  * Miroir en lecture seule de `awardLoyaltyForOrder` : mêmes conditions
  * (programme actif, total >= minimum, 1 tampon/jour) pour que l'aperçu du
  * récapitulatif corresponde exactement à ce que le serveur appliquera.
