@@ -70,4 +70,27 @@ describe('awardLoyaltyForOrder', () => {
     expect(tx.customer.update).not.toHaveBeenCalled();
     expect(tx.loyaltyLedger.create).not.toHaveBeenCalled();
   });
+
+  it('ne crédite rien quand le programme est désactivé (gel global)', async () => {
+    tx.loyaltySettings.findUnique.mockResolvedValue({ enabled: false });
+    const res = await awardLoyaltyForOrder(tx as never, args);
+
+    expect(res).toEqual({ rewards: [] });
+    expect(tx.customer.update).not.toHaveBeenCalled();
+    expect(tx.loyaltyLedger.create).not.toHaveBeenCalled();
+  });
+
+  it('ne crédite rien pour un client dont la fidélité est désactivée (gel client)', async () => {
+    tx.customer.findUnique.mockResolvedValue({
+      stampCount: 4, // au bord du palier : sans gel, ce tampon débloquerait une récompense
+      lastStampDate: null,
+      loyaltyDisabled: true,
+    });
+    const res = await awardLoyaltyForOrder(tx as never, args);
+
+    expect(res).toEqual({ rewards: [] });
+    expect(tx.customer.update).not.toHaveBeenCalled();
+    expect(tx.loyaltyLedger.create).not.toHaveBeenCalled();
+    expect(tx.loyaltyReward.create).not.toHaveBeenCalled();
+  });
 });

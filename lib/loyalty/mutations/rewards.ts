@@ -1,4 +1,6 @@
 import { Prisma } from '@/generated/prisma/client';
+import { loyaltySettingsFromRow } from '@/lib/loyalty-settings';
+import { loyaltyFreezeReason } from '../active';
 import { LoyaltyRewardUnavailableError } from './errors';
 
 export async function resolveLoyaltyReward(
@@ -9,6 +11,21 @@ export async function resolveLoyaltyReward(
   if (!customerId) {
     throw new LoyaltyRewardUnavailableError(
       'Récompense fidélité : aucun client associé à la commande'
+    );
+  }
+  // Fidélité gelée (programme ou client désactivé) : une récompense déjà acquise
+  // n'est plus utilisable — elle reste en base et revient à la réactivation.
+  // Point de passage commun à la commande publique, à la caisse et à l'édition.
+  const [settingsRow, owner] = await Promise.all([
+    tx.loyaltySettings.findUnique({ where: { id: 'singleton' } }),
+    tx.customer.findUnique({
+      where: { id: customerId },
+      select: { loyaltyDisabled: true },
+    }),
+  ]);
+  if (loyaltyFreezeReason(loyaltySettingsFromRow(settingsRow), owner)) {
+    throw new LoyaltyRewardUnavailableError(
+      'Fidélité désactivée : la récompense ne peut pas être utilisée'
     );
   }
   const found = await tx.loyaltyReward.findUnique({

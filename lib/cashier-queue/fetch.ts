@@ -48,6 +48,7 @@ export async function fetchCashierQueue(): Promise<CashierOrder[]> {
   const {
     loyaltySettings,
     stampCountByCustomerId,
+    loyaltyDisabledCustomerIds,
     stampEarnedOrderIds,
     totalStampEntriesByCustomerId,
   } = await loadQueueLoyalty(orders);
@@ -74,7 +75,9 @@ export async function fetchCashierQueue(): Promise<CashierOrder[]> {
       ? (stampCountByCustomerId.get(o.customerId) ?? null)
       : null;
     const loyaltyPickupOutcome =
-      o.status === 'READY' && o.customerId
+      o.status === 'READY' &&
+      o.customerId &&
+      !loyaltyDisabledCustomerIds.has(o.customerId)
         ? {
             stampEarned: stampEarnedOrderIds.has(o.id),
             isFirstStampEver:

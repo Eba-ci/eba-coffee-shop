@@ -81,6 +81,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ...base, reward: null, message: null });
     }
 
+    // Fidélité gelée pour ce client (désactivée sur sa fiche) : ni récompense, ni
+    // aperçu, ni message — réponse identique à « client inconnu » (aucune fuite).
+    if (!card.active) {
+      return NextResponse.json({ ...base, reward: null, message: null });
+    }
+
     const reward = card.availableRewards[0]
       ? {
           id: card.availableRewards[0].id,

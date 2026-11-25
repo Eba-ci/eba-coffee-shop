@@ -5,6 +5,7 @@
 import prisma from '@/lib/prisma';
 import { customerPhoneKey } from '@/lib/phone';
 import { getLoyaltySettings } from '@/lib/loyalty-settings-db';
+import { loyaltyFreezeReason } from '@/lib/loyalty/active';
 
 export async function getLoyaltyCard(customerId: string) {
   const [settings, customer, availableRewards] = await Promise.all([
@@ -17,6 +18,7 @@ export async function getLoyaltyCard(customerId: string) {
         phone: true,
         stampCount: true,
         lastStampDate: true,
+        loyaltyDisabled: true,
       },
     }),
     prisma.loyaltyReward.findMany({
@@ -26,11 +28,19 @@ export async function getLoyaltyCard(customerId: string) {
   ]);
   if (!customer) return null;
 
+  // Gel (programme OU client désactivé) : `availableRewards` reste lisible tel
+  // quel (la fiche client montre ce qui est mis de côté), mais TOUT consommateur
+  // qui propose, affiche ou applique doit tester `active` — jamais `settings.enabled`
+  // seul, qui ignorerait le drapeau du client.
+  const frozenReason = loyaltyFreezeReason(settings, customer);
+
   return {
     customer,
     settings,
     stampCount: customer.stampCount,
     availableRewards,
+    active: frozenReason === null,
+    frozenReason,
   };
 }
 
@@ -47,7 +57,7 @@ export async function getLoyaltyCardByPhone(rawPhone: string) {
 /**
  * Récompense utilisable pour un téléphone (checkout en ligne, sans compte) :
  * la plus ancienne `AVAILABLE` du client résolu par téléphone, ou `null`
- * (programme désactivé, client inconnu, rien à utiliser).
+ * (fidélité gelée — programme ou client désactivé —, client inconnu, rien à utiliser).
  *
  * Exposition volontairement MINIMALE (id + plafond) : ni nom, ni compteur de
  * tampons — moins que ce que la page de suivi montre déjà à quiconque détient
@@ -77,7 +87,7 @@ export async function getOrderLoyaltyOutcome(
   const [customer, stampLedgerForOrder, totalStampEntries] = await Promise.all([
     prisma.customer.findUnique({
       where: { id: customerId },
-      select: { stampCount: true },
+      select: { stampCount: true, loyaltyDisabled: true },
     }),
     prisma.loyaltyLedger.findFirst({
       where: { customerId, orderId, type: 'STAMP_EARNED' },
@@ -87,7 +97,8 @@ export async function getOrderLoyaltyOutcome(
       where: { customerId, type: 'STAMP_EARNED' },
     }),
   ]);
-  if (!customer) return null;
+  // Client désactivé : aucun message « tampon » (le gel prime sur ce qu'il avait gagné).
+  if (!customer || customer.loyaltyDisabled) return null;
 
   const stampEarned = stampLedgerForOrder !== null;
   return {
@@ -101,7 +112,7 @@ export async function getAvailableRewardForPhone(
   rawPhone: string
 ): Promise<{ id: string; capAmount: number } | null> {
   const card = await getLoyaltyCardByPhone(rawPhone);
-  if (!card || !card.settings.enabled) return null;
+  if (!card || !card.active) return null;
   const reward = card.availableRewards[0];
   return reward ? { id: reward.id, capAmount: reward.capAmount } : null;
 }

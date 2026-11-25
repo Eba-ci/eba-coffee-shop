@@ -91,3 +91,14 @@ export const setCustomerTrustedSchema = z.object({
 });
 
 export type SetCustomerTrustedInput = z.infer<typeof setCustomerTrustedSchema>;
+
+// Fidélité désactivée pour UN client : gel du gain, de l'affichage et de l'usage
+// des récompenses (cf. `lib/loyalty/active.ts`). Surface dédiée, comme la
+// confiance : ce n'est pas une correction de fiche.
+export const setCustomerLoyaltyDisabledSchema = z.object({
+  loyaltyDisabled: z.boolean(),
+});
+
+export type SetCustomerLoyaltyDisabledInput = z.infer<
+  typeof setCustomerLoyaltyDisabledSchema
+>;

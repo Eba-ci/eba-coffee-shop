@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { getCustomerByPhone } from '@/lib/customers';
 import { getLoyaltyCard, getLoyaltyCardByPhone } from '@/lib/loyalty';
 import { adjustStamps } from '@/lib/loyalty-mutations';
+import { setCustomerLoyaltyDisabled } from '@/lib/customer-loyalty';
 import {
   getLoyaltySettings,
   updateLoyaltySettings,
@@ -80,11 +81,49 @@ export const loyaltyTools: McpTool[] = [
     },
   },
   {
+    name: 'set_customer_loyalty_disabled',
+    toolset: 'crm',
+    title: 'Désactiver / réactiver la fidélité d’un client',
+    description:
+      'Désactive (`disabled: true`) ou réactive (`false`) la carte de fidélité ' +
+      'd’UN client. Désactivée, la fidélité est gelée pour lui : plus de tampon ' +
+      'gagné, plus de récompense proposée ni utilisable. Rien n’est effacé, ' +
+      'tampons et récompenses reviennent à la réactivation. Pour couper la ' +
+      'fidélité de TOUS les clients, utilise `update_loyalty_settings` ' +
+      '(`enabled: false`). Fournis `id` ou `phone`.',
+    inputSchema: z
+      .object({
+        id: z.string().min(1).optional(),
+        phone: z.string().min(1).optional(),
+        disabled: z.boolean(),
+      })
+      .refine((v) => Boolean(v.id) || Boolean(v.phone), {
+        message: 'Fournis `id` ou `phone`.',
+      }),
+    readOnly: false,
+    handler: async (args) => {
+      const { id, phone, disabled } = args as {
+        id?: string;
+        phone?: string;
+        disabled: boolean;
+      };
+      let customerId = id;
+      if (!customerId) {
+        const c = await getCustomerByPhone(phone!);
+        if (!c) throw new Error('Client introuvable');
+        customerId = c.id;
+      }
+      const customer = await setCustomerLoyaltyDisabled(customerId, disabled);
+      return { customerId, loyaltyDisabled: customer.loyaltyDisabled };
+    },
+  },
+  {
     name: 'get_loyalty_settings',
     toolset: 'crm',
     title: 'Lire les réglages de fidélité',
     description:
-      'Renvoie la configuration de la carte à tampons (programme actif, montant ' +
+      'Renvoie la configuration de la carte à tampons (programme actif — s’il est ' +
+      'coupé, la fidélité est gelée pour tous —, montant ' +
       'min, taille de carte, paliers, plafonds, règle 1/jour).',
     inputSchema: z.object({}),
     readOnly: true,

@@ -1,6 +1,17 @@
 import prisma from '@/lib/prisma';
 import { getLoyaltySettings } from '@/lib/loyalty-settings-db';
 import { computeStampAward, type EarnedReward } from '@/lib/loyalty-compute';
+import { loyaltyFreezeReason, loyaltyFrozenMessage } from '../active';
+
+/**
+ * Refuse une correction manuelle de tampons quand la fidélité est gelée
+ * (programme ou client désactivé) : un compteur qui bouge sous le gel se
+ * retrouverait faussé à la réactivation. Le message dit quoi réactiver.
+ */
+async function assertLoyaltyActive(customer: { loyaltyDisabled: boolean }) {
+  const reason = loyaltyFreezeReason(await getLoyaltySettings(), customer);
+  if (reason) throw new Error(loyaltyFrozenMessage(reason));
+}
 
 /** Ajustement manuel (admin) du compteur de tampons. */
 export async function adjustStamps(
@@ -11,9 +22,10 @@ export async function adjustStamps(
 ): Promise<number> {
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
-    select: { stampCount: true },
+    select: { stampCount: true, loyaltyDisabled: true },
   });
   if (!customer) throw new Error('Client introuvable');
+  await assertLoyaltyActive(customer);
 
   const next = Math.max(0, customer.stampCount + delta);
   await prisma.$transaction([
@@ -42,9 +54,10 @@ export async function awardMissedOrderStamps(
 ): Promise<{ stampCount: number; rewardsCreated: number }> {
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
-    select: { stampCount: true },
+    select: { stampCount: true, loyaltyDisabled: true },
   });
   if (!customer) throw new Error('Client introuvable');
+  await assertLoyaltyActive(customer);
 
   const settings = await getLoyaltySettings();
 
