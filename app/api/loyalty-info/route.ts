@@ -6,7 +6,10 @@
 // GET /api/loyalty-info?phone=07…&cartTotal=2500 — ajoute aussi `message`, le
 // texte incitatif fidélité du récapitulatif de commande (avant paiement) et
 // `upcomingReward` ({ capAmount } | null), la réduction que cette commande
-// débloquera et que le serveur appliquera d'office ; calculés côté serveur (jamais côté client, pour éviter toute manipulation).
+// débloquera ; calculés côté serveur (jamais côté client, pour éviter toute
+// manipulation). Hors paiement en ligne le serveur l'applique d'office à la
+// création ; avec `&online=1` (paiement Jèko) le tampon n'est accordé qu'au
+// paiement : le message l'annonce pour la commande SUIVANTE.
 //
 // N'expose que le strict nécessaire :
 //   - sans `phone` : { enabled, minOrderAmount } pour le message "plus que X
@@ -78,14 +81,21 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ...base, reward: null, message: null });
     }
 
+    // Fidélité gelée pour ce client (désactivée sur sa fiche) : ni récompense, ni
+    // aperçu, ni message — réponse identique à « client inconnu » (aucune fuite).
+    if (!card.active) {
+      return NextResponse.json({ ...base, reward: null, message: null });
+    }
+
     const reward = card.availableRewards[0]
       ? {
           id: card.availableRewards[0].id,
           capAmount: card.availableRewards[0].capAmount,
         }
       : null;
-    // Récompense débloquée par CETTE commande : le serveur l'applique d'office
-    // à la création, on l'annonce donc dans le récapitulatif (montant seul).
+    // Récompense débloquée par CETTE commande (montant seul). Appliquée d'office
+    // à la création sauf en paiement en ligne (`online`), où elle vaut pour la suivante.
+    const online = req.nextUrl.searchParams.get('online') === '1';
     const upcomingReward = computeUpcomingReward({
       stampCount: card.stampCount,
       lastStampDate: card.customer.lastStampDate,
@@ -94,7 +104,7 @@ export async function GET(req: NextRequest) {
       settings,
     });
     const message = upcomingReward
-      ? computeUpcomingRewardMessage(upcomingReward.capAmount)
+      ? computeUpcomingRewardMessage(upcomingReward.capAmount, { online })
       : computeCheckoutLoyaltyMessage({
           cartTotal,
           stampCount: card.stampCount,

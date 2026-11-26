@@ -11,8 +11,7 @@
 import prisma from '@/lib/prisma';
 import { withStaffVisible } from '@/lib/orders/visibility';
 import { compareKitchenFifo } from '@/lib/orders/queue-order';
-import { endOfLocalDay, startOfLocalDay } from '@/lib/timezone';
-import { PRODUCTION_PLAN_DAYS } from '@/config/constants';
+import { buildPreparationWhere } from '@/lib/preparation-queue-where';
 import { fullyRefundedOrderIds } from '@/lib/refunds/fully-refunded';
 import { coalesceAsyncByKey } from '@/lib/async-coalesce';
 import { getOrdersGeneration } from '@/lib/postgres-notify';
@@ -78,8 +77,8 @@ export type PreparationOrder = {
 /**
  * Renvoie les commandes visibles en cuisine : en préparation
  * (status=PREPARING) et prêtes en attente de récupération (status=READY),
- * créées aujourd'hui OU programmées pour un retrait aujourd'hui/à venir
- * (une commande passée la veille pour un retrait du jour reste visible),
+ * quel que soit leur jour de création ou de retrait (une commande ouverte ne
+ * disparaît pas à minuit),
  * triées en FIFO par ENTRÉE EN CUISINE (`preparingStartedAt`, repli
  * `createdAt` — cf. `compareKitchenFifo`).
  *
@@ -101,48 +100,10 @@ export type PreparationOrder = {
  */
 export async function fetchPreparationQueue(): Promise<PreparationOrder[]> {
   const now = new Date();
-  // Bornes ancrées sur Abidjan, PAS sur le fuseau du runtime (cf. le même
-  // correctif dans `lib/cashier-queue.ts`).
-  const dayStart = startOfLocalDay(now);
-  const dayEnd = endOfLocalDay(now);
-  // Horizon du panneau « À produire » : borne la charge utile du flux SSE, une
-  // commande passée pour dans six mois n'a rien à faire sur l'écran cuisine.
-  const horizonEnd = endOfLocalDay(
-    new Date(dayStart.getTime() + (PRODUCTION_PLAN_DAYS - 1) * 86_400_000)
-  );
 
-  // ⚠️ Une seule clé `OR` par littéral d'objet : deux `OR` frères dans le même
-  // objet JS, la seconde écrase la première EN SILENCE. D'où le `AND` explicite.
+  // Toutes les commandes ouvertes, tous jours confondus (cf. `buildPreparationWhere`).
   const orders = await prisma.order.findMany({
-    where: withStaffVisible({
-      OR: [
-        {
-          AND: [
-            { status: { in: ['PREPARING', 'READY'] } },
-            // Du jour (walk-in) OU programmée pour aujourd'hui/à venir : on
-            // inclut ainsi une commande passée la veille (ou plus tôt) pour un
-            // retrait aujourd'hui ou plus tard — sinon elle disparaît de la
-            // cuisine dès le changement de jour civil, alors qu'elle est déjà
-            // PREPARING/READY (cf. `fetchCashierQueue`).
-            {
-              OR: [
-                { createdAt: { gte: dayStart, lte: dayEnd } },
-                { pickupTime: { gte: dayStart } },
-              ],
-            },
-          ],
-        },
-        {
-          // Programmées pas encore lancées : « à produire », et lançables d'un
-          // tap depuis l'écran cuisine.
-          AND: [
-            { status: 'NEW' as const },
-            { stockReservedAt: null },
-            { pickupTime: { gte: dayStart, lte: horizonEnd } },
-          ],
-        },
-      ],
-    }),
+    where: withStaffVisible(buildPreparationWhere()),
     orderBy: { createdAt: 'asc' },
   });
 

@@ -31,6 +31,21 @@ export async function GET(req: Request) {
     if (!card) {
       return NextResponse.json({ card: null });
     }
+    // Fidélité gelée (programme ou client désactivé) : la caisse ne propose ni
+    // récompense ni réduction à venir (le serveur refuserait de toute façon).
+    // `frozen` laisse l'écran dire pourquoi plutôt que de montrer une carte vide.
+    if (!card.active) {
+      return NextResponse.json({
+        card: {
+          stampCount: card.stampCount,
+          stampsPerCard: card.settings.stampsPerCard,
+          minOrderAmount: card.settings.minOrderAmount,
+          nextStampReward: null,
+          availableRewards: [],
+          frozen: card.frozenReason,
+        },
+      });
+    }
     // Récompense que le PROCHAIN tampon débloquera (appliquée d'office par le
     // serveur à la création) : la caisse l'annonce dans le panier, le test du
     // montant minimum se fait côté client sur le total courant.
@@ -47,6 +62,7 @@ export async function GET(req: Request) {
         stampsPerCard: card.settings.stampsPerCard,
         minOrderAmount: card.settings.minOrderAmount,
         nextStampReward,
+        frozen: null,
         availableRewards: card.availableRewards.map((r) => ({
           id: r.id,
           tier: r.tier,

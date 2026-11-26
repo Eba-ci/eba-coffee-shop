@@ -159,6 +159,7 @@ export async function anonymizeCustomer(id: string, now = new Date()) {
         dateOfBirth: null,
         stampCount: 0,
         lastStampDate: null,
+        loyaltyDisabled: false,
         isTrusted: false,
         trustedSince: null,
         trustedNote: null,

@@ -9,6 +9,8 @@
 // RGPD pour les visiteurs de l'UE. Les numéros d'articles ne figurent volontairement
 // nulle part : ils sont à faire valider par un juriste avant publication.
 
+import { CONTACT_FORM_ENABLED } from './constants/contact';
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Durées de conservation (en jours, sauf mention contraire). */
@@ -63,7 +65,7 @@ export type ProcessingActivity = {
   duration: string;
 };
 
-export const PROCESSING_ACTIVITIES: ProcessingActivity[] = [
+const ALL_PROCESSING_ACTIVITIES: ProcessingActivity[] = [
   {
     id: 'commandes',
     label: 'Commandes et retrait',
@@ -167,6 +169,16 @@ export const PROCESSING_ACTIVITIES: ProcessingActivity[] = [
     duration: `${RETENTION.assistantConversationDays} jours.`,
   },
 ];
+
+/**
+ * Traitements réellement en cours. Le formulaire de contact masqué
+ * (`CONTACT_FORM_ENABLED`) ne collecte plus rien : son traitement n'est ni publié
+ * dans la politique de confidentialité ni listé au registre ARTCI.
+ */
+export const PROCESSING_ACTIVITIES: ProcessingActivity[] =
+  ALL_PROCESSING_ACTIVITIES.filter(
+    (a) => a.id !== 'contact' || CONTACT_FORM_ENABLED
+  );
 
 export type Processor = {
   name: string;

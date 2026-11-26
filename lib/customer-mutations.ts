@@ -277,6 +277,9 @@ export async function mergeCustomers(
         lastStampDate,
         creditBalance,
         name: target.name ?? source.name,
+        // Fidélité désactivée sur l'un OU l'autre : elle le reste après fusion
+        // (réactiver est un geste volontaire, jamais un effet de bord).
+        loyaltyDisabled: target.loyaltyDisabled || source.loyaltyDisabled,
       },
     });
 

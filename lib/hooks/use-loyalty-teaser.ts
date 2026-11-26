@@ -8,8 +8,11 @@
 // serveur : le compteur de tampons n'est jamais exposé au client (cf.
 // app/api/loyalty-info/route.ts). `null` = rien à afficher (programme
 // désactivé, téléphone pas encore identifiable, ou erreur réseau).
-// `upcomingReward` = réduction que CETTE commande débloquera (le serveur
-// l'applique d'office à la création) : le récapitulatif la déduit d'avance.
+// `upcomingReward` = réduction que CETTE commande débloquera. Hors paiement en
+// ligne le serveur l'applique d'office à la création et le récapitulatif la
+// déduit d'avance ; en paiement en ligne (`online`) elle vaut pour la commande
+// suivante : le message le dit et le récapitulatif ne la déduit pas
+// (cf. `lib/loyalty-checkout.ts`).
 
 import { useEffect, useState } from 'react';
 import { ORDER_CUSTOMER_PHONE_MAX } from '@/config/constants';
@@ -25,8 +28,10 @@ const EMPTY: LoyaltyTeaser = { message: null, upcomingReward: null };
 
 export function useLoyaltyTeaser(
   phone: string,
-  cartTotal: number
+  cartTotal: number,
+  opts: { online?: boolean } = {}
 ): LoyaltyTeaser {
+  const online = opts.online ?? false;
   const [teaser, setTeaser] = useState<LoyaltyTeaser>(EMPTY);
 
   useEffect(() => {
@@ -46,6 +51,7 @@ export function useLoyaltyTeaser(
           phone: trimmed,
           cartTotal: String(Math.max(0, Math.trunc(cartTotal))),
         });
+        if (online) params.set('online', '1');
         fetch(`/api/loyalty-info?${params.toString()}`)
           .then((r) => (r.ok ? r.json() : Promise.reject()))
           .then(
@@ -72,7 +78,7 @@ export function useLoyaltyTeaser(
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [phone, cartTotal]);
+  }, [phone, cartTotal, online]);
 
   return teaser;
 }

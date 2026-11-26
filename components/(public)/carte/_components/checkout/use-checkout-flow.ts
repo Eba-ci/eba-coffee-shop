@@ -11,6 +11,7 @@ import { useLoyaltyReward } from '@/lib/hooks/use-loyalty-reward';
 import { useLoyaltyTeaser } from '@/lib/hooks/use-loyalty-teaser';
 import { useCreditOffer } from '@/lib/hooks/use-credit-offer';
 import { withOnlineFee } from '@/lib/online-fee';
+import { checkoutLoyaltyDiscounts } from '@/lib/loyalty-checkout';
 import { usePrecommandeMode } from '../use-precommande-mode';
 import type { CheckoutFormProps } from './types';
 
@@ -71,9 +72,17 @@ export function useCheckoutFlow({
 
   const activeReward =
     reward.status === 'ready' && rewardApplied ? reward : null;
+  // Paiement en ligne : montant réellement débité = total net − avoir + frais.
+  const payOnline = onlinePayment.status === 'ready' && onlinePayment.enabled;
+  // Récompense acquise : remise toujours appliquée par le serveur.
   const rewardDiscount = activeReward
     ? Math.min(activeReward.capAmount, total)
     : 0;
+  // Le serveur n'applique d'office la réduction de la commande en cours que hors
+  // paiement en ligne. Tant que la config de paiement charge (ou échoue), on ne
+  // sait pas : on ne la déduit pas et le message l'annonce pour la suivante.
+  const deductUpcoming =
+    onlinePayment.status === 'ready' && !onlinePayment.enabled;
   // Total net de la récompense déjà acquise : c'est lui que `awardLoyaltyForOrder`
   // teste pour créditer un tampon. Le message incitatif et l'aperçu de la
   // réduction à venir se calculent donc dessus, dans un second appel débouncé
@@ -82,19 +91,20 @@ export function useCheckoutFlow({
   // reward → discount → netTotal → reward).
   const { message: loyaltyMessage, upcomingReward } = useLoyaltyTeaser(
     values.customerPhone,
-    total - rewardDiscount
+    total - rewardDiscount,
+    { online: !deductUpcoming }
   );
-  // Réduction débloquée par cette commande : le serveur l'applique d'office à
-  // la création (sauf si une récompense acquise est déjà utilisée), on la
-  // déduit donc d'avance pour que le récapitulatif corresponde au montant réel.
-  const upcomingDiscount =
-    upcomingReward && !activeReward
-      ? Math.min(upcomingReward.capAmount, total)
-      : 0;
-  const discount = rewardDiscount + upcomingDiscount;
-  const netTotal = Math.max(0, total - discount);
-  // Paiement en ligne : montant réellement débité = total net − avoir + frais.
-  const payOnline = onlinePayment.status === 'ready' && onlinePayment.enabled;
+  // Réduction débloquée par cette commande : hors paiement en ligne, le serveur
+  // l'applique d'office à la création, on la déduit donc d'avance pour que le
+  // récapitulatif corresponde au montant réel. EN LIGNE, le tampon n'est accordé
+  // qu'au paiement et Jèko débite le total sans elle : elle vaut pour la commande
+  // suivante, jamais déduite ici.
+  const { discount, netTotal } = checkoutLoyaltyDiscounts({
+    total,
+    activeRewardCap: activeReward?.capAmount ?? null,
+    upcomingCap: upcomingReward?.capAmount ?? null,
+    deductUpcoming,
+  });
   // L'avoir n'existe que pour un paiement en ligne (il réduit ce que Jèko encaisse).
   const creditOffer = useCreditOffer(values.customerPhone, netTotal, payOnline);
   const useCredit = creditOffer.status === 'ready' && creditApplied;

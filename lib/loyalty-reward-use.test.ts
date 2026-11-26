@@ -19,8 +19,19 @@ type RewardRow = {
   status: string;
 };
 
-function makeTx(reward: RewardRow | null) {
+function makeTx(
+  reward: RewardRow | null,
+  opts: { programEnabled?: boolean; loyaltyDisabled?: boolean } = {}
+) {
+  const { programEnabled = true, loyaltyDisabled = false } = opts;
   const tx = {
+    // Fidélité gelée = programme coupé (réglages) OU client désactivé.
+    loyaltySettings: {
+      findUnique: vi.fn().mockResolvedValue({ enabled: programEnabled }),
+    },
+    customer: {
+      findUnique: vi.fn().mockResolvedValue({ loyaltyDisabled }),
+    },
     loyaltyReward: {
       findUnique: vi.fn().mockResolvedValue(reward),
       update: vi.fn().mockResolvedValue(undefined),
@@ -74,6 +85,23 @@ describe('resolveLoyaltyReward', () => {
     await expect(
       resolveLoyaltyReward(tx, 'reward-1', 'cust-1')
     ).rejects.toBeInstanceOf(LoyaltyRewardUnavailableError);
+  });
+
+  it('refuse une récompense acquise quand le programme est désactivé (gel)', async () => {
+    const tx = makeTx(AVAILABLE, { programEnabled: false });
+    await expect(
+      resolveLoyaltyReward(tx, 'reward-1', 'cust-1')
+    ).rejects.toBeInstanceOf(LoyaltyRewardUnavailableError);
+    expect(tx.loyaltyReward.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('refuse une récompense acquise quand la fidélité du client est désactivée (gel)', async () => {
+    const tx = makeTx(AVAILABLE, { loyaltyDisabled: true });
+    await expect(
+      resolveLoyaltyReward(tx, 'reward-1', 'cust-1')
+    ).rejects.toBeInstanceOf(LoyaltyRewardUnavailableError);
+    // La récompense n'est ni lue ni consommée : elle revient à la réactivation.
+    expect(tx.loyaltyReward.update).not.toHaveBeenCalled();
   });
 });
 

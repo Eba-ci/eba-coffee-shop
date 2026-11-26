@@ -21,7 +21,7 @@ export async function loadQueueLoyalty(
       customerIds.length > 0
         ? prisma.customer.findMany({
             where: { id: { in: customerIds } },
-            select: { id: true, stampCount: true },
+            select: { id: true, stampCount: true, loyaltyDisabled: true },
           })
         : Promise.resolve([]),
       readyOrderIds.length > 0
@@ -34,6 +34,10 @@ export async function loadQueueLoyalty(
 
   const stampCountByCustomerId = new Map(
     customers.map((c) => [c.id, c.stampCount])
+  );
+  // Fidélité désactivée pour ce client : pas de message « tampon » à la remise.
+  const loyaltyDisabledCustomerIds = new Set(
+    customers.filter((c) => c.loyaltyDisabled).map((c) => c.id)
   );
   const stampEarnedOrderIds = new Set(
     stampLedgerForReadyOrders.map((l) => l.orderId)
@@ -57,6 +61,7 @@ export async function loadQueueLoyalty(
   return {
     loyaltySettings,
     stampCountByCustomerId,
+    loyaltyDisabledCustomerIds,
     stampEarnedOrderIds,
     totalStampEntriesByCustomerId,
   };

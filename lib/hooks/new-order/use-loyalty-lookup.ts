@@ -10,6 +10,8 @@ export type LoyaltyCard = {
   /** Récompense débloquée par le prochain tampon (appliquée d'office). */
   nextStampReward: { capAmount: number } | null;
   availableRewards: LoyaltyReward[];
+  /** Fidélité gelée : programme coupé ou désactivée pour ce client (rien à proposer). */
+  frozen: 'program' | 'customer' | null;
 };
 
 const MIN_LOYALTY_PHONE_LENGTH = 8;

@@ -17,6 +17,7 @@ import { getContactSettings } from '@/lib/contact-settings-db';
 import { getPickupSettings } from '@/lib/pickup-settings-db';
 import { summarizeWeeklyHours } from '@/lib/pickup-settings';
 import { siteUrl as getSiteUrl } from '@/lib/site-url';
+import { CONTACT_FORM_ENABLED } from '@/config/constants/contact';
 
 const siteUrl = getSiteUrl();
 
@@ -63,7 +64,7 @@ ${link('Accueil', '/', 'présentation du lieu, produits phares du moment et hora
 ${link('La carte', '/carte', 'catalogue complet avec prix en francs CFA, et commande en ligne')}
 ${link('Le lieu', '/le-lieu', "description de l'espace, ambiance et accès")}
 ${link('À propos', '/a-propos', "histoire de l'enseigne, la pâtissière fondatrice et les engagements qualité")}
-${link('Contact', '/contact', 'formulaire, coordonnées et plan')}
+${link('Contact', '/contact', CONTACT_FORM_ENABLED ? 'formulaire, coordonnées et plan' : 'coordonnées et plan')}
 ${link('Sondages', '/sondages', 'votes ouverts au public sur les prochaines créations')}
 ${link('Mentions légales', '/mentions-legales', 'éditeur et hébergeur')}
 ${link('Politique de confidentialité', '/confidentialite', 'données personnelles et droits')}

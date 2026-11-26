@@ -48,6 +48,12 @@ export function LoyaltySettingsForm({ initial }: { initial: LoyaltySettings }) {
           />
           <Label htmlFor="loyalty-enabled">Programme actif</Label>
         </div>
+        <p className="-mt-3 text-xs text-muted-foreground">
+          Désactivé, tout est gelé : plus de tampon gagné, plus de récompense
+          proposée ni utilisable, pour tous les clients. Rien n&apos;est effacé
+          : tampons et récompenses reviennent à la réactivation. Pour un seul
+          client, utilisez l&apos;interrupteur de sa fiche.
+        </p>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Field
