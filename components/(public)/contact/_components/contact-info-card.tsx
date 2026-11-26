@@ -7,9 +7,12 @@ import type { ContactSettings } from '@/lib/contact-settings';
 export function ContactInfoCard({
   contact,
   hoursLabel,
+  withForm = true,
 }: {
   contact: ContactSettings;
   hoursLabel: string;
+  /** `false` : pas de formulaire à côté, le texte renvoie aux coordonnées. */
+  withForm?: boolean;
 }) {
   const reduceMotion = useReducedMotion();
 
@@ -72,14 +75,17 @@ export function ContactInfoCard({
         className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl"
         {...itemProps}
       >
-        Ecrivons ensemble votre prochaine experience
+        {withForm
+          ? 'Ecrivons ensemble votre prochaine experience'
+          : 'Venez nous voir ou ecrivez-nous sur WhatsApp'}
       </m.h2>
       <m.p
         className="mt-4 max-w-xl text-sm leading-relaxed text-foreground/75 sm:text-base"
         {...itemProps}
       >
-        Une question, une reservation ou un partenariat ? Notre equipe vous
-        repond rapidement avec attention.
+        {withForm
+          ? 'Une question, une reservation ou un partenariat ? Notre equipe vous repond rapidement avec attention.'
+          : 'Une question, une reservation ou un partenariat ? Contactez-nous sur WhatsApp ou passez nous voir : notre equipe vous repond rapidement avec attention.'}
       </m.p>
 
       <m.ul className="mt-7 space-y-3" role="list" {...itemProps}>

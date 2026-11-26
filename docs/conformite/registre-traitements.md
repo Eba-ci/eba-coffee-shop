@@ -50,15 +50,6 @@ Base du dossier de déclaration ou d'autorisation à l'ARTCI (loi n°2013-450 du
 - **Destinataires** : Google (Tag Manager, Analytics) ; Meta si le pixel est actif.
 - **Durée de conservation** : Cookies : 2 ans (Google), 3 mois (Meta). Votre choix est conservé 13 mois.
 
-## Messages envoyés via le formulaire de contact
-
-- **Finalité** : Répondre à votre demande, y compris l’exercice de vos droits.
-- **Base** : Votre demande.
-- **Données** : Nom, e-mail, téléphone (facultatif), message.
-- **Personnes concernées** : Personnes qui nous écrivent.
-- **Destinataires** : Personnel autorisé ; Resend (acheminement du message).
-- **Durée de conservation** : Le temps du traitement de la demande, puis 12 mois au plus.
-
 ## Comptes du personnel
 
 - **Finalité** : Authentifier le personnel et tracer l’accès au dashboard.
