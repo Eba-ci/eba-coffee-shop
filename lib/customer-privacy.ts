@@ -6,7 +6,8 @@
 //   - `anonymizeCustomer`  : effacement. On ne supprime pas la ligne `Order`
 //     (comptabilité : montant, date, articles) mais on en retire nom,
 //     téléphone et note, ainsi que tout ce qui rattache la personne (fidélité,
-//     votes, suggestions, notifications push). Le téléphone de la fiche est
+//     votes, suggestions, notifications push, conversations WhatsApp). Le
+//     téléphone de la fiche est
 //     remplacé par `anon-<id>` pour respecter l'unicité de la colonne.
 
 import prisma from '@/lib/prisma';
@@ -82,6 +83,17 @@ export async function exportCustomerData(id: string) {
       pollVotes: {
         select: { pollId: true, optionId: true, createdAt: true },
       },
+      // Conversations WhatsApp rattachées à la fiche : numéro et messages échangés.
+      whatsappConversations: {
+        select: {
+          waId: true,
+          createdAt: true,
+          messages: {
+            select: { direction: true, type: true, body: true, sentAt: true },
+            orderBy: { sentAt: 'asc' },
+          },
+        },
+      },
     },
   });
   if (!customer) throw new Error('Client introuvable.');
@@ -151,6 +163,8 @@ export async function anonymizeCustomer(id: string, now = new Date()) {
     }),
     prisma.loyaltyReward.deleteMany({ where: { customerId: id } }),
     prisma.loyaltyLedger.deleteMany({ where: { customerId: id } }),
+    // Conversations WhatsApp rattachées : le numéro et les messages partent avec.
+    prisma.whatsAppConversation.deleteMany({ where: { customerId: id } }),
     prisma.customer.update({
       where: { id },
       data: {

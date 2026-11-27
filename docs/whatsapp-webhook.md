@@ -1,8 +1,38 @@
 # Webhook WhatsApp (Meta Cloud API)
 
 Socle du futur bot WhatsApp : la route `app/api/webhooks/whatsapp/route.ts` vérifie
-l'abonnement et authentifie chaque notification. **Elle ne traite encore rien** : une
-notification correctement signée reçoit un `200`.
+l'abonnement, authentifie chaque notification et **enregistre** les messages et statuts
+reçus. **L'agent ne répond pas encore** : les messages sont seulement conservés.
+
+## Ce que la route enregistre
+
+Tables `whatsapp_conversation` et `whatsapp_message` (migration
+`20261128090000_add_whatsapp_conversation`, additive).
+
+- **Une conversation par expéditeur.** Meta peut l'identifier par un identifiant propre
+  au commerce (BSUID, `userId`) et ne plus donner son numéro (`waId`, chiffres avec
+  l'indicatif, sans `+`) s'il a adopté un nom d'utilisateur : les deux sont facultatifs
+  et uniques. On retrouve la conversation par l'un ou l'autre.
+- **Idempotent.** Meta rejoue ses envois jusqu'à 7 jours et peut grouper jusqu'à 1 000
+  mises à jour par `POST` : `wamid` est unique, un message déjà vu est ignoré sans
+  toucher au compteur. Une erreur de base répond `500` pour que Meta rejoue.
+- **Versions.** Chaque nouveau message augmente `inboundVersion` de la conversation et en
+  garde le numéro (`WhatsAppMessage.version`). `processedVersion` sera la dernière
+  version à laquelle l'agent aura répondu : les messages à traiter sont ceux de
+  `version > processedVersion`.
+- **Lien client.** Si le numéro de l'expéditeur (authentifié par WhatsApp) est celui d'une
+  fiche client, la conversation y est rattachée (`linkSource = PHONE_MATCH`). Les numéros
+  étrangers n'en trouvent pas : la caisse n'enregistre que des numéros ivoiriens.
+- **Médias.** Seul l'identifiant du média est gardé (`payload.mediaId`), pas le fichier.
+- **Statuts.** Livré, lu ou échoué mettent à jour nos envois (aucun envoi n'existe encore),
+  sans jamais reculer d'un statut avancé à un moins avancé.
+- **Aucun contenu dans les journaux** : une erreur n'est journalisée que par son code.
+
+**Conservation : 90 jours** (`RETENTION.whatsappMessageDays`). La purge quotidienne
+supprime les messages plus anciens, puis les conversations qui n'en ont plus. Le
+client exporté (`exportCustomerData`) inclut ses conversations ; son anonymisation les
+supprime. Meta est déclaré dans les sous-traitants et le registre des traitements
+(`docs/conformite/`).
 
 ## Variables d'environnement
 

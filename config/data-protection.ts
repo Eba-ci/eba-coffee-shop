@@ -25,6 +25,11 @@ export const RETENTION = {
   pollSuggestionMonths: 12,
   /** Conversations de l'assistant IA du dashboard. */
   assistantConversationDays: 90,
+  /**
+   * Messages WhatsApp (bot) : supprimés après ce délai, et la conversation qui n'a
+   * plus aucun message avec eux (le numéro de l'expéditeur y figure).
+   */
+  whatsappMessageDays: 90,
   /** Captures de preuve de paiement. */
   paymentProofMonths: 13,
   /** Abonnements push liés à une commande, après sa création. */
@@ -168,6 +173,17 @@ const ALL_PROCESSING_ACTIVITIES: ProcessingActivity[] = [
     recipients: 'OpenRouter et le fournisseur du modèle (hors Côte d’Ivoire).',
     duration: `${RETENTION.assistantConversationDays} jours.`,
   },
+  {
+    id: 'whatsapp',
+    label: 'Messages WhatsApp',
+    purpose:
+      'Répondre à vos messages et prendre vos commandes par WhatsApp ; vous prévenir de leur avancement.',
+    basis: 'Votre demande (mesures précontractuelles) ; suivi de la relation.',
+    data: 'Numéro WhatsApp ou identifiant propre au commerce fourni par Meta, contenu des messages, type et heure, statut de livraison.',
+    people: 'Personnes qui écrivent au commerce sur WhatsApp.',
+    recipients: 'Personnel autorisé ; Meta (WhatsApp Business Platform).',
+    duration: `${RETENTION.whatsappMessageDays} jours.`,
+  },
 ];
 
 /**
@@ -242,5 +258,11 @@ export const PROCESSORS: Processor[] = [
     role: 'Assistant IA interne',
     country: 'États-Unis',
     trigger: 'personnel',
+  },
+  {
+    name: 'Meta (WhatsApp Business)',
+    role: 'Messagerie WhatsApp',
+    country: 'États-Unis / Irlande',
+    trigger: 'au clic',
   },
 ];

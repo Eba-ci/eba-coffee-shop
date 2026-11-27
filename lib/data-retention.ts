@@ -184,6 +184,35 @@ export async function purgeExpiredPersonalData(
         ).count,
     ],
     [
+      'whatsappMessagesDeleted',
+      async () =>
+        (
+          await prisma.whatsAppMessage.deleteMany({
+            where: {
+              createdAt: {
+                lt: retentionCutoff.days(RETENTION.whatsappMessageDays, nowMs),
+              },
+            },
+          })
+        ).count,
+    ],
+    [
+      // Après les messages : une conversation ancienne qui n'en a plus aucun n'a
+      // plus de raison d'être (elle porte le numéro de l'expéditeur).
+      'whatsappConversationsDeleted',
+      async () =>
+        (
+          await prisma.whatsAppConversation.deleteMany({
+            where: {
+              createdAt: {
+                lt: retentionCutoff.days(RETENTION.whatsappMessageDays, nowMs),
+              },
+              messages: { none: {} },
+            },
+          })
+        ).count,
+    ],
+    [
       'sessionsDeleted',
       async () =>
         (await prisma.session.deleteMany({ where: { expiresAt: { lt: now } } }))

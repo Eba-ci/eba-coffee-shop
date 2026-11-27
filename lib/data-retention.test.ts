@@ -10,6 +10,8 @@ const prismaMock = vi.hoisted(() => ({
   pollSuggestion: { updateMany: vi.fn() },
   pushSubscription: { deleteMany: vi.fn() },
   assistantConversation: { deleteMany: vi.fn() },
+  whatsAppMessage: { deleteMany: vi.fn() },
+  whatsAppConversation: { deleteMany: vi.fn() },
   session: { deleteMany: vi.fn() },
   verification: { deleteMany: vi.fn() },
 }));
@@ -34,6 +36,8 @@ describe('purgeExpiredPersonalData', () => {
     prismaMock.pollSuggestion.updateMany = count(1);
     prismaMock.pushSubscription.deleteMany = count(5);
     prismaMock.assistantConversation.deleteMany = count(2);
+    prismaMock.whatsAppMessage.deleteMany = count(9);
+    prismaMock.whatsAppConversation.deleteMany = count(3);
     prismaMock.session.deleteMany = count(6);
     prismaMock.verification.deleteMany = count(7);
     vi.mocked(anonymizeExpiredSalaryData).mockResolvedValue(2);
@@ -48,6 +52,8 @@ describe('purgeExpiredPersonalData', () => {
       salaryIdentitiesAnonymized: 2,
       pollVoteMetaCleared: 4,
       assistantConversationsDeleted: 2,
+      whatsappMessagesDeleted: 9,
+      whatsappConversationsDeleted: 3,
       sessionsDeleted: 6,
     });
   });
@@ -62,6 +68,20 @@ describe('purgeExpiredPersonalData', () => {
     await purgeExpiredPersonalData();
     const where = prismaMock.order.updateMany.mock.calls[0][0].where;
     expect(where.NOT).toEqual({ isPaid: false, status: { not: 'CANCELLED' } });
+  });
+
+  it('supprime les messages WhatsApp de plus de 90 jours, puis les conversations devenues vides', async () => {
+    const now = Date.UTC(2026, 10, 28);
+    await purgeExpiredPersonalData(now);
+
+    const messages =
+      prismaMock.whatsAppMessage.deleteMany.mock.calls[0][0].where;
+    expect(messages.createdAt.lt).toEqual(
+      new Date(now - 90 * 24 * 3600 * 1000)
+    );
+    const conversations =
+      prismaMock.whatsAppConversation.deleteMany.mock.calls[0][0].where;
+    expect(conversations.messages).toEqual({ none: {} });
   });
 
   it('continue quand une étape échoue', async () => {
