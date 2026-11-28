@@ -1,18 +1,16 @@
 // app/api/webhooks/whatsapp/route.ts
 //
-// Webhook WhatsApp (Meta Cloud API). Socle minimal : il vérifie l'abonnement et
-// authentifie chaque notification, mais ne traite encore rien.
-//
-// - GET : Meta vérifie l'abonnement avec `hub.mode=subscribe`, `hub.verify_token` et
-//   `hub.challenge`. Jeton correct : on renvoie le challenge tel quel, en texte brut
-//   (200). Sinon 403.
-// - POST : la signature `X-Hub-Signature-256` est vérifiée sur le corps BRUT avant
-//   toute lecture du JSON. Signature valide : 200 tout de suite (Meta réessaie, puis
-//   désactive le webhook, si on tarde ou si on échoue).
-// - Variable absente : route inerte (404), comme `/api/webhooks/jeko`.
+// Webhook WhatsApp (Meta Cloud API) : vérifie l'abonnement (GET), authentifie chaque
+// notification (POST) et enregistre messages et statuts. L'agent ne répond pas encore.
 
 import { NextResponse } from 'next/server';
 import { whatsappAppSecret, whatsappVerifyToken } from '@/lib/whatsapp/config';
+import {
+  applyStatusUpdates,
+  errorLabel,
+  ingestInboundMessages,
+} from '@/lib/whatsapp/ingest';
+import { parseWebhook } from '@/lib/whatsapp/payload';
 import {
   verifyMetaSignature,
   verifyWebhookToken,
@@ -59,7 +57,27 @@ export async function POST(req: Request) {
     return new Response('Signature invalide', { status: 401 });
   }
 
-  // Rien à traiter pour l'instant : on acquitte. Pas de log du contenu (numéros et
-  // messages de clients).
-  return NextResponse.json({ ok: true });
+  // Signature valide mais corps illisible : on acquitte, Meta rejouerait le même corps.
+  let body: unknown;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return NextResponse.json({ ok: true, ignored: true });
+  }
+
+  const { messages, statuses } = parseWebhook(body);
+  try {
+    const stored = await ingestInboundMessages(messages);
+    const updated = await applyStatusUpdates(statuses);
+    return NextResponse.json({
+      ok: true,
+      messages: stored.length,
+      statuses: updated,
+    });
+  } catch (err) {
+    // 500 : Meta rejoue, et l'ingestion est sans danger à rejouer (`wamid` unique).
+    // Jamais le message d'erreur : il peut citer le contenu d'un client.
+    console.error(`[whatsapp] ingestion échouée (${errorLabel(err)})`);
+    return new Response('Erreur de traitement', { status: 500 });
+  }
 }

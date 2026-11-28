@@ -76,3 +76,12 @@ Base du dossier de déclaration ou d'autorisation à l'ARTCI (loi n°2013-450 du
 - **Personnes concernées** : Personnel utilisant l’assistant.
 - **Destinataires** : OpenRouter et le fournisseur du modèle (hors Côte d’Ivoire).
 - **Durée de conservation** : 90 jours.
+
+## Messages WhatsApp
+
+- **Finalité** : Répondre à vos messages et prendre vos commandes par WhatsApp ; vous prévenir de leur avancement.
+- **Base** : Votre demande (mesures précontractuelles) ; suivi de la relation.
+- **Données** : Numéro WhatsApp ou identifiant propre au commerce fourni par Meta, contenu des messages, type et heure, statut de livraison.
+- **Personnes concernées** : Personnes qui écrivent au commerce sur WhatsApp.
+- **Destinataires** : Personnel autorisé ; Meta (WhatsApp Business Platform).
+- **Durée de conservation** : 90 jours.

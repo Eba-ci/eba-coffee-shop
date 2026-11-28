@@ -476,13 +476,14 @@ model Customer {
   // remplacé par un marqueur `anon-<id>` pour respecter l'unicité.
   anonymizedAt DateTime?
 
-  orders    Order[]
-  refunds   Refund[]
-  rewards   LoyaltyReward[]
-  ledger    LoyaltyLedger[]
-  pollVotes PollVote[]
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  orders                Order[]
+  refunds               Refund[]
+  rewards               LoyaltyReward[]
+  ledger                LoyaltyLedger[]
+  pollVotes             PollVote[]
+  whatsappConversations WhatsAppConversation[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
 
   @@map("customer")
 }
@@ -2062,4 +2063,85 @@ model AssistantConversation {
 
   @@index([userId, updatedAt])
   @@map("assistant_conversation")
+}
+
+// ── Bot WhatsApp (Meta Cloud API) ────────────────────────────────────────────
+// Conversations et messages reçus par /api/webhooks/whatsapp (docs/whatsapp-webhook.md).
+
+// Sens d'un message : IN = reçu du client, OUT = envoyé par nous.
+enum WhatsAppMessageDirection {
+  IN
+  OUT
+}
+
+// Entrant : RECEIVED. Sortant : PENDING → SENT → DELIVERED → READ, ou FAILED. Meta les
+// livre dans le désordre : seul un statut plus avancé en remplace un autre.
+enum WhatsAppMessageStatus {
+  RECEIVED
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// Origine du lien conversation → client : PHONE_MATCH (numéro authentifié par WhatsApp),
+// CLAIMED (numéro donné, non vérifié), STAFF (lié à la main).
+enum WhatsAppLinkSource {
+  PHONE_MATCH
+  CLAIMED
+  STAFF
+}
+
+// Un expéditeur WhatsApp. BSUID (`userId`) et numéro (`waId`) sont facultatifs et uniques :
+// Meta masque le numéro si l'utilisateur a adopté un nom d'utilisateur.
+model WhatsAppConversation {
+  id               String              @id @default(cuid())
+  userId           String?             @unique
+  waId             String?             @unique
+  // Client rattaché (il peut avoir plusieurs conversations). L'anonymisation du client
+  // supprime ses conversations (lib/customer-privacy.ts).
+  customerId       String?
+  customer         Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  linkSource       WhatsAppLinkSource?
+  linkedAt         DateTime?
+  // Débounce : `inboundVersion` +1 par message reçu ; `processedVersion` = dernière version
+  // traitée par l'agent. À traiter : `version > processedVersion`.
+  inboundVersion   Int                 @default(0)
+  processedVersion Int                 @default(0)
+  lastInboundAt    DateTime?
+  messages         WhatsAppMessage[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([customerId])
+  @@index([lastInboundAt])
+  @@map("whatsapp_conversation")
+}
+
+model WhatsAppMessage {
+  id             String                   @id @default(cuid())
+  // Identifiant Meta (`wamid.…`). Unique : Meta rejoue ses envois jusqu'à 7 jours.
+  // Null pour un envoi pas encore parti.
+  wamid          String?                  @unique
+  conversationId String
+  conversation   WhatsAppConversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction      WhatsAppMessageDirection
+  type           String // text, interactive, audio, image… (tel que Meta le nomme)
+  body           String?                  @db.Text
+  // Données propres au type, sans média : { buttonId } ou { mediaId, mimeType }.
+  payload        Json?
+  status         WhatsAppMessageStatus    @default(RECEIVED)
+  errorCode      Int?
+  errorTitle     String?
+  // Version que ce message entrant a fait naître (null en sortie).
+  version        Int?
+  // Horodatage du message côté Meta.
+  sentAt         DateTime
+  createdAt      DateTime                 @default(now())
+
+  @@index([conversationId, createdAt])
+  @@index([conversationId, version])
+  @@index([createdAt])
+  @@map("whatsapp_message")
 }
