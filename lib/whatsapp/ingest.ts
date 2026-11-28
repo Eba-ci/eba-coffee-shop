@@ -6,6 +6,8 @@
 import { Prisma } from '@/generated/prisma/client';
 import type { WhatsAppMessageStatus } from '@/generated/prisma/enums';
 import prisma from '@/lib/prisma';
+import { waIdToE164 } from '@/lib/phone-intl';
+import { maskPhoneNumbers, type ContactRefs } from '@/lib/whatsapp/mask-phone';
 import type {
   InboundMessage,
   StatusKind,
@@ -58,6 +60,7 @@ async function findConversation(tx: Tx, msg: InboundMessage) {
       waId: true,
       customerId: true,
       lastInboundAt: true,
+      contactRefs: true,
     },
   });
   // Deux lignes (une par BSUID, une par numéro) : on garde celle du BSUID, sans rien
@@ -69,7 +72,7 @@ async function findConversation(tx: Tx, msg: InboundMessage) {
 
 async function customerIdForWaId(tx: Tx, waId: string) {
   const customer = await tx.customer.findUnique({
-    where: { phone: `+${waId}` },
+    where: { phone: waIdToE164(waId) ?? `+${waId}` },
     select: { id: true },
   });
   return customer?.id ?? null;
@@ -96,6 +99,7 @@ async function storeMessage(
         waId: true,
         customerId: true,
         lastInboundAt: true,
+        contactRefs: true,
       },
     }));
   const canComplete = existing ? existing.canComplete : false;
@@ -117,6 +121,15 @@ async function storeMessage(
       data.customer = { connect: { id: customerId } };
       data.linkSource = 'PHONE_MATCH';
       data.linkedAt = new Date();
+    }
+  }
+
+  // Le corps reste brut ; seuls les repères des numéros cités sont ajoutés à la conversation.
+  if (msg.body) {
+    const known = (conversation.contactRefs ?? {}) as ContactRefs;
+    const { refs } = maskPhoneNumbers(msg.body, known);
+    if (Object.keys(refs).length !== Object.keys(known).length) {
+      data.contactRefs = refs;
     }
   }
 

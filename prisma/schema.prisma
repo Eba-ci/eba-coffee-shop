@@ -2105,6 +2105,8 @@ model WhatsAppConversation {
   customer         Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
   linkSource       WhatsAppLinkSource?
   linkedAt         DateTime?
+  // Numéros vus dans la conversation : `NUMÉRO_n` → E.164. Le modèle ne voit que le repère.
+  contactRefs      Json                @default("{}")
   // Débounce : `inboundVersion` +1 par message reçu ; `processedVersion` = dernière version
   // traitée par l'agent. À traiter : `version > processedVersion`.
   inboundVersion   Int                 @default(0)
