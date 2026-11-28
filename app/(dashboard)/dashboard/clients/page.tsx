@@ -4,6 +4,7 @@ import { Download } from 'lucide-react';
 import { requireRoleOrAnalyst, ROLE_GROUPS } from '@/lib/auth-helpers';
 import { Button } from '@/components/ui/button';
 import { CustomerSearch } from './customer-search';
+import { CustomerViews } from './customer-views';
 import { CustomerFormSheet } from './customer-form';
 import { loadClientsSearchParams } from './search-params';
 import { SummaryCards, SummaryCardsSkeleton } from './summary-cards';
@@ -61,6 +62,8 @@ export default async function ClientsPage({
       <Suspense fallback={<SummaryCardsSkeleton />}>
         <SummaryCards />
       </Suspense>
+
+      <CustomerViews />
 
       <Suspense fallback={<CustomersSectionSkeleton />}>
         <CustomersSection filters={filters} />
