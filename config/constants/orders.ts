@@ -61,3 +61,6 @@ export const ONLINE_FEE_PERCENT_DEFAULT = 1;
 
 /** Longueur max du motif de remise saisi par le caissier. */
 export const ORDER_DISCOUNT_REASON_MAX = 100;
+
+/** Vue « Réguliers » des clients : nombre minimum de JOURS différents avec commande sur la période. */
+export const REGULAR_CUSTOMER_MIN_DAYS = 3;

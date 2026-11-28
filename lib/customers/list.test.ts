@@ -63,4 +63,54 @@ describe('listCustomers', () => {
     await listCustomers({ sort: 'totalSpent' }, { withStats: true });
     expect(sqlOf(queryRaw.mock.calls[1])).not.toContain('"order"');
   });
+
+  describe('vues rapides (Meilleurs / Plus fidèles / Réguliers)', () => {
+    it('une vue joint les agrégats de tous les clients et ne garde que ceux qui ont commandé', async () => {
+      await listCustomers({ view: 'meilleurs' }, { withStats: true });
+      const sql = sqlOf(queryRaw.mock.calls[0]);
+      expect(sql).toContain('GROUP BY');
+      expect(sql).toContain('COALESCE(s.orders, 0) > 0');
+      // Le total passe par la même jointure : sans elle il compterait les clients sans commande.
+      expect(sqlOf(queryRaw.mock.calls[1])).toContain('GROUP BY');
+    });
+
+    it('chaque vue a son tri par défaut, un tri explicite l’emporte', async () => {
+      await listCustomers({ view: 'meilleurs' });
+      expect(sqlOf(queryRaw.mock.calls[0])).toContain(
+        'ORDER BY (COALESCE(s.gross, 0) - COALESCE(rf.refunded, 0)) DESC'
+      );
+      queryRaw.mockClear().mockResolvedValue([]);
+      await listCustomers({ view: 'fideles' });
+      expect(sqlOf(queryRaw.mock.calls[0])).toContain(
+        'ORDER BY COALESCE(s.orders, 0) DESC'
+      );
+      queryRaw.mockClear().mockResolvedValue([]);
+      await listCustomers({ view: 'fideles', sort: 'name' });
+      expect(sqlOf(queryRaw.mock.calls[0])).toContain('ORDER BY c.name');
+    });
+
+    it('« Réguliers » exige un minimum de jours distincts avec commande', async () => {
+      await listCustomers({ view: 'reguliers' });
+      const call = queryRaw.mock.calls[0];
+      expect(sqlOf(call)).toContain('COALESCE(s.days, 0) >=');
+      expect(sqlOf(call)).toContain('COUNT(DISTINCT');
+      expect(valuesOf(call)).toContain(3);
+    });
+
+    it('la période borne commandes et remboursements, dans la jointure ET dans les chiffres de la page', async () => {
+      const since = new Date('2026-10-29T00:00:00Z');
+      await listCustomers({ view: 'meilleurs', since }, { withStats: true });
+      const call = queryRaw.mock.calls[0];
+      expect(sqlOf(call)).toContain('o."createdAt" >=');
+      expect(sqlOf(call)).toContain('ro."createdAt" >=');
+      // 2 bornes dans la jointure (commandes + remboursements) et 2 dans le lateral.
+      expect(valuesOf(call).filter((v) => v === since)).toHaveLength(4);
+    });
+
+    it('sans vue : le total n’est pas joint aux commandes et aucune borne n’est ajoutée', async () => {
+      await listCustomers({ since: new Date() });
+      expect(sqlOf(queryRaw.mock.calls[0])).not.toContain('"order"');
+      expect(sqlOf(queryRaw.mock.calls[1])).not.toContain('"order"');
+    });
+  });
 });

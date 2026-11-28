@@ -220,6 +220,14 @@ Le site vitrine est vu depuis Abidjan, en mobile, sur des liens où le **RTT pè
 - **Historique** : table `AssistantConversation` (privée à l'utilisateur, JSON de l'historique OpenAI complet), routes `/api/assistant/conversations[/id]`. Lancer `pnpm db:push` après déploiement.
 - **UI** : bouton discret dans l'en-tête (Ctrl/Cmd+K), jamais de bouton flottant (gêne la caisse sur mobile). Le panneau est chargé en `next/dynamic` à la première ouverture.
 
+## Bot WhatsApp (socle)
+
+- **Quoi** : `POST /api/webhooks/whatsapp` (Meta Cloud API) vérifie la signature `X-Hub-Signature-256` sur le corps BRUT, enregistre messages et statuts, répond 200. **L'agent ne répond pas encore** (file, worker, outils : lots suivants). Variables `WHATSAPP_VERIFY_TOKEN` et `WHATSAPP_APP_SECRET` dans le `.env` du serveur (`.env.production`, lu à la CRÉATION du conteneur : un déploiement est nécessaire) ; absentes = route inerte (404). Détail : `docs/whatsapp-webhook.md`.
+- **Données** (`lib/whatsapp/`, tables `whatsapp_conversation` / `whatsapp_message`) : une conversation par expéditeur, retrouvée par le BSUID (`userId`) OU le numéro (`waId`, sans `+`), tous deux facultatifs (un nom d'utilisateur masque le numéro). `wamid` unique : Meta rejoue 7 jours et groupe jusqu'à 1 000 mises à jour, l'ingestion est idempotente. `inboundVersion` (+1 par message reçu) et `WhatsAppMessage.version` fondent le débounce : à traiter = `version > processedVersion`.
+- **Lien client** : `WhatsAppConversation.customerId` + `linkSource` (`PHONE_MATCH` : le `waId` authentifié par WhatsApp est le numéro d'une fiche ; `CLAIMED` : numéro donné dans la conversation, non vérifié ; `STAFF`). Le numéro WhatsApp prouve la possession du numéro, contrairement à un numéro saisi sur le site. Un numéro étranger ne se rattache à personne : la caisse n'enregistre que des numéros ivoiriens.
+- **Ne jamais** journaliser un message ou un numéro (un message d'erreur Prisma peut citer le contenu : `errorLabel`), ni toucher à `normalizeIvorianPhone` pour les numéros internationaux (module séparé à venir ; la caisse garde la montée de 8 à 10 chiffres).
+- **Données personnelles** : conservation `RETENTION.whatsappMessageDays` (90 j, purge quotidienne : messages puis conversations vides), export et anonymisation du client incluent ses conversations, Meta figure dans `PROCESSORS`.
+
 ## Fidélité : désactivation (gel)
 
 - **Deux interrupteurs, un seul effet** : global `LoyaltySettings.enabled` (Paramètres → Fidélité, MCP `update_loyalty_settings`) et par client `Customer.loyaltyDisabled` (fiche client, MANAGER_PLUS, MCP `set_customer_loyalty_disabled`). Règle unique : `lib/loyalty/active.ts` (`loyaltyFreezeReason` : `'program'` prime sur `'customer'`).
