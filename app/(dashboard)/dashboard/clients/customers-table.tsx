@@ -26,7 +26,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { viewDefaultSort, type CustomerStats } from '@/lib/customers';
+import type { CustomerStats } from '@/lib/customers';
+// Module pur : jamais le barrel `@/lib/customers` pour une VALEUR dans un composant
+// client (il réexporte la lecture en base : le build de Next échoue).
+import { viewDefaultSort } from '@/lib/customers/views';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { CUSTOMER_SORT_KEYS } from './search-params';
