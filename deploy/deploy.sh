@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Usage : deploy.sh schema|deploy <env> <tag>   (env : staging | production) | deploy.sh rollback <env>
+#         deploy.sh redis   (Redis de la file WhatsApp, partagé par les deux environnements)
 # Un seul conteneur par environnement ; le schéma BDD n'est jamais défait au rollback.
 set -euo pipefail
 
@@ -14,6 +15,48 @@ HOST_ADDR="${EBA_HOST_ADDR:-10.0.2.2}"
 
 log() { printf '[deploy:%s] %s\n' "${ENV_NAME:-?}" "$*"; }
 die() { log "ERREUR : $*" >&2; exit 1; }
+
+# Redis de la file WhatsApp : un conteneur partagé, joignable sur 127.0.0.1 seulement.
+# Les environnements s'y séparent par le numéro de base (/0 staging, /1 production).
+REDIS_NAME=eba-redis
+REDIS_PORT="${EBA_REDIS_PORT:-6381}"
+REDIS_IMAGE="${EBA_REDIS_IMAGE:-redis:7.4-alpine}"
+
+ensure_redis() {
+  docker info >/dev/null 2>&1 || die "Docker injoignable (DOCKER_HOST=$DOCKER_HOST)"
+  local running
+  running="$(docker inspect -f '{{.State.Running}}' "$REDIS_NAME" 2>/dev/null || true)"
+  if [ "$running" = true ]; then
+    log "redis déjà lancé sur 127.0.0.1:$REDIS_PORT"
+    return 0
+  fi
+  if [ "$running" = false ]; then
+    log "redis arrêté : redémarrage"
+    docker start "$REDIS_NAME" >/dev/null
+  else
+    log "démarrage de redis ($REDIS_IMAGE) sur 127.0.0.1:$REDIS_PORT"
+    docker image inspect "$REDIS_IMAGE" >/dev/null 2>&1 || docker pull "$REDIS_IMAGE" >/dev/null
+    # AOF : la file survit à un redémarrage. noeviction : jamais de travail jeté en silence.
+    docker run -d --name "$REDIS_NAME" --restart unless-stopped \
+      --memory 192m --cpus 0.5 \
+      --user redis --cap-drop ALL --security-opt no-new-privileges \
+      -p "127.0.0.1:$REDIS_PORT:6379" \
+      -v eba-redis-data:/data \
+      "$REDIS_IMAGE" redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy noeviction >/dev/null
+  fi
+  for _ in $(seq 1 30); do
+    [ "$(docker exec "$REDIS_NAME" redis-cli ping 2>/dev/null || true)" = PONG ] && { log "redis prêt"; return 0; }
+    sleep 1
+  done
+  docker logs --tail 30 "$REDIS_NAME" >&2 || true
+  die "redis ne répond pas"
+}
+
+if [ "$ACTION" = redis ]; then
+  ENV_NAME=redis
+  ensure_redis
+  exit 0
+fi
 
 # Montages en lecture seule passés à `docker run` (uploads historiques en prod).
 MOUNTS=()
