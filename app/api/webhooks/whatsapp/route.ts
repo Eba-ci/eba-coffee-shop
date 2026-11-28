@@ -1,7 +1,7 @@
 // app/api/webhooks/whatsapp/route.ts
 //
 // Webhook WhatsApp (Meta Cloud API) : vérifie l'abonnement (GET), authentifie chaque
-// notification (POST) et enregistre messages et statuts. L'agent ne répond pas encore.
+// notification (POST), enregistre messages et statuts, met le tour de l'agent en file.
 
 import { NextResponse } from 'next/server';
 import { whatsappAppSecret, whatsappVerifyToken } from '@/lib/whatsapp/config';
@@ -11,6 +11,7 @@ import {
   ingestInboundMessages,
 } from '@/lib/whatsapp/ingest';
 import { parseWebhook } from '@/lib/whatsapp/payload';
+import { enqueueLatestTurns } from '@/lib/whatsapp/queue';
 import {
   verifyMetaSignature,
   verifyWebhookToken,
@@ -69,10 +70,12 @@ export async function POST(req: Request) {
   try {
     const stored = await ingestInboundMessages(messages);
     const updated = await applyStatusUpdates(statuses);
+    const queued = await enqueueLatestTurns(stored);
     return NextResponse.json({
       ok: true,
       messages: stored.length,
       statuses: updated,
+      queued,
     });
   } catch (err) {
     // 500 : Meta rejoue, et l'ingestion est sans danger à rejouer (`wamid` unique).

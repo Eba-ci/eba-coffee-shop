@@ -38,6 +38,29 @@ client exporté (`exportCustomerData`) inclut ses conversations ; son anonymisat
 supprime. Meta est déclaré dans les sous-traitants et le registre des traitements
 (`docs/conformite/`).
 
+## File d'attente et worker
+
+Après l'enregistrement, le webhook met en file (BullMQ, Redis) **un tour par conversation**,
+différé de 2,5 s (`WHATSAPP_DEBOUNCE_MS`) : si le client écrit trois messages d'affilée, seul
+le dernier déclenche un tour.
+
+- **Anti-rebond.** Le tour porte la version du dernier message (`inboundVersion`). Au
+  lancement, il s'efface si une version plus récente existe (`stale`) ou s'il est déjà
+  traité (`done`). À la fin, `processedVersion` n'avance que si aucun message n'est
+  arrivé entre-temps ; sinon la réponse est écartée (`superseded`) et le tour suivant
+  reprend avec tout l'historique.
+- **Un tour à la fois par conversation** : verrou Redis (`whatsapp:turn:<id>`, 60 s), un
+  travail qui trouve la conversation occupée repasse 1 s plus tard.
+- **Postgres reste la source de vérité.** Si Redis est coupé ou vidé, le message est quand
+  même enregistré (le webhook répond 200) ; le worker balaie toutes les 30 s les
+  conversations restées sans réponse et les remet en file.
+- **Sans `REDIS_URL`**, rien n'est mis en file : le comportement reste celui du socle.
+- **Lancer le worker** : `pnpm whatsapp:worker` (`REDIS_URL` et `DATABASE_URL` requis).
+  L'agent n'existe pas encore : le tour est validé sans réponse (`silentRunner`).
+- **Tester la file** contre un vrai Redis : `REDIS_TEST_URL=redis://localhost:6379/15 pnpm exec
+vitest run lib/whatsapp/worker.redis` (sauté sans cette variable ; vide la base indiquée).
+- **Hors de ce lot** : le conteneur Redis et le conteneur worker (`deploy/`), à venir.
+
 ## Variables d'environnement
 
 Les deux sont optionnelles. Tant qu'une variable manque, la méthode concernée répond
