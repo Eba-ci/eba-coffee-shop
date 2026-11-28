@@ -1,16 +1,7 @@
 // lib/whatsapp/ingest.ts
 //
-// Enregistrement des messages et statuts reçus par le webhook WhatsApp.
-//
-// - Idempotent : Meta rejoue ses envois jusqu'à 7 jours, `wamid` est unique. Un message
-//   déjà vu est ignoré sans toucher au compteur de la conversation.
-// - Chaque nouveau message augmente `inboundVersion` de la conversation et en garde le
-//   numéro (`version`) : les messages à traiter sont ceux de `version > processedVersion`.
-// - L'expéditeur est identifié par le BSUID (`userId`) et/ou le numéro (`waId`), tous
-//   deux facultatifs. Une conversation se retrouve par l'un ou l'autre.
-// - Un expéditeur dont le numéro (authentifié par WhatsApp) est celui d'une fiche client
-//   est rattaché à ce client (`PHONE_MATCH`). Les numéros étrangers n'en trouvent pas :
-//   la caisse n'enregistre que des numéros ivoiriens.
+// Enregistre les messages et statuts reçus par le webhook WhatsApp. Idempotent (`wamid`
+// unique) ; chaque nouveau message fait avancer `inboundVersion` de sa conversation.
 
 import { Prisma } from '@/generated/prisma/client';
 import type { WhatsAppMessageStatus } from '@/generated/prisma/enums';
@@ -30,10 +21,10 @@ export type IngestResult = {
   wamid: string;
 };
 
-/** Une tentative de plus suffit : le second passage retrouve la ligne qui a gagné. */
+/** Une seule relance après une collision d'unicité. */
 const MAX_ATTEMPTS = 2;
 
-/** Statuts qu'un statut reçu a le droit de remplacer (Meta les livre dans le désordre). */
+/** Statuts remplaçables : Meta les livre dans le désordre. */
 const REPLACEABLE: Record<StatusKind, WhatsAppMessageStatus[]> = {
   SENT: ['PENDING'],
   DELIVERED: ['PENDING', 'SENT'],
@@ -47,7 +38,7 @@ function isUniqueViolation(err: unknown): boolean {
   );
 }
 
-/** Libellé d'erreur sans donnée : un message d'erreur Prisma peut citer le contenu. */
+/** Code ou nom de l'erreur : un message Prisma peut citer le contenu d'un client. */
 export function errorLabel(err: unknown): string {
   if (err instanceof Prisma.PrismaClientKnownRequestError) return err.code;
   return err instanceof Error ? err.name : 'erreur inconnue';
@@ -69,8 +60,7 @@ async function findConversation(tx: Tx, msg: InboundMessage) {
       lastInboundAt: true,
     },
   });
-  // Cas rare : deux lignes (l'une par le BSUID, l'autre par le numéro). On garde celle
-  // du BSUID et on ne complète aucun identifiant, il appartiendrait à l'autre ligne.
+  // Deux lignes (BSUID d'un côté, numéro de l'autre) : on garde celle du BSUID, sans rien compléter.
   const primary =
     rows.find((r) => msg.userId && r.userId === msg.userId) ?? rows[0];
   return primary ? { ...primary, canComplete: rows.length === 1 } : null;
@@ -166,10 +156,7 @@ async function ingestOne(msg: InboundMessage): Promise<IngestResult | null> {
   }
 }
 
-/**
- * Enregistre les messages reçus, dans l'ordre où ils ont été écrits. Renvoie ceux qui
- * étaient nouveaux (les doublons sont absents) : ce sont eux qui réveilleront l'agent.
- */
+/** Enregistre les messages dans l'ordre où ils ont été écrits ; renvoie les nouveaux. */
 export async function ingestInboundMessages(
   messages: InboundMessage[]
 ): Promise<IngestResult[]> {
@@ -184,7 +171,7 @@ export async function ingestInboundMessages(
   return stored;
 }
 
-/** Met à jour les messages envoyés par nous. Renvoie le nombre de lignes modifiées. */
+/** Met à jour le statut de nos envois ; renvoie le nombre de lignes modifiées. */
 export async function applyStatusUpdates(
   statuses: StatusUpdate[]
 ): Promise<number> {

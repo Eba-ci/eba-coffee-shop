@@ -1,15 +1,8 @@
 // lib/whatsapp/payload.ts
 //
-// Lecture du JSON envoyé par Meta au webhook WhatsApp (champ `messages`). Un seul
-// POST peut contenir jusqu'à 1 000 mises à jour (messages et statuts mêlés) : chaque
-// élément est lu à part, un élément illisible est ignoré sans faire échouer le lot.
-//
-// Meta peut identifier l'expéditeur par un identifiant propre à l'entreprise (BSUID,
-// `user_id` / `from_user_id`) et omettre son numéro (`from`) s'il a adopté un nom
-// d'utilisateur : les deux sont donc facultatifs ici.
-//
-// On ne garde du média que son identifiant : le fichier se récupère chez Meta à la
-// demande, il n'est pas stocké.
+// Lit le JSON du webhook WhatsApp (champ `messages`). Chaque élément est lu à part : un
+// élément illisible est ignoré sans faire échouer le lot. BSUID et numéro sont
+// facultatifs ; d'un média, on ne garde que l'identifiant.
 
 import { z } from 'zod';
 
