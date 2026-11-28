@@ -16,3 +16,4 @@
 | Resend | Envoi d’e-mails | États-Unis | personnel | à compléter |
 | Sentry | Suivi des erreurs | États-Unis / UE | toujours | à compléter |
 | OpenRouter | Assistant IA interne | États-Unis | personnel | à compléter |
+| Meta (WhatsApp Business) | Messagerie WhatsApp | États-Unis / Irlande | au clic | à compléter |

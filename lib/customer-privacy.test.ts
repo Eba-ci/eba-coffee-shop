@@ -10,6 +10,7 @@ const prismaMock = vi.hoisted(() => ({
   pollSuggestion: { updateMany: vi.fn() },
   loyaltyReward: { deleteMany: vi.fn() },
   loyaltyLedger: { deleteMany: vi.fn() },
+  whatsAppConversation: { deleteMany: vi.fn() },
   $transaction: vi.fn(async (ops: unknown[]) => ops),
 }));
 vi.mock('@/lib/prisma', () => ({ default: prismaMock }));
@@ -71,6 +72,13 @@ describe('anonymizeCustomer', () => {
       })
     );
     expect(prismaMock.loyaltyLedger.deleteMany).toHaveBeenCalled();
+  });
+
+  it('supprime les conversations WhatsApp rattachées au client (numéro et messages)', async () => {
+    await anonymizeCustomer('c1');
+    expect(prismaMock.whatsAppConversation.deleteMany).toHaveBeenCalledWith({
+      where: { customerId: 'c1' },
+    });
   });
 
   it('efface nom et numéro des remboursements, garde montants, motifs et dates', async () => {
