@@ -34,6 +34,7 @@ const NEW_CONVERSATION = {
   waId: '2250707070707',
   customerId: null,
   lastInboundAt: null,
+  contactRefs: {},
 };
 
 function message(over: Partial<InboundMessage> = {}): InboundMessage {
@@ -67,6 +68,30 @@ describe('ingestInboundMessages', () => {
     tx.whatsAppConversation.create.mockResolvedValue(NEW_CONVERSATION);
     tx.whatsAppConversation.update.mockResolvedValue({ inboundVersion: 1 });
     tx.customer.findUnique.mockResolvedValue(null);
+  });
+
+  it('enregistre le numéro cité dans un message, sans toucher au corps', async () => {
+    await ingestInboundMessages([
+      message({ body: 'Mon autre numéro : 05 05 05 05 05' }),
+    ]);
+
+    expect(tx.whatsAppConversation.update.mock.calls[0][0].data).toMatchObject({
+      contactRefs: { NUMÉRO_1: '+2250505050505' },
+    });
+    expect(tx.whatsAppMessage.create.mock.calls[0][0].data.body).toBe(
+      'Mon autre numéro : 05 05 05 05 05'
+    );
+  });
+
+  it('garde le même repère pour un numéro déjà connu et n’écrit rien de plus', async () => {
+    tx.whatsAppConversation.findMany.mockResolvedValue([
+      { ...NEW_CONVERSATION, contactRefs: { NUMÉRO_1: '+2250505050505' } },
+    ]);
+    await ingestInboundMessages([message({ body: 'Oui le 0505050505' })]);
+
+    expect(
+      tx.whatsAppConversation.update.mock.calls[0][0].data
+    ).not.toHaveProperty('contactRefs');
   });
 
   it('crée la conversation et le message, et rend la version qui est née', async () => {

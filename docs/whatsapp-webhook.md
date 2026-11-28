@@ -23,6 +23,10 @@ Tables `whatsapp_conversation` et `whatsapp_message` (migration
 - **Lien client.** Si le numéro de l'expéditeur (authentifié par WhatsApp) est celui d'une
   fiche client, la conversation y est rattachée (`linkSource = PHONE_MATCH`). Les numéros
   étrangers n'en trouvent pas : la caisse n'enregistre que des numéros ivoiriens.
+- **Numéros cités.** Le numéro donné dans un message (ivoirien ou étranger) reçoit un
+  repère `NUMÉRO_n` dans `contactRefs` de la conversation ; le corps reste brut. Le futur
+  agent ne verra que le repère (`lib/whatsapp/mask-phone.ts`). Migration
+  `20261128100000_whatsapp_contact_refs`, additive.
 - **Médias.** Seul l'identifiant du média est gardé (`payload.mediaId`), pas le fichier.
 - **Statuts.** Livré, lu ou échoué mettent à jour nos envois (aucun envoi n'existe encore),
   sans jamais reculer d'un statut avancé à un moins avancé.
