@@ -19,3 +19,15 @@ export const COUNTED_ORDER = Prisma.sql`o.status <> 'CANCELLED' AND (o."paymentE
  * déjà retiré le CA), sur une commande non annulée (déjà exclue du total).
  */
 export const REFUND_DEDUCTED = Prisma.sql`r.status = 'PAID' AND r."creditSourceId" IS NULL AND ro.status <> 'CANCELLED'`;
+
+/**
+ * Fenêtre de période (vues « Meilleurs / Plus fidèles / Réguliers ») : commandes
+ * créées depuis `since`. Clause À PART de `COUNTED_ORDER`, dont le prédicat doit
+ * rester identique à celui de l'index partiel. Sans `since` : tout l'historique.
+ */
+export const sinceOrder = (since?: Date) =>
+  since ? Prisma.sql`AND o."createdAt" >= ${since}` : Prisma.empty;
+
+/** Même fenêtre côté remboursements : on rattache le remboursement à sa commande (`ro`). */
+export const sinceRefund = (since?: Date) =>
+  since ? Prisma.sql`AND ro."createdAt" >= ${since}` : Prisma.empty;

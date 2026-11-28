@@ -6,6 +6,7 @@
 // l'URL (nuqs, cf. `use-clients-nav.ts`), et la base trie/pagine sur l'ensemble des
 // clients (`lib/customers/filter.ts`) — pas seulement la page affichée.
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import {
   type ColumnDef,
@@ -25,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { CustomerStats } from '@/lib/customers';
+import { viewDefaultSort, type CustomerStats } from '@/lib/customers';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { CUSTOMER_SORT_KEYS } from './search-params';
@@ -134,9 +135,34 @@ const columns: ColumnDef<CustomerRow>[] = [
 // sait trier (cf. lib/customers.ts) ; les autres restent `enableSorting: false`.
 const SORTABLE = new Set<string>(CUSTOMER_SORT_KEYS);
 
-export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
+const RANK_COLUMN: ColumnDef<CustomerRow> = {
+  id: 'rank',
+  header: '#',
+  enableSorting: false,
+  // Rang = position dans la liste triée (page courante comprise) : voir `rankFrom`.
+  cell: ({ row, table }) => (
+    <span className="tabular-nums text-muted-foreground">
+      {(table.options.meta as { rankFrom: number }).rankFrom + row.index}
+    </span>
+  ),
+};
+
+export function CustomersTable({
+  customers,
+  rankFrom,
+}: {
+  customers: CustomerRow[];
+  /** Rang du premier client affiché ; absent = pas de colonne « # ». */
+  rankFrom?: number;
+}) {
   const { filters, update, isPending } = useClientsNav();
-  const { sort, dir, search } = filters;
+  const { dir, search } = filters;
+  // Une vue trie d'office (ex. « Meilleurs » → total acheté) tant qu'on n'a pas cliqué un en-tête.
+  const sort = filters.sort ?? viewDefaultSort(filters.vue);
+  const tableColumns = useMemo(
+    () => (rankFrom ? [RANK_COLUMN, ...columns] : columns),
+    [rankFrom]
+  );
 
   const sorting: SortingState = sort
     ? [{ id: sort, desc: dir === 'desc' }]
@@ -154,7 +180,8 @@ export function CustomersTable({ customers }: { customers: CustomerRow[] }) {
 
   const table = useReactTable({
     data: customers,
-    columns,
+    columns: tableColumns,
+    meta: { rankFrom: rankFrom ?? 1 },
     state: { sorting },
     onSortingChange: handleSortingChange,
     manualSorting: true,

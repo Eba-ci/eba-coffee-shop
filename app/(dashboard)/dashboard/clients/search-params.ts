@@ -7,6 +7,7 @@
 
 import { createLoader, parseAsString, parseAsStringLiteral } from 'nuqs/server';
 import type { CustomerSortKey, SortDir } from '@/lib/customers';
+import { CUSTOMER_PERIODS, CUSTOMER_VIEWS } from '@/lib/customers/views';
 import { pageParser } from '@/lib/url-state/shared-params';
 
 export const CUSTOMER_SORT_KEYS = [
@@ -28,6 +29,10 @@ export const clientsParsers = {
   // quand une recherche est active) : `null` est donc une vraie valeur.
   sort: parseAsStringLiteral(CUSTOMER_SORT_KEYS),
   dir: parseAsStringLiteral(CUSTOMER_SORT_DIRS).withDefault('desc'),
+  // Vue rapide (Meilleurs / Plus fidèles / Réguliers) ; `null` = liste complète.
+  vue: parseAsStringLiteral(CUSTOMER_VIEWS),
+  // Période des chiffres, utile seulement avec une vue ; `null` = tout l'historique.
+  periode: parseAsStringLiteral(CUSTOMER_PERIODS),
 };
 
 /** Lecture serveur (page + route de stats) : même validation que le client. */
