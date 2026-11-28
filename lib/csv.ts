@@ -8,28 +8,43 @@
 // Les nombres sont laissés bruts (entiers FCFA) pour rester numériques dans
 // le tableur ; le formatage d'affichage reste la responsabilité de l'UI.
 
-const DELIMITER = ';';
+const DEFAULT_DELIMITER = ';';
 const EOL = '\r\n';
 const BOM = '﻿';
 
 type Cell = string | number | boolean | null | undefined;
 
-function escapeCell(value: Cell): string {
+function escapeCell(value: Cell, delimiter: string): string {
   if (value === null || value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'Oui' : 'Non';
   const s = String(value);
-  if (/[";\r\n]/.test(s)) {
+  if (s.includes(delimiter) || /["\r\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
 }
 
-/** Construit une chaîne CSV (avec BOM) depuis un en-tête et des lignes. */
-export function toCsv(headers: string[], rows: Cell[][]): string {
+type CsvOptions = {
+  /** Séparateur de colonnes (défaut `;`, Excel FR). */
+  delimiter?: string;
+  /** BOM UTF-8 en tête (défaut `true`, pour Excel). */
+  bom?: boolean;
+};
+
+/**
+ * Construit une chaîne CSV depuis un en-tête et des lignes. Par défaut : format
+ * Excel FR (`;`, BOM). Les imports tiers (Google Contacts…) veulent `,` et pas
+ * de BOM : `{ delimiter: ',', bom: false }`.
+ */
+export function toCsv(
+  headers: string[],
+  rows: Cell[][],
+  { delimiter = DEFAULT_DELIMITER, bom = true }: CsvOptions = {}
+): string {
   const lines = [headers, ...rows].map((row) =>
-    row.map(escapeCell).join(DELIMITER)
+    row.map((cell) => escapeCell(cell, delimiter)).join(delimiter)
   );
-  return BOM + lines.join(EOL) + EOL;
+  return (bom ? BOM : '') + lines.join(EOL) + EOL;
 }
 
 /** Réponse HTTP de téléchargement CSV (attachment). */
