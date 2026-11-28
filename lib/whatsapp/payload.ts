@@ -1,8 +1,7 @@
 // lib/whatsapp/payload.ts
 //
-// Lit le JSON du webhook WhatsApp (champ `messages`). Chaque élément est lu à part : un
-// élément illisible est ignoré sans faire échouer le lot. BSUID et numéro sont
-// facultatifs ; d'un média, on ne garde que l'identifiant.
+// Lit le JSON du webhook WhatsApp (champ `messages`) : un élément illisible est ignoré sans
+// faire échouer le lot. D'un média, on ne garde que l'identifiant.
 
 import { z } from 'zod';
 

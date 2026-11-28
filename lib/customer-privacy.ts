@@ -7,8 +7,7 @@
 //     (comptabilité : montant, date, articles) mais on en retire nom,
 //     téléphone et note, ainsi que tout ce qui rattache la personne (fidélité,
 //     votes, suggestions, notifications push, conversations WhatsApp). Le
-//     téléphone de la fiche est
-//     remplacé par `anon-<id>` pour respecter l'unicité de la colonne.
+//     téléphone de la fiche est remplacé par `anon-<id>` (unicité de la colonne).
 
 import prisma from '@/lib/prisma';
 import { withStaffVisible } from '@/lib/orders/visibility';

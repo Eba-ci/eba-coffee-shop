@@ -1,8 +1,7 @@
 // lib/whatsapp/ingest.test.ts
 //
-// Enregistrement des messages WhatsApp : idempotence par `wamid`, compteur de version,
-// rattachement au client par le numéro, identifiants complétés sans collision, statuts
-// livrés dans le désordre.
+// Messages WhatsApp : idempotence par `wamid`, version, lien client par le numéro,
+// identifiants sans collision, statuts livrés dans le désordre.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@/generated/prisma/client';

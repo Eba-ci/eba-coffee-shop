@@ -60,7 +60,8 @@ async function findConversation(tx: Tx, msg: InboundMessage) {
       lastInboundAt: true,
     },
   });
-  // Deux lignes (BSUID d'un côté, numéro de l'autre) : on garde celle du BSUID, sans rien compléter.
+  // Deux lignes (une par BSUID, une par numéro) : on garde celle du BSUID, sans rien
+  // compléter.
   const primary =
     rows.find((r) => msg.userId && r.userId === msg.userId) ?? rows[0];
   return primary ? { ...primary, canComplete: rows.length === 1 } : null;

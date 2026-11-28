@@ -25,10 +25,7 @@ export const RETENTION = {
   pollSuggestionMonths: 12,
   /** Conversations de l'assistant IA du dashboard. */
   assistantConversationDays: 90,
-  /**
-   * Messages WhatsApp (bot) : supprimés après ce délai, et la conversation qui n'a
-   * plus aucun message avec eux (le numéro de l'expéditeur y figure).
-   */
+  /** Messages WhatsApp (bot) : supprimés après ce délai, avec les conversations vides. */
   whatsappMessageDays: 90,
   /** Captures de preuve de paiement. */
   paymentProofMonths: 13,

@@ -197,8 +197,7 @@ export async function purgeExpiredPersonalData(
         ).count,
     ],
     [
-      // Après les messages : une conversation ancienne qui n'en a plus aucun n'a
-      // plus de raison d'être (elle porte le numéro de l'expéditeur).
+      // Après les messages : une conversation ancienne sans message n'a plus de raison d'être.
       'whatsappConversationsDeleted',
       async () =>
         (
