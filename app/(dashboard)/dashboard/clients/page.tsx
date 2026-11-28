@@ -44,13 +44,19 @@ export default async function ClientsPage({
               <Button asChild variant="outline" size="sm">
                 <a href="/api/export/customers?format=csv">
                   <Download className="mr-1.5 h-4 w-4" />
-                  CSV Google Contacts
+                  Contacts Google (CSV)
                 </a>
               </Button>
               <Button asChild variant="outline" size="sm">
                 <a href="/api/export/customers?format=vcf">
                   <Download className="mr-1.5 h-4 w-4" />
-                  Fichier .vcf
+                  Contacts (.vcf)
+                </a>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <a href="/api/export/customers/ranking">
+                  <Download className="mr-1.5 h-4 w-4" />
+                  Liste classée (CSV)
                 </a>
               </Button>
             </>

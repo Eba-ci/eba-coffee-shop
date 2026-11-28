@@ -51,10 +51,10 @@ function searchClause(term: string) {
 // stats-rules.ts). Joints seulement quand le tri porte sur une stat : il faut alors
 // classer tous les clients. Sinon, les chiffres sont calculés pour la seule page
 // (`STATS_LATERAL`, stats.ts).
-const statsJoin = (since?: Date) => Prisma.sql`
+export const statsJoin = (since?: Date) => Prisma.sql`
   LEFT JOIN (
     SELECT o."customerId", COUNT(*)::int AS orders, SUM(o.total)::int AS gross,
-           MAX(o."createdAt") AS last_order,
+           MAX(o."createdAt") AS last_order, MIN(o."createdAt") AS first_order,
            COUNT(DISTINCT o."createdAt"::date)::int AS days
     FROM "order" o
     WHERE o."customerId" IS NOT NULL AND ${COUNTED_ORDER} ${sinceOrder(since)}
