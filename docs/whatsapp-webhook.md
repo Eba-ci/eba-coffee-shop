@@ -59,7 +59,10 @@ le dernier déclenche un tour.
   L'agent n'existe pas encore : le tour est validé sans réponse (`silentRunner`).
 - **Tester la file** contre un vrai Redis : `REDIS_TEST_URL=redis://localhost:6379/15 pnpm exec
 vitest run lib/whatsapp/worker.redis` (sauté sans cette variable ; vide la base indiquée).
-- **Redis en déploiement** : `bash deploy.sh redis` démarre le conteneur `eba-redis` sur le port 6381 s'il ne tourne pas déjà (cf. `docs/deploiement.md`) ; `REDIS_URL` se termine par `/0` en staging, `/1` en production. Le conteneur du worker reste à venir.
+- **Redis en déploiement** : `bash deploy.sh redis` démarre le conteneur `eba-redis` sur le port 6381 s'il ne tourne pas déjà (cf. `docs/deploiement.md`) ; `REDIS_URL` se termine par `/0` en staging, `/1` en production.
+- **Worker en déploiement** : conteneur `eba-worker-<env>` (image `-tools`), lancé par
+  `bash deploy.sh deploy|rollback|worker <env>` seulement si `REDIS_URL` est dans le fichier
+  d'environnement ; journaux : `docker logs -f eba-worker-staging` (cf. `docs/deploiement.md`).
 
 ## Variables d'environnement
 
