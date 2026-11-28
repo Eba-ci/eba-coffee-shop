@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Usage : deploy.sh schema|deploy <env> <tag>   (env : staging | production) | deploy.sh rollback <env>
 #         deploy.sh redis   (Redis de la file WhatsApp, partagé par les deux environnements)
+#         deploy.sh worker <env> [tag]   ((re)lance seul le worker WhatsApp ; tag en service par défaut)
 # Un seul conteneur par environnement ; le schéma BDD n'est jamais défait au rollback.
 set -euo pipefail
 
@@ -141,6 +142,54 @@ run_container() {
     "$IMAGE:$1" >/dev/null
 }
 
+ghcr_login() {
+  [ -z "${GHCR_TOKEN:-}" ] || echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-eba-deploy}" --password-stdin >/dev/null
+}
+
+# Worker WhatsApp : image -tools (dépôt + tsx) au même tag que l'app, conteneur à part.
+# Jamais bloquant : les appelants l'enveloppent dans `|| log`, et rien ici ne fait `die`.
+WORKER_NAME="eba-worker-$ENV_NAME"
+WORKER_MEMORY="${EBA_WORKER_MEMORY:-384m}"
+WORKER_CPUS="${EBA_WORKER_CPUS:-0.5}"
+
+worker_wanted() { grep -Eq '^REDIS_URL=[^[:space:]]' "$ENV_FILE"; }
+
+worker_image() {
+  local ref="$IMAGE-tools:$1" rc=0
+  docker image inspect "$ref" >/dev/null 2>&1 && return 0
+  ghcr_login || log "connexion GHCR impossible pour $ref"
+  EBA_PULL_ATTEMPTS="${EBA_WORKER_PULL_ATTEMPTS:-3}" pull_image "$ref" || rc=1
+  docker logout ghcr.io >/dev/null 2>&1 || true
+  return "$rc"
+}
+
+start_worker() {
+  local tag="$1"
+  if ! worker_wanted; then
+    docker rm -f "$WORKER_NAME" >/dev/null 2>&1 || true
+    log "REDIS_URL absent de $ENV_FILE : pas de worker WhatsApp"
+    return 0
+  fi
+  worker_image "$tag" || { log "image -tools $tag indisponible"; return 1; }
+  docker rm -f "$WORKER_NAME" >/dev/null 2>&1 || true
+  # Binaire tsx appelé directement (comme le script `whatsapp:worker`) : `pnpm` en PID 1
+  # ne relaie pas SIGTERM, et le worker ne se fermerait pas proprement.
+  docker run -d --name "$WORKER_NAME" --restart unless-stopped \
+    --memory "$WORKER_MEMORY" --cpus "$WORKER_CPUS" \
+    --cap-drop ALL --security-opt no-new-privileges \
+    --log-opt max-size=10m --log-opt max-file=3 \
+    --add-host="host.docker.internal:$HOST_ADDR" \
+    --env-file "$ENV_FILE" \
+    "$IMAGE-tools:$tag" ./node_modules/.bin/tsx --env-file=.env scripts/whatsapp-worker.ts >/dev/null \
+    || { log "docker run du worker a échoué"; return 1; }
+  sleep "${EBA_WORKER_SETTLE:-5}"
+  if [ "$(docker inspect -f '{{.State.Running}} {{.State.Restarting}} {{.RestartCount}}' "$WORKER_NAME" 2>/dev/null || true)" != "true false 0" ]; then
+    docker logs --tail 30 "$WORKER_NAME" >&2 || true
+    return 1
+  fi
+  log "worker WhatsApp en service ($WORKER_NAME, $tag)"
+}
+
 current="$(cat "$CURRENT_FILE" 2>/dev/null || true)"
 previous="$(cat "$PREVIOUS_FILE" 2>/dev/null || true)"
 
@@ -152,15 +201,19 @@ if [ "$ACTION" = rollback ]; then
   wait_healthy || { docker logs --tail 60 "$NAME" >&2 || true; die "$previous ne répond pas sur /api/health"; }
   echo "$previous" >"$CURRENT_FILE"
   echo "$current" >"$PREVIOUS_FILE"
+  start_worker "$previous" || log "AVERTISSEMENT : worker WhatsApp non relancé sur $previous (journaux : docker logs $WORKER_NAME)"
+  exit 0
+fi
+
+if [ "$ACTION" = worker ]; then
+  worker_tag="${TAG:-$current}"
+  [ -n "$worker_tag" ] || die "tag d'image manquant (aucun tag en service enregistré)"
+  start_worker "$worker_tag" || die "worker WhatsApp non démarré (journaux : docker logs $WORKER_NAME)"
   exit 0
 fi
 
 case "$ACTION" in schema|deploy) ;; *) die "action inconnue « $ACTION »" ;; esac
 [ -n "$TAG" ] || die "tag d'image manquant"
-
-ghcr_login() {
-  [ -z "${GHCR_TOKEN:-}" ] || echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-eba-deploy}" --password-stdin >/dev/null
-}
 
 if [ "$ACTION" = schema ]; then
   ghcr_login
@@ -205,4 +258,5 @@ fi
 [ -z "$current" ] || echo "$current" >"$PREVIOUS_FILE"
 echo "$TAG" >"$CURRENT_FILE"
 docker image prune -f >/dev/null
+start_worker "$TAG" || log "AVERTISSEMENT : worker WhatsApp non démarré sur $TAG, l'application n'est pas touchée (journaux : docker logs $WORKER_NAME)"
 log "terminé : $TAG en service"
