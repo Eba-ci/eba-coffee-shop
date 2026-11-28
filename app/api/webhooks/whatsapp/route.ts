@@ -68,8 +68,11 @@ export async function POST(req: Request) {
 
   const { messages, statuses } = parseWebhook(body);
   try {
-    const stored = await ingestInboundMessages(messages);
-    const updated = await applyStatusUpdates(statuses);
+    // Messages reçus et statuts de nos envois touchent des lignes distinctes.
+    const [stored, updated] = await Promise.all([
+      ingestInboundMessages(messages),
+      applyStatusUpdates(statuses),
+    ]);
     const queued = await enqueueLatestTurns(stored);
     return NextResponse.json({
       ok: true,
