@@ -20,7 +20,7 @@ die() { log "ERREUR : $*" >&2; exit 1; }
 # Les environnements s'y séparent par le numéro de base (/0 staging, /1 production).
 REDIS_NAME=eba-redis
 REDIS_PORT="${EBA_REDIS_PORT:-6381}"
-REDIS_IMAGE="${EBA_REDIS_IMAGE:-redis:7.4-alpine}"
+REDIS_IMAGE="${EBA_REDIS_IMAGE:-redis:8-alpine}"
 
 ensure_redis() {
   docker info >/dev/null 2>&1 || die "Docker injoignable (DOCKER_HOST=$DOCKER_HOST)"
