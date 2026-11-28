@@ -10,5 +10,6 @@ export * from './constants/finance';
 export * from './constants/community';
 export * from './constants/loyalty';
 export * from './constants/catalog';
+export * from './constants/whatsapp';
 export * from './constants/refunds';
 export * from './constants/contact';

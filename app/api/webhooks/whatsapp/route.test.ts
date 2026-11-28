@@ -16,8 +16,10 @@ vi.mock('@/lib/whatsapp/ingest', () => ({
   applyStatusUpdates: vi.fn(),
   errorLabel: (err: unknown) => (err instanceof Error ? err.name : 'inconnue'),
 }));
+vi.mock('@/lib/whatsapp/queue', () => ({ enqueueLatestTurns: vi.fn() }));
 
 import { whatsappAppSecret, whatsappVerifyToken } from '@/lib/whatsapp/config';
+import { enqueueLatestTurns } from '@/lib/whatsapp/queue';
 import {
   applyStatusUpdates,
   ingestInboundMessages,
@@ -30,6 +32,7 @@ const verifyToken = vi.mocked(whatsappVerifyToken);
 const appSecret = vi.mocked(whatsappAppSecret);
 const ingest = vi.mocked(ingestInboundMessages);
 const applyStatuses = vi.mocked(applyStatusUpdates);
+const enqueue = vi.mocked(enqueueLatestTurns);
 
 const URL_BASE = 'http://localhost/api/webhooks/whatsapp';
 
@@ -146,6 +149,7 @@ describe('POST /api/webhooks/whatsapp', () => {
     appSecret.mockReturnValue(SECRET);
     ingest.mockResolvedValue([]);
     applyStatuses.mockResolvedValue(0);
+    enqueue.mockResolvedValue(0);
   });
 
   it("est inerte (404) quand la clé secrète n'est pas configurée", async () => {
@@ -175,7 +179,12 @@ describe('POST /api/webhooks/whatsapp', () => {
   it('acquitte (200) une notification correctement signée, vide ou non', async () => {
     const res = await notify(body);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, messages: 0, statuses: 0 });
+    expect(await res.json()).toEqual({
+      ok: true,
+      messages: 0,
+      statuses: 0,
+      queued: 0,
+    });
   });
 
   it('enregistre les messages et les statuts lus dans le corps, et compte le nouveau', async () => {
@@ -183,6 +192,7 @@ describe('POST /api/webhooks/whatsapp', () => {
       { conversationId: 'c1', version: 1, wamid: 'wamid.1' },
     ]);
     applyStatuses.mockResolvedValue(1);
+    enqueue.mockResolvedValue(1);
 
     const res = await notify(withMessage);
 
@@ -196,7 +206,15 @@ describe('POST /api/webhooks/whatsapp', () => {
     expect(applyStatuses).toHaveBeenCalledWith([
       expect.objectContaining({ wamid: 'wamid.2', status: 'DELIVERED' }),
     ]);
-    expect(await res.json()).toEqual({ ok: true, messages: 1, statuses: 1 });
+    expect(enqueue).toHaveBeenCalledWith([
+      { conversationId: 'c1', version: 1, wamid: 'wamid.1' },
+    ]);
+    expect(await res.json()).toEqual({
+      ok: true,
+      messages: 1,
+      statuses: 1,
+      queued: 1,
+    });
   });
 
   it('acquitte (200) un corps signé mais illisible, sans rien enregistrer', async () => {
